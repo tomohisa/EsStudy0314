@@ -83,6 +83,7 @@ While the core functionality is working, there are some known issues and limitat
 6. **Code Issues**: We encountered and fixed some issues with the code:
    - Fixed issues with accessing aggregate payloads in query handlers by properly unwrapping ResultBox objects
    - Resolved ambiguous reference issues with IHttpMessageHandlerFactory by creating a custom interface
+   - Fixed SignalR connectivity issues by using the correct URL format for the SignalR hub connection
 
 ## Application URLs
 

@@ -81,8 +81,9 @@
 - Access aggregate payload using `GetValue()` to unwrap ResultBox objects
 
 ### SignalR Integration
-- Use custom `ICustomHttpMessageHandlerFactory` interface to avoid conflicts with system interfaces
-- Register the custom interface in the dependency injection container
+- Use `IHttpMessageHandlerFactory` directly from Microsoft.Extensions.Http for SignalR client integration
+- Configure CORS in the API service to allow connections from the frontend application
+- Use the correct URL format for the SignalR hub connection in Blazor components
 
 ### Event Types
 - `QuestionCreated`: Initial creation of a question

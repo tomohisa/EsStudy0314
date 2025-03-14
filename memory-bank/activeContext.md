@@ -2,7 +2,7 @@
 
 ## Current Work Focus
 
-We have completed the initial implementation of the EsCQRSQuestions project and fixed some build errors. Our current focus is on:
+We have completed the initial implementation of the EsCQRSQuestions project and fixed some build errors and SignalR connectivity issues. Our current focus is on:
 
 1. **Testing and Refinement**: Testing the application and refining the implementation
 2. **Performance Optimization**: Identifying and addressing performance bottlenecks

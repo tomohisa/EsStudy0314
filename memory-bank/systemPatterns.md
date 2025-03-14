@@ -209,6 +209,55 @@ flowchart TD
     Server -- "ResponseAdded" --> Hub
 ```
 
+The SignalR implementation consists of several key components:
+
+1. **QuestionHub**: The SignalR hub that handles client connections and group management.
+   - Clients are automatically added to the "Participants" group on connection
+   - Admins can join the "Admins" group by calling the `JoinAdminGroup` method
+   - Participants can set their name using the `SetParticipantName` method
+
+2. **IHubNotificationService**: Interface for sending notifications to clients.
+   - `NotifyAllClientsAsync`: Sends a notification to all connected clients
+   - `NotifyAdminsAsync`: Sends a notification only to clients in the "Admins" group
+   - `NotifyParticipantsAsync`: Sends a notification only to clients in the "Participants" group
+
+3. **HubNotificationService**: Implementation of the hub notification service.
+   - Uses the `IHubContext<QuestionHub>` to send messages to clients
+
+4. **OrleansStreamBackgroundService**: Background service that subscribes to Orleans streams and forwards events to SignalR clients.
+   - Subscribes to the "AllEvents" stream from the Orleans stream provider
+   - Processes events and sends appropriate notifications to clients based on the event type
+   - Maps domain events to SignalR notifications
+
+5. **Client Integration**: The Blazor components connect to the SignalR hub and handle real-time updates.
+   - Uses `HubConnectionBuilder` to create a connection to the hub
+   - Registers handlers for different event types
+   - Updates the UI when events are received
+
+The SignalR hub is configured in the API service's Program.cs file with CORS settings to allow connections from the frontend application. The hub is mapped to the "/questionHub" endpoint.
+
+```csharp
+// Map SignalR hub with CORS
+app.MapHub<QuestionHub>("/questionHub").RequireCors(policy => policy
+    .WithOrigins("https://localhost:7201")
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials());
+```
+
+The client connection is established in the Blazor components using the `HubConnectionBuilder`:
+
+```csharp
+hubConnection = new HubConnectionBuilder()
+    .WithUrlWithClientFactory("https+http://apiservice/questionHub", HttpMessageHandlerFactory)
+    .Build();
+```
+
+This architecture allows for real-time communication between the server and clients, enabling features like:
+- Immediate updates when questions are created, updated, or deleted
+- Real-time notifications when questions are displayed or hidden
+- Instant updates when new responses are submitted
+
 ## Technical Implementation Details
 
 ### Event Types

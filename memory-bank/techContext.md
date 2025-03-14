@@ -134,6 +134,26 @@ SignalR is used for real-time communication between the server and clients. Key 
 - **Connections**: Individual client connections
 - **Streaming**: Continuous data flow for real-time updates
 
+The SignalR hub is configured in the API service with CORS settings to allow connections from the frontend application:
+
+```csharp
+app.MapHub<QuestionHub>("/questionHub").RequireCors(policy => policy
+    .WithOrigins("https://localhost:7201")
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials());
+```
+
+The client connection is established in the Blazor components using the standard HTTP message handler factory:
+
+```csharp
+hubConnection = new HubConnectionBuilder()
+    .WithUrlWithClientFactory("https://localhost:7202/questionHub", HttpMessageHandlerFactory)
+    .Build();
+```
+
+Note that when using Aspire for service discovery, the URL format is important. The SignalR client connection should use a direct URL with the hostname and port rather than the "https+http://" scheme used for regular HTTP clients.
+
 ### Blazor Component Architecture
 The frontend is built using Blazor components with a hierarchical structure:
 
