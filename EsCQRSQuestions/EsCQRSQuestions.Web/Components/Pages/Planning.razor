@@ -7,7 +7,7 @@
 
 @inject QuestionApiClient QuestionApi
 @inject IJSRuntime JsRuntime
-@inject ICustomHttpMessageHandlerFactory HttpMessageHandlerFactory
+@inject IHttpMessageHandlerFactory HttpMessageHandlerFactory
 @inject NavigationManager NavigationManager
 
 <PageTitle>Question Management</PageTitle>
@@ -224,7 +224,7 @@ else
     {
         // Set up SignalR connection
         hubConnection = new HubConnectionBuilder()
-            .WithUrlWithClientFactory("https://localhost:7202/questionHub", HttpMessageHandlerFactory)
+            .WithUrlWithClientFactory("https+http://apiservice/questionHub", HttpMessageHandlerFactory)
             .Build();
 
         // Join admin group

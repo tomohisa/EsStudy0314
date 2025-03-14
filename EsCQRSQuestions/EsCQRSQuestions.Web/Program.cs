@@ -26,9 +26,6 @@ builder.Services.AddHttpClient<QuestionApiClient>(client =>
         client.BaseAddress = new("https+http://apiservice");
     });
 
-// Add SignalR client
-builder.Services.AddScoped<ICustomHttpMessageHandlerFactory, DefaultHttpMessageHandlerFactory>();
-
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

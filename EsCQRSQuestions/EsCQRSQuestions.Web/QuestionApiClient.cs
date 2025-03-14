@@ -1,6 +1,7 @@
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
+using Microsoft.AspNetCore.SignalR.Client;
 
 namespace EsCQRSQuestions.Web;
 
@@ -87,5 +88,16 @@ public class QuestionApiClient(HttpClient httpClient)
         var response = await httpClient.PostAsJsonAsync("/api/questions/delete", command, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+    }
+}
+
+public static class HubConnectionExtensions
+{
+    public static IHubConnectionBuilder WithUrlWithClientFactory(this IHubConnectionBuilder builder, string url, IHttpMessageHandlerFactory clientFactory)
+    {
+        return builder.WithUrl(url, options =>
+        {
+            options.HttpMessageHandlerFactory = _ => clientFactory.CreateHandler();
+        });
     }
 }
