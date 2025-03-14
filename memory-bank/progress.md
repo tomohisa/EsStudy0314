@@ -89,9 +89,11 @@ While the core functionality is working, there are some known issues and limitat
 
 When running the application using the Aspire host, the following URLs are available:
 
-- **Frontend**: https://localhost:7201
-  - Admin page: https://localhost:7201/planning
+- **User Frontend**: https://localhost:7201
   - Participant page: https://localhost:7201/questionair
+
+- **Admin Frontend**: https://localhost:7141
+  - Admin page: https://localhost:7141/planning
 
 - **API Service**: https://localhost:7202
 

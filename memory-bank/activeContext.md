@@ -27,6 +27,8 @@ We have made significant progress on the EsCQRSQuestions project:
 - Integrated the frontend with the backend using SignalR for real-time updates
 - Fixed build errors related to accessing aggregate payloads in query handlers
 - Resolved ambiguous reference issues with IHttpMessageHandlerFactory by creating a custom interface
+- Added reference to the AdminWeb project in the AppHost project
+- Removed references to admin planning features from the user web interface
 
 ## Next Steps
 
@@ -134,9 +136,11 @@ The application is now functional and ready for testing and refinement.
 
 When running the application using the Aspire host, the following URLs are available:
 
-- **Frontend**: https://localhost:7201
-  - Admin page: https://localhost:7201/planning
+- **User Frontend**: https://localhost:7201
   - Participant page: https://localhost:7201/questionair
+
+- **Admin Frontend**: https://localhost:7141
+  - Admin page: https://localhost:7141/planning
 
 - **API Service**: https://localhost:7202
 
