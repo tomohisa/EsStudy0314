@@ -20,6 +20,10 @@ public class InitialQuestionsService : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        // Wait for 10 seconds to ensure the database is ready
+        _logger.LogInformation("Waiting for 10 seconds before creating initial questions...");
+        await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+        
         // Use a scope to get the required services
         using var scope = _serviceProvider.CreateScope();
         var executor = scope.ServiceProvider.GetRequiredService<SekibanOrleansExecutor>();
@@ -107,16 +111,34 @@ public class InitialQuestionsService : IHostedService
         List<QuestionOption> options,
         CancellationToken cancellationToken)
     {
-        try
+        const int maxRetries = 3;
+        int retryCount = 0;
+        
+        while (retryCount < maxRetries)
         {
-            // Create the question
-            var command = new CreateQuestionCommand(text, options);
-            await executor.CommandAsync(command);
-            _logger.LogInformation("Created question: {Text}", text);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error creating question: {Text}. It might already exist.", text);
+            try
+            {
+                // Create the question
+                var command = new CreateQuestionCommand(text, options);
+                await executor.CommandAsync(command);
+                _logger.LogInformation("Created question: {Text}", text);
+                return; // Success, exit the method
+            }
+            catch (Exception ex)
+            {
+                retryCount++;
+                if (retryCount >= maxRetries)
+                {
+                    _logger.LogWarning(ex, "Failed to create question after {RetryCount} attempts: {Text}. It might already exist.", 
+                        retryCount, text);
+                }
+                else
+                {
+                    _logger.LogWarning("Attempt {RetryCount} failed to create question: {Text}. Retrying in 2 seconds...", 
+                        retryCount, text);
+                    await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+                }
+            }
         }
     }
 }
