@@ -95,7 +95,7 @@
                             </button>
                         </div>
 
-                        @if (showResponses && activeQuestion.Responses.Any())
+                        @if (activeQuestion.Responses.Any())
                         {
                             <div class="mt-5">
                                 <h4>Response Statistics</h4>
@@ -193,9 +193,12 @@
 
         hubConnection.On<object>("ResponseAdded", async _ =>
         {
-            if (activeQuestion != null && showResponses)
+            if (activeQuestion != null)
             {
+                Console.WriteLine("Response added event received");
                 await RefreshActiveQuestion();
+                await InvokeAsync(() => StateHasChanged());
+                Console.WriteLine("Question refreshed after response added");
             }
         });
 
@@ -223,8 +226,11 @@
     {
         try
         {
+            Console.WriteLine("Refreshing active question...");
             activeQuestion = await QuestionApi.GetActiveQuestionAsync();
+            Console.WriteLine($"Active question refreshed. Has {activeQuestion?.Responses.Count ?? 0} responses");
             errorMessage = "";
+            await InvokeAsync(() => StateHasChanged());
         }
         catch (Exception ex)
         {

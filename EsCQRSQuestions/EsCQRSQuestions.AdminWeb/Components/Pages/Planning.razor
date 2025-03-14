@@ -237,6 +237,7 @@ else
         hubConnection.On<object>("QuestionCreated", async _ =>
         {
             await RefreshQuestions();
+            Console.WriteLine("Question created event received");
         });
 
         hubConnection.On<object>("QuestionUpdated", async _ =>
@@ -292,22 +293,53 @@ else
 
     private async Task RefreshQuestions()
     {
-        questions = (await QuestionApi.GetQuestionsAsync()).ToList();
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            Console.WriteLine("Refreshing questions...");
+            var fetchedQuestions = await QuestionApi.GetQuestionsAsync();
+            questions = fetchedQuestions.ToList();
+            Console.WriteLine($"Fetched {questions.Count} questions");
+            await InvokeAsync(() => StateHasChanged());
+            Console.WriteLine("State has changed");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error refreshing questions: {ex.Message}");
+        }
     }
 
     private async Task RefreshSelectedQuestion()
     {
-        if (selectedQuestion != null)
+        try
         {
-            selectedQuestion = await QuestionApi.GetQuestionByIdAsync(selectedQuestion.QuestionId);
-            await InvokeAsync(StateHasChanged);
+            if (selectedQuestion != null)
+            {
+                Console.WriteLine($"Refreshing selected question {selectedQuestion.QuestionId}...");
+                selectedQuestion = await QuestionApi.GetQuestionByIdAsync(selectedQuestion.QuestionId);
+                Console.WriteLine("Selected question refreshed");
+                await InvokeAsync(() => StateHasChanged());
+                Console.WriteLine("State has changed for selected question");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error refreshing selected question: {ex.Message}");
         }
     }
 
     private async Task ViewQuestionDetails(Guid questionId)
     {
-        selectedQuestion = await QuestionApi.GetQuestionByIdAsync(questionId);
+        try
+        {
+            Console.WriteLine($"Viewing question details for {questionId}...");
+            selectedQuestion = await QuestionApi.GetQuestionByIdAsync(questionId);
+            Console.WriteLine("Question details loaded");
+            await InvokeAsync(() => StateHasChanged());
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error viewing question details: {ex.Message}");
+        }
     }
 
     private async Task OpenCreateQuestionModal()
@@ -379,19 +411,25 @@ else
         
         try
         {
+            Console.WriteLine("Saving question...");
             // Convert to domain model
             var options = questionModel.Options.Select(o => new QuestionOption(o.Id, o.Text)).ToList();
             
             if (isEditMode && editQuestionId.HasValue)
             {
                 await QuestionApi.UpdateQuestionAsync(editQuestionId.Value, questionModel.Text, options);
+                Console.WriteLine("Question updated");
             }
             else
             {
                 await QuestionApi.CreateQuestionAsync(questionModel.Text, options);
+                Console.WriteLine("Question created");
             }
             
             await CloseModal();
+            
+            // Manually refresh questions after saving
+            await RefreshQuestions();
         }
         catch (Exception ex)
         {
@@ -424,7 +462,12 @@ else
     {
         try
         {
+            Console.WriteLine($"Starting display for question {questionId}...");
             await QuestionApi.StartDisplayQuestionAsync(questionId);
+            Console.WriteLine("Display started");
+            
+            // Manually refresh questions after starting display
+            await RefreshQuestions();
         }
         catch (Exception ex)
         {
@@ -436,7 +479,12 @@ else
     {
         try
         {
+            Console.WriteLine($"Stopping display for question {questionId}...");
             await QuestionApi.StopDisplayQuestionAsync(questionId);
+            Console.WriteLine("Display stopped");
+            
+            // Manually refresh questions after stopping display
+            await RefreshQuestions();
         }
         catch (Exception ex)
         {
@@ -450,12 +498,17 @@ else
         {
             try
             {
+                Console.WriteLine($"Deleting question {questionId}...");
                 await QuestionApi.DeleteQuestionAsync(questionId);
+                Console.WriteLine("Question deleted");
                 
                 if (selectedQuestion?.QuestionId == questionId)
                 {
                     selectedQuestion = null;
                 }
+                
+                // Manually refresh questions after deleting
+                await RefreshQuestions();
             }
             catch (Exception ex)
             {

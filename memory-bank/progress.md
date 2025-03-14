@@ -80,10 +80,13 @@ While the core functionality is working, there are some known issues and limitat
 
 5. **Browser Compatibility**: The application has not been extensively tested across different browsers and devices.
 
-6. **Code Issues**: We encountered and fixed some issues with the code:
+6. **Code Issues**: We encountered and fixed several issues with the code:
    - Fixed issues with accessing aggregate payloads in query handlers by properly unwrapping ResultBox objects
    - Resolved ambiguous reference issues with IHttpMessageHandlerFactory by creating a custom interface
    - Fixed SignalR connectivity issues by using the correct URL format for the SignalR hub connection
+   - Fixed UI update issues in Planning.razor by improving the refresh mechanism and adding explicit StateHasChanged calls
+   - Fixed Questionair.razor to only show comment section when a question option is selected
+   - Enhanced real-time updates in Questionair.razor to ensure all users see responses from other participants
 
 ## Application URLs
 
@@ -114,11 +117,12 @@ When running the application using the Aspire host, the following URLs are avail
 ## Next Immediate Tasks
 
 1. Add authentication for the admin page
-2. Improve error handling and reconnection logic
+2. Further improve error handling and reconnection logic
 3. Optimize performance for large numbers of responses
 4. Add more detailed statistics and visualizations
 5. Implement export functionality for survey results
 6. Add support for multiple active questions
+7. Enhance real-time synchronization for edge cases
 
 ## Blockers
 
