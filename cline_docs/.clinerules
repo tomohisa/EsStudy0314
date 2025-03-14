@@ -1,0 +1,8 @@
+# Basic
+Do exactly what I ask. You are assisting, do not break current feature without being asked.
+Just suggest if you think about better refactoring.
+
+# Project Structure
+- The project follows a clean architecture pattern with Event Sourcing as the core persistence mechanism.
+- Domain models are organized into aggregates, each with its own events, commands, and projections.
+- The frontend is built with Blazor, following a component-based architecture.

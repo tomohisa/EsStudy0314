@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EsCQRSQuestions.Domain\EsCQRSQuestions.Domain.csproj" />
+    <ProjectReference Include="..\EsCQRSQuestions.ServiceDefaults\EsCQRSQuestions.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

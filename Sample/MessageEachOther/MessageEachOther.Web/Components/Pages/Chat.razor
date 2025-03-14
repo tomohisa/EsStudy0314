@@ -1,0 +1,60 @@
+@page "/chat"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject IHttpMessageHandlerFactory HttpMessageHandlerFactory
+<h3>チャットルーム</h3>
+
+<div>
+    <input placeholder="ユーザー名" @bind="userName" />
+</div>
+<div>
+    <input placeholder="メッセージ" @bind="message" @onkeydown="HandleKeyDown" />
+    <button @onclick="SendMessage">送信</button>
+</div>
+
+<ul>
+    @foreach (var chatMessage in chatMessages)
+    {
+        <li>@chatMessage</li>
+    }
+</ul>
+
+@code {
+    private HubConnection hubConnection;
+    private string userName;
+    private string message;
+    private List<string> chatMessages = new List<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // SignalR Hub の URL は /chatHub として設定
+        hubConnection = new HubConnectionBuilder().WithUrlWithClientFactory("https+http://apiservice/chatHub", HttpMessageHandlerFactory)
+            .Build();
+        
+        // サーバーから受信したメッセージを処理
+        hubConnection.On<string, string>("ReceiveMessage", (user, msg) =>
+        {
+            chatMessages.Add($"{user}: {msg}");
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    private async Task SendMessage()
+    {
+        if (!string.IsNullOrWhiteSpace(userName) && !string.IsNullOrWhiteSpace(message))
+        {
+            await hubConnection.SendAsync("SendMessage", userName, message);
+            message = string.Empty;
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SendMessage();
+        }
+    }
+}

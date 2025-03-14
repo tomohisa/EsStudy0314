@@ -1,0 +1,296 @@
+@page "/questionair"
+@attribute [StreamRendering(true)]
+@using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads
+@using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+
+@inject QuestionApiClient QuestionApi
+@inject IJSRuntime JsRuntime
+@inject IHttpMessageHandlerFactory HttpMessageHandlerFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Survey</PageTitle>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">Real-time Survey</h2>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @errorMessage
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label for="participantName" class="form-label">Your Name (optional)</label>
+                        <input type="text" class="form-control" id="participantName" 
+                               @bind="participantName" placeholder="Enter your name" />
+                    </div>
+
+                    @if (activeQuestion == null)
+                    {
+                        <div class="text-center py-5">
+                            <h3>Welcome to the Survey!</h3>
+                            <p class="lead">Please wait for a question to be displayed.</p>
+                            <div class="spinner-border text-primary mt-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="question-container">
+                            <h3 class="mb-4">@activeQuestion.Text</h3>
+                            
+                            <div class="mb-4">
+                                @foreach (var option in activeQuestion.Options)
+                                {
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="questionOptions" 
+                                               id="option-@option.Id" value="@option.Id" 
+                                               checked="@(selectedOptionId == option.Id)"
+                                               @onchange="() => selectedOptionId = option.Id" />
+                                        <label class="form-check-label" for="option-@option.Id">
+                                            @option.Text
+                                        </label>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(optionError))
+                                {
+                                    <div class="text-danger mt-2">@optionError</div>
+                                }
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="comment" class="form-label">Comment (optional)</label>
+                                <textarea class="form-control" id="comment" rows="3" 
+                                          @bind="comment" placeholder="Add your comment here"></textarea>
+                            </div>
+                            
+                            <button class="btn btn-primary" @onclick="SubmitResponse" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    <span class="ms-2">Submitting...</span>
+                                }
+                                else
+                                {
+                                    <span>Submit Response</span>
+                                }
+                            </button>
+                        </div>
+
+                        @if (showResponses && activeQuestion.Responses.Any())
+                        {
+                            <div class="mt-5">
+                                <h4>Response Statistics</h4>
+                                <div class="row">
+                                    @foreach (var option in activeQuestion.Options)
+                                    {
+                                        var count = activeQuestion.Responses.Count(r => r.SelectedOptionId == option.Id);
+                                        var percentage = activeQuestion.Responses.Any() 
+                                            ? (count * 100.0 / activeQuestion.Responses.Count) 
+                                            : 0;
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <div>@option.Text</div>
+                                            <div class="progress">
+                                                <div class="progress-bar" role="progressbar" style="width: @percentage%;" 
+                                                     aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">
+                                                    @count (@percentage.ToString("0.0")%)
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                                
+                                <div class="mt-4">
+                                    <h5>Recent Comments</h5>
+                                    @if (activeQuestion.Responses.Any(r => !string.IsNullOrEmpty(r.Comment)))
+                                    {
+                                        <div class="list-group">
+                                            @foreach (var response in activeQuestion.Responses
+                                                .Where(r => !string.IsNullOrEmpty(r.Comment))
+                                                .OrderByDescending(r => r.Timestamp)
+                                                .Take(5))
+                                            {
+                                                <div class="list-group-item">
+                                                    <div class="d-flex w-100 justify-content-between">
+                                                        <h6 class="mb-1">@(string.IsNullOrEmpty(response.ParticipantName) ? "Anonymous" : response.ParticipantName)</h6>
+                                                        <small>@response.Timestamp.ToString("g")</small>
+                                                    </div>
+                                                    <p class="mb-1">@response.Comment</p>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <p>No comments yet.</p>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private HubConnection hubConnection;
+    private ActiveQuestionQuery.ActiveQuestionRecord? activeQuestion;
+    private string participantName = "";
+    private string selectedOptionId = "";
+    private string comment = "";
+    private string errorMessage = "";
+    private string optionError = "";
+    private bool isSubmitting = false;
+    private bool showResponses = false;
+    private bool hasSubmitted = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Set up SignalR connection
+        hubConnection = new HubConnectionBuilder()
+            .WithUrlWithClientFactory($"{NavigationManager.BaseUri.TrimEnd('/')}questionHub", HttpMessageHandlerFactory)
+            .Build();
+
+        // Handle events
+        hubConnection.On<object>("QuestionDisplayStarted", async _ =>
+        {
+            await RefreshActiveQuestion();
+            hasSubmitted = false;
+            selectedOptionId = "";
+            comment = "";
+            await InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<object>("QuestionDisplayStopped", async _ =>
+        {
+            activeQuestion = null;
+            hasSubmitted = false;
+            selectedOptionId = "";
+            comment = "";
+            await InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<object>("ResponseAdded", async _ =>
+        {
+            if (activeQuestion != null && showResponses)
+            {
+                await RefreshActiveQuestion();
+            }
+        });
+
+        // Set participant name if provided
+        hubConnection.On("NameSet", (string name) =>
+        {
+            participantName = name;
+            InvokeAsync(StateHasChanged);
+        });
+
+        // Start the connection
+        await hubConnection.StartAsync();
+
+        // Set participant name if already entered
+        if (!string.IsNullOrEmpty(participantName))
+        {
+            await hubConnection.InvokeAsync("SetParticipantName", participantName);
+        }
+
+        // Load initial data
+        await RefreshActiveQuestion();
+    }
+
+    private async Task RefreshActiveQuestion()
+    {
+        try
+        {
+            activeQuestion = await QuestionApi.GetActiveQuestionAsync();
+            errorMessage = "";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading question: {ex.Message}";
+            Console.Error.WriteLine(errorMessage);
+        }
+    }
+
+    private async Task SubmitResponse()
+    {
+        // Validate
+        if (string.IsNullOrEmpty(selectedOptionId))
+        {
+            optionError = "Please select an option";
+            return;
+        }
+        else
+        {
+            optionError = "";
+        }
+
+        if (activeQuestion == null)
+        {
+            errorMessage = "No active question to respond to";
+            return;
+        }
+
+        if (hasSubmitted)
+        {
+            errorMessage = "You have already submitted a response to this question";
+            return;
+        }
+
+        try
+        {
+            isSubmitting = true;
+            
+            // Update participant name if changed
+            if (!string.IsNullOrEmpty(participantName))
+            {
+                await hubConnection.InvokeAsync("SetParticipantName", participantName);
+            }
+            
+            // Submit response
+            await QuestionApi.AddResponseAsync(
+                activeQuestion.QuestionId,
+                participantName,
+                selectedOptionId,
+                comment);
+            
+            // Mark as submitted and show responses
+            hasSubmitted = true;
+            showResponses = true;
+            
+            // Refresh to see updated responses
+            await RefreshActiveQuestion();
+            
+            errorMessage = "";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error submitting response: {ex.Message}";
+            Console.Error.WriteLine(errorMessage);
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

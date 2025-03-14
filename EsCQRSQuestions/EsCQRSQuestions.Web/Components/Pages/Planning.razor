@@ -1,0 +1,518 @@
+@page "/planning"
+@attribute [StreamRendering(true)]
+@using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads
+@using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+
+@inject QuestionApiClient QuestionApi
+@inject IJSRuntime JsRuntime
+@inject IHttpMessageHandlerFactory HttpMessageHandlerFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Question Management</PageTitle>
+
+<h1>Question Management</h1>
+
+<div class="mb-4">
+    <button class="btn btn-primary" @onclick="OpenCreateQuestionModal">Create New Question</button>
+</div>
+
+@if (questions == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!questions.Any())
+{
+    <p>No questions found. Create a new question to get started.</p>
+}
+else
+{
+    <h2>Questions</h2>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Question</th>
+                    <th>Options</th>
+                    <th>Status</th>
+                    <th>Responses</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var question in questions)
+                {
+                    <tr>
+                        <td>@question.Text</td>
+                        <td>@question.OptionCount options</td>
+                        <td>
+                            @if (question.IsDisplayed)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Inactive</span>
+                            }
+                        </td>
+                        <td>@question.ResponseCount responses</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-info me-1" @onclick="() => ViewQuestionDetails(question.QuestionId)">View</button>
+                                <button class="btn btn-sm btn-primary me-1" @onclick="() => OpenEditQuestionModal(question.QuestionId)">Edit</button>
+                                @if (!question.IsDisplayed)
+                                {
+                                    <button class="btn btn-sm btn-success me-1" @onclick="() => StartDisplayQuestion(question.QuestionId)">Start Display</button>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteQuestion(question.QuestionId)">Delete</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-warning" @onclick="() => StopDisplayQuestion(question.QuestionId)">Stop Display</button>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (selectedQuestion != null)
+{
+    <div class="mt-4">
+        <h3>Question Details: @selectedQuestion.Text</h3>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Options</h4>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    @foreach (var option in selectedQuestion.Options)
+                    {
+                        <li class="list-group-item">@option.Text</li>
+                    }
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h4>Responses (@selectedQuestion.Responses.Count)</h4>
+            </div>
+            <div class="card-body">
+                @if (!selectedQuestion.Responses.Any())
+                {
+                    <p>No responses yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Participant</th>
+                                    <th>Selected Option</th>
+                                    <th>Comment</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var response in selectedQuestion.Responses)
+                                {
+                                    <tr>
+                                        <td>@(string.IsNullOrEmpty(response.ParticipantName) ? "Anonymous" : response.ParticipantName)</td>
+                                        <td>@GetOptionText(selectedQuestion.Options, response.SelectedOptionId)</td>
+                                        <td>@(string.IsNullOrEmpty(response.Comment) ? "-" : response.Comment)</td>
+                                        <td>@response.Timestamp.ToString("g")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h5>Response Statistics</h5>
+                        <div class="row">
+                            @foreach (var option in selectedQuestion.Options)
+                            {
+                                var count = selectedQuestion.Responses.Count(r => r.SelectedOptionId == option.Id);
+                                var percentage = selectedQuestion.Responses.Any() 
+                                    ? (count * 100.0 / selectedQuestion.Responses.Count) 
+                                    : 0;
+                                
+                                <div class="col-md-6 mb-3">
+                                    <div>@option.Text</div>
+                                    <div class="progress">
+                                        <div class="progress-bar" role="progressbar" style="width: @percentage%;" 
+                                             aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">
+                                            @count (@percentage.ToString("0.0")%)
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Create/Edit Question Modal -->
+<div class="modal fade" id="questionModal" tabindex="-1" aria-labelledby="questionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="questionModalLabel">@(isEditMode ? "Edit Question" : "Create New Question")</h5>
+                <button type="button" class="btn-close" @onclick="CloseModal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="questionText" class="form-label">Question Text</label>
+                    <input type="text" class="form-control" id="questionText" @bind="questionModel.Text" />
+                    @if (!string.IsNullOrEmpty(questionModel.TextError))
+                    {
+                        <div class="text-danger">@questionModel.TextError</div>
+                    }
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Options</label>
+                    @for (int i = 0; i < questionModel.Options.Count; i++)
+                    {
+                        var index = i;
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" placeholder="Option text" 
+                                   @bind="questionModel.Options[index].Text" />
+                            @if (questionModel.Options.Count > 2)
+                            {
+                                <button class="btn btn-outline-danger" type="button" @onclick="() => RemoveOption(index)">
+                                    <span class="bi bi-trash" aria-hidden="true"></span>
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(questionModel.OptionsError))
+                    {
+                        <div class="text-danger">@questionModel.OptionsError</div>
+                    }
+                    <button class="btn btn-outline-secondary" type="button" @onclick="AddOption">
+                        <span class="bi bi-plus" aria-hidden="true"></span> Add Option
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveQuestion">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private HubConnection hubConnection;
+    private List<QuestionListQuery.QuestionSummaryRecord> questions;
+    private QuestionDetailQuery.QuestionDetailRecord? selectedQuestion;
+    private QuestionModel questionModel = new();
+    private bool isEditMode = false;
+    private Guid? editQuestionId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Set up SignalR connection
+        hubConnection = new HubConnectionBuilder()
+            .WithUrlWithClientFactory($"{NavigationManager.BaseUri.TrimEnd('/')}questionHub", HttpMessageHandlerFactory)
+            .Build();
+
+        // Join admin group
+        hubConnection.On("Connected", async () =>
+        {
+            await hubConnection.InvokeAsync("JoinAdminGroup");
+        });
+
+        // Handle events
+        hubConnection.On<object>("QuestionCreated", async _ =>
+        {
+            await RefreshQuestions();
+        });
+
+        hubConnection.On<object>("QuestionUpdated", async _ =>
+        {
+            await RefreshQuestions();
+            if (selectedQuestion != null)
+            {
+                await RefreshSelectedQuestion();
+            }
+        });
+
+        hubConnection.On<object>("QuestionDisplayStarted", async _ =>
+        {
+            await RefreshQuestions();
+            if (selectedQuestion != null)
+            {
+                await RefreshSelectedQuestion();
+            }
+        });
+
+        hubConnection.On<object>("QuestionDisplayStopped", async _ =>
+        {
+            await RefreshQuestions();
+            if (selectedQuestion != null)
+            {
+                await RefreshSelectedQuestion();
+            }
+        });
+
+        hubConnection.On<object>("ResponseAdded", async _ =>
+        {
+            if (selectedQuestion != null)
+            {
+                await RefreshSelectedQuestion();
+            }
+        });
+
+        hubConnection.On<object>("QuestionDeleted", async _ =>
+        {
+            await RefreshQuestions();
+            if (selectedQuestion != null && questions.All(q => q.QuestionId != selectedQuestion.QuestionId))
+            {
+                selectedQuestion = null;
+            }
+        });
+
+        // Start the connection
+        await hubConnection.StartAsync();
+
+        // Load initial data
+        await RefreshQuestions();
+    }
+
+    private async Task RefreshQuestions()
+    {
+        questions = (await QuestionApi.GetQuestionsAsync()).ToList();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshSelectedQuestion()
+    {
+        if (selectedQuestion != null)
+        {
+            selectedQuestion = await QuestionApi.GetQuestionByIdAsync(selectedQuestion.QuestionId);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ViewQuestionDetails(Guid questionId)
+    {
+        selectedQuestion = await QuestionApi.GetQuestionByIdAsync(questionId);
+    }
+
+    private void OpenCreateQuestionModal()
+    {
+        isEditMode = false;
+        editQuestionId = null;
+        questionModel = new QuestionModel
+        {
+            Options = new List<QuestionOptionModel>
+            {
+                new QuestionOptionModel { Id = "1", Text = "" },
+                new QuestionOptionModel { Id = "2", Text = "" }
+            }
+        };
+        ShowModal();
+    }
+
+    private async Task OpenEditQuestionModal(Guid questionId)
+    {
+        isEditMode = true;
+        editQuestionId = questionId;
+        
+        var question = await QuestionApi.GetQuestionByIdAsync(questionId);
+        if (question != null)
+        {
+            questionModel = new QuestionModel
+            {
+                Text = question.Text,
+                Options = question.Options.Select(o => new QuestionOptionModel { Id = o.Id, Text = o.Text }).ToList()
+            };
+            ShowModal();
+        }
+    }
+
+    private async Task SaveQuestion()
+    {
+        // Validate
+        bool isValid = true;
+        
+        if (string.IsNullOrWhiteSpace(questionModel.Text))
+        {
+            questionModel.TextError = "Question text is required";
+            isValid = false;
+        }
+        else
+        {
+            questionModel.TextError = null;
+        }
+        
+        if (questionModel.Options.Count < 2)
+        {
+            questionModel.OptionsError = "At least two options are required";
+            isValid = false;
+        }
+        else if (questionModel.Options.Any(o => string.IsNullOrWhiteSpace(o.Text)))
+        {
+            questionModel.OptionsError = "All options must have text";
+            isValid = false;
+        }
+        else
+        {
+            questionModel.OptionsError = null;
+        }
+        
+        if (!isValid)
+        {
+            return;
+        }
+        
+        try
+        {
+            // Convert to domain model
+            var options = questionModel.Options.Select(o => new QuestionOption(o.Id, o.Text)).ToList();
+            
+            if (isEditMode && editQuestionId.HasValue)
+            {
+                await QuestionApi.UpdateQuestionAsync(editQuestionId.Value, questionModel.Text, options);
+            }
+            else
+            {
+                await QuestionApi.CreateQuestionAsync(questionModel.Text, options);
+            }
+            
+            CloseModal();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving question: {ex.Message}");
+        }
+    }
+
+    private void AddOption()
+    {
+        var maxId = questionModel.Options.Count > 0 
+            ? questionModel.Options.Max(o => int.Parse(o.Id)) 
+            : 0;
+        
+        questionModel.Options.Add(new QuestionOptionModel 
+        { 
+            Id = (maxId + 1).ToString(), 
+            Text = "" 
+        });
+    }
+
+    private void RemoveOption(int index)
+    {
+        if (questionModel.Options.Count > 2 && index >= 0 && index < questionModel.Options.Count)
+        {
+            questionModel.Options.RemoveAt(index);
+        }
+    }
+
+    private async Task StartDisplayQuestion(Guid questionId)
+    {
+        try
+        {
+            await QuestionApi.StartDisplayQuestionAsync(questionId);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error starting display: {ex.Message}");
+        }
+    }
+
+    private async Task StopDisplayQuestion(Guid questionId)
+    {
+        try
+        {
+            await QuestionApi.StopDisplayQuestionAsync(questionId);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error stopping display: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteQuestion(Guid questionId)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this question?"))
+        {
+            try
+            {
+                await QuestionApi.DeleteQuestionAsync(questionId);
+                
+                if (selectedQuestion?.QuestionId == questionId)
+                {
+                    selectedQuestion = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error deleting question: {ex.Message}");
+            }
+        }
+    }
+
+    private string GetOptionText(List<QuestionOption> options, string optionId)
+    {
+        return options.FirstOrDefault(o => o.Id == optionId)?.Text ?? "Unknown";
+    }
+
+    private async Task ShowModal()
+    {
+        await JsRuntime.InvokeVoidAsync("showModal", "questionModal");
+    }
+
+    private async Task CloseModal()
+    {
+        await JsRuntime.InvokeVoidAsync("hideModal", "questionModal");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+
+    private class QuestionModel
+    {
+        public string Text { get; set; } = "";
+        public string? TextError { get; set; }
+        public List<QuestionOptionModel> Options { get; set; } = new();
+        public string? OptionsError { get; set; }
+    }
+
+    private class QuestionOptionModel
+    {
+        public string Id { get; set; } = "";
+        public string Text { get; set; } = "";
+    }
+}
+
+<script>
+    function showModal(id) {
+        var modal = new bootstrap.Modal(document.getElementById(id));
+        modal.show();
+    }
+    
+    function hideModal(id) {
+        var modalEl = document.getElementById(id);
+        var modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) {
+            modal.hide();
+        }
+    }
+</script>
