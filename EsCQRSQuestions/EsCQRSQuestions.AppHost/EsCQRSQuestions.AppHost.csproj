@@ -12,6 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\EsCQRSQuestions.AdminWeb\EsCQRSQuestions.AdminWeb.csproj" />
     <ProjectReference Include="..\EsCQRSQuestions.ApiService\EsCQRSQuestions.ApiService.csproj" />
     <ProjectReference Include="..\EsCQRSQuestions.Web\EsCQRSQuestions.Web.csproj" />
   </ItemGroup>
