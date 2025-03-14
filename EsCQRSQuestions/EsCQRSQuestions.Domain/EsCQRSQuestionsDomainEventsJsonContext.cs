@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events;
+using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Events;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events;
@@ -34,6 +36,20 @@ namespace EsCQRSQuestions.Domain;
 // Question Payload Types
 [JsonSerializable(typeof(QuestionOption))]
 [JsonSerializable(typeof(QuestionResponse))]
+
+// ActiveUsers Events
+[JsonSerializable(typeof(EventDocument<ActiveUsersCreated>))]
+[JsonSerializable(typeof(ActiveUsersCreated))]
+[JsonSerializable(typeof(EventDocument<UserConnected>))]
+[JsonSerializable(typeof(UserConnected))]
+[JsonSerializable(typeof(EventDocument<UserDisconnected>))]
+[JsonSerializable(typeof(UserDisconnected))]
+[JsonSerializable(typeof(EventDocument<UserNameUpdated>))]
+[JsonSerializable(typeof(UserNameUpdated))]
+
+// ActiveUsers Payload Types
+[JsonSerializable(typeof(ActiveUsersAggregate))]
+[JsonSerializable(typeof(ActiveUser))]
 public partial class EsCQRSQuestionsDomainEventsJsonContext : JsonSerializerContext
 {
 }

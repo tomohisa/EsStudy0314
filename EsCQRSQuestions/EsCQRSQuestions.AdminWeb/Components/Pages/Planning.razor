@@ -5,14 +5,23 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @implements IAsyncDisposable
 
+@using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Queries
 @inject QuestionApiClient QuestionApi
+@inject ActiveUsersApiClient ActiveUsersApi
 @inject IJSRuntime JsRuntime
 @inject IHttpMessageHandlerFactory HttpMessageHandlerFactory
 @inject NavigationManager NavigationManager
 
 <PageTitle>Question Management</PageTitle>
 
-<h1>Question Management</h1>
+<div class="d-flex justify-content-between align-items-center">
+    <h1>Question Management</h1>
+    <div class="d-flex align-items-center">
+        <div class="badge bg-primary fs-6 p-2">
+            <i class="bi bi-people-fill me-1"></i> Active Users: @(activeUsers?.TotalCount ?? 0)
+        </div>
+    </div>
+</div>
 
 <div class="mb-4">
     <button class="btn btn-primary" @onclick="OpenCreateQuestionModal">Create New Question</button>
@@ -219,6 +228,8 @@ else
     private QuestionModel questionModel = new();
     private bool isEditMode = false;
     private Guid? editQuestionId;
+    private ActiveUsersQuery.ActiveUsersRecord? activeUsers;
+    private Guid? activeUsersId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -234,6 +245,39 @@ else
         });
 
         // Handle events
+        hubConnection.On<object>("ActiveUsersCreated", async (data) =>
+        {
+            try
+            {
+                // Extract the aggregate ID from the data
+                var aggregateId = (data as dynamic)?.AggregateId;
+                if (aggregateId != null)
+                {
+                    activeUsersId = Guid.Parse(aggregateId.ToString());
+                    await RefreshActiveUsers();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error handling ActiveUsersCreated event: {ex.Message}");
+            }
+        });
+        
+        hubConnection.On<object>("UserConnected", async _ =>
+        {
+            await RefreshActiveUsers();
+        });
+        
+        hubConnection.On<object>("UserDisconnected", async _ =>
+        {
+            await RefreshActiveUsers();
+        });
+        
+        hubConnection.On<object>("UserNameUpdated", async _ =>
+        {
+            await RefreshActiveUsers();
+        });
+        
         hubConnection.On<object>("QuestionCreated", async _ =>
         {
             await RefreshQuestions();
@@ -289,8 +333,32 @@ else
 
         // Load initial data
         await RefreshQuestions();
+        
+        // Try to refresh active users if we already have an ID
+        if (activeUsersId.HasValue)
+        {
+            await RefreshActiveUsers();
+        }
     }
 
+    private async Task RefreshActiveUsers()
+    {
+        try
+        {
+            if (activeUsersId.HasValue)
+            {
+                Console.WriteLine($"Refreshing active users with ID {activeUsersId}...");
+                activeUsers = await ActiveUsersApi.GetActiveUsersAsync(activeUsersId.Value);
+                Console.WriteLine($"Active users count: {activeUsers?.TotalCount ?? 0}");
+                await InvokeAsync(() => StateHasChanged());
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error refreshing active users: {ex.Message}");
+        }
+    }
+    
     private async Task RefreshQuestions()
     {
         try

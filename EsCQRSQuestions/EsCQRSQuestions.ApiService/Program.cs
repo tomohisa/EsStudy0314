@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Azure.Storage.Queues;
 using EsCQRSQuestions.ApiService;
 using EsCQRSQuestions.Domain;
+using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Commands;
@@ -69,6 +70,9 @@ builder.Services.AddTransient<IHubNotificationService, HubNotificationService>()
 
 // Register the background service that will use the hub notification service
 builder.Services.AddHostedService<OrleansStreamBackgroundService>();
+
+// Register the service that will create initial questions
+builder.Services.AddHostedService<InitialQuestionsService>();
 
 // Add SignalR
 builder.Services.AddSignalR();
@@ -241,5 +245,18 @@ apiRoute
             [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
     .WithOpenApi()
     .WithName("DeleteQuestion");
+
+// ActiveUsers API endpoints
+apiRoute.MapGet("/activeusers/{id}", async (Guid id, [FromServices]SekibanOrleansExecutor executor) =>
+    {
+        var activeUsers = await executor.QueryAsync(new ActiveUsersQuery(id)).UnwrapBox();
+        if (activeUsers == null)
+        {
+            return Results.NotFound();
+        }
+        return Results.Ok(activeUsers);
+    })
+    .WithOpenApi()
+    .WithName("GetActiveUsers");
 
 app.Run();
