@@ -2,7 +2,7 @@
 
 ## Current Work Focus
 
-We have completed the initial implementation of the EsCQRSQuestions project. Our current focus is on:
+We have completed the initial implementation of the EsCQRSQuestions project and fixed some build errors. Our current focus is on:
 
 1. **Testing and Refinement**: Testing the application and refining the implementation
 2. **Performance Optimization**: Identifying and addressing performance bottlenecks
@@ -25,6 +25,8 @@ We have made significant progress on the EsCQRSQuestions project:
 - Implemented real-time communication using SignalR
 - Created the admin page (/planning) and participant page (/questionair)
 - Integrated the frontend with the backend using SignalR for real-time updates
+- Fixed build errors related to accessing aggregate payloads in query handlers
+- Resolved ambiguous reference issues with IHttpMessageHandlerFactory by creating a custom interface
 
 ## Next Steps
 
@@ -127,3 +129,15 @@ We have successfully implemented the core functionality of the EsCQRSQuestions a
    - API endpoints for commands and queries
 
 The application is now functional and ready for testing and refinement.
+
+## Application URLs
+
+When running the application using the Aspire host, the following URLs are available:
+
+- **Frontend**: https://localhost:7201
+  - Admin page: https://localhost:7201/planning
+  - Participant page: https://localhost:7201/questionair
+
+- **API Service**: https://localhost:7202
+
+- **Aspire Dashboard**: https://localhost:17044

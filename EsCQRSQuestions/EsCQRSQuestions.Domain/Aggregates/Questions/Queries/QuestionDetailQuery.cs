@@ -2,6 +2,7 @@ using EsCQRSQuestions.Domain.Aggregates.Questions;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using ResultBoxes;
 using Sekiban.Pure.Aggregates;
+using Sekiban.Pure.Command.Executor;
 using Sekiban.Pure.Documents;
 using Sekiban.Pure.Projectors;
 using Sekiban.Pure.Query;
@@ -17,12 +18,23 @@ public record QuestionDetailQuery(Guid QuestionId)
         QuestionDetailQuery query,
         IQueryContext context)
     {
-        var aggregate = projection.Payload.Aggregates
+        var aggregateResult = projection.Payload.Aggregates
             .Where(m => m.Key.AggregateId == query.QuestionId)
             .Select(m => m.Value)
             .FirstOrDefault();
 
-        if (aggregate == null || aggregate.GetPayload() is not Question question)
+        if (aggregateResult == null)
+        {
+            return new QuestionDetailRecord(
+                Guid.Empty,
+                string.Empty,
+                new List<QuestionOption>(),
+                false,
+                new List<ResponseRecord>());
+        }
+
+        var question = aggregateResult.GetPayload() as Question;
+        if (question == null)
         {
             return new QuestionDetailRecord(
                 Guid.Empty,
@@ -33,7 +45,7 @@ public record QuestionDetailQuery(Guid QuestionId)
         }
 
         return new QuestionDetailRecord(
-            aggregate.PartitionKeys.AggregateId,
+            aggregateResult.PartitionKeys.AggregateId,
             question.Text,
             question.Options,
             question.IsDisplayed,

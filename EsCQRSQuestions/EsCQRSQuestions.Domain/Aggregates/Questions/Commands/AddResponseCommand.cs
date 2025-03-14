@@ -23,7 +23,7 @@ public record AddResponseCommand(
     public ResultBox<EventOrNone> Handle(AddResponseCommand command, ICommandContext<Question> context)
     {
         // Get the current state of the question
-        var question = context.GetAggregate().Payload;
+        var question = context.GetAggregate().GetValue().Payload;
         
         // Cannot add a response to a question that is not being displayed
         if (!question.IsDisplayed)

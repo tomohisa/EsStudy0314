@@ -78,6 +78,11 @@
 - Contains question text, options, and responses
 - Manages the display state (started/stopped)
 - Validates commands before generating events
+- Access aggregate payload using `GetValue()` to unwrap ResultBox objects
+
+### SignalR Integration
+- Use custom `ICustomHttpMessageHandlerFactory` interface to avoid conflicts with system interfaces
+- Register the custom interface in the dependency injection container
 
 ### Event Types
 - `QuestionCreated`: Initial creation of a question
@@ -106,12 +111,14 @@
 - Focused on question management and statistics
 - Clear controls for starting/stopping question display
 - Real-time updates of participant responses
+- Accessible at https://localhost:7201/planning when running locally
 
 ### Participant Page (/questionair)
 - Welcoming and intuitive
 - Clear presentation of questions and options
 - Simple form for submitting responses
 - Feedback on submission success
+- Accessible at https://localhost:7201/questionair when running locally
 
 ### General UI Principles
 - Responsive design for different screen sizes
@@ -136,6 +143,18 @@
 - Use efficient state management
 - Optimize SignalR client usage
 
+## Application URLs
+
+When running the application using the Aspire host, the following URLs are available:
+
+- **Frontend**: https://localhost:7201
+  - Admin page: https://localhost:7201/planning
+  - Participant page: https://localhost:7201/questionair
+
+- **API Service**: https://localhost:7202
+
+- **Aspire Dashboard**: https://localhost:17044
+
 ## Reference Implementation Notes
 
 The MessageEachOther sample provides valuable reference for:
@@ -144,3 +163,25 @@ The MessageEachOther sample provides valuable reference for:
 - Event sourcing patterns in the domain model
 
 Adapt these patterns to the EsCQRSQuestions domain while maintaining the same architectural approach.
+
+## Common Issues and Solutions
+
+### Accessing Aggregate Payload
+- When accessing an aggregate payload from a command or query handler, use `GetValue()` to unwrap the ResultBox:
+  ```csharp
+  var aggregate = context.GetAggregate().GetValue();
+  var payload = aggregate.Payload;
+  ```
+
+### SignalR Client Integration
+- Use a custom interface for HTTP message handler factory to avoid conflicts with system interfaces:
+  ```csharp
+  public interface ICustomHttpMessageHandlerFactory
+  {
+      HttpMessageHandler CreateHandler();
+  }
+  ```
+- Register the custom interface in the dependency injection container:
+  ```csharp
+  builder.Services.AddScoped<ICustomHttpMessageHandlerFactory, DefaultHttpMessageHandlerFactory>();
+  ```

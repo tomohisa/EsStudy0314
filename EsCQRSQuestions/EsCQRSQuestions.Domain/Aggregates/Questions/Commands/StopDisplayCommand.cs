@@ -20,7 +20,8 @@ public record StopDisplayCommand(
     public ResultBox<EventOrNone> Handle(StopDisplayCommand command, ICommandContext<Question> context)
     {
         // Get the current state of the question
-        var question = context.GetAggregate().Payload;
+        var aggregate = context.GetAggregate().GetValue();
+        var question = aggregate.Payload;
         
         // Cannot stop displaying a question that is not being displayed
         if (!question.IsDisplayed)

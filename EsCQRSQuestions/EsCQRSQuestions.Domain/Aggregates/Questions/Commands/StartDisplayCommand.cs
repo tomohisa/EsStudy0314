@@ -20,7 +20,8 @@ public record StartDisplayCommand(
     public ResultBox<EventOrNone> Handle(StartDisplayCommand command, ICommandContext<Question> context)
     {
         // Get the current state of the question
-        var question = context.GetAggregate().Payload;
+        var aggregate = context.GetAggregate().GetValue();
+        var question = aggregate.Payload;
         
         // Cannot start displaying a question that is already being displayed
         if (question.IsDisplayed)

@@ -82,14 +82,15 @@ if (builder.Configuration.GetSection("Sekiban").GetValue<string>("Database")?.To
     // Postgres settings
     builder.AddSekibanPostgresDb();
 }
-// Add CORS services and configure a policy that allows all origins
+// Add CORS services and configure a policy that allows specific origins with credentials
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("https://localhost:7201")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -110,6 +111,13 @@ if (app.Environment.IsDevelopment())
 
 // Use CORS middleware (must be called before other middleware that sends responses)
 app.UseCors();
+
+// Map SignalR hub with CORS
+app.MapHub<QuestionHub>("/questionHub").RequireCors(policy => policy
+    .WithOrigins("https://localhost:7201")
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials());
 
 string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
 
@@ -148,9 +156,6 @@ apiRoute
     .WithOpenApi();
 
 app.MapDefaultEndpoints();
-
-// Map SignalR hub
-app.MapHub<QuestionHub>("/questionHub");
 
 // Question API endpoints
 // Queries

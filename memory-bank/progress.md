@@ -80,6 +80,22 @@ While the core functionality is working, there are some known issues and limitat
 
 5. **Browser Compatibility**: The application has not been extensively tested across different browsers and devices.
 
+6. **Code Issues**: We encountered and fixed some issues with the code:
+   - Fixed issues with accessing aggregate payloads in query handlers by properly unwrapping ResultBox objects
+   - Resolved ambiguous reference issues with IHttpMessageHandlerFactory by creating a custom interface
+
+## Application URLs
+
+When running the application using the Aspire host, the following URLs are available:
+
+- **Frontend**: https://localhost:7201
+  - Admin page: https://localhost:7201/planning
+  - Participant page: https://localhost:7201/questionair
+
+- **API Service**: https://localhost:7202
+
+- **Aspire Dashboard**: https://localhost:17044
+
 ## Milestones
 
 | Milestone | Status | Completion Date |
@@ -88,6 +104,7 @@ While the core functionality is working, there are some known issues and limitat
 | Domain Model Implementation | Completed | 3/13/2025 |
 | Backend Infrastructure | Completed | 3/13/2025 |
 | Frontend Development | Completed | 3/13/2025 |
+| Bug Fixes | Completed | 3/13/2025 |
 | Integration and Testing | Partially Completed | - |
 | Initial Release | Completed | 3/13/2025 |
 

@@ -27,7 +27,7 @@ builder.Services.AddHttpClient<QuestionApiClient>(client =>
     });
 
 // Add SignalR client
-builder.Services.AddScoped<IHttpMessageHandlerFactory, DefaultHttpMessageHandlerFactory>();
+builder.Services.AddScoped<ICustomHttpMessageHandlerFactory, DefaultHttpMessageHandlerFactory>();
 
 var app = builder.Build();
 

@@ -20,7 +20,8 @@ public record DeleteQuestionCommand(
     public ResultBox<EventOrNone> Handle(DeleteQuestionCommand command, ICommandContext<Question> context)
     {
         // Get the current state of the question
-        var question = context.GetAggregate().Payload;
+        var aggregate = context.GetAggregate().GetValue();
+        var question = aggregate.Payload;
         
         // Cannot delete a question that is currently being displayed
         if (question.IsDisplayed)

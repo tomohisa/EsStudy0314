@@ -22,7 +22,8 @@ public record UpdateQuestionCommand(
     public ResultBox<EventOrNone> Handle(UpdateQuestionCommand command, ICommandContext<Question> context)
     {
         // Get the current state of the question
-        var question = context.GetAggregate().Payload;
+        var aggregate = context.GetAggregate().GetValue();
+        var question = aggregate.Payload;
         
         // Validate the command
         if (string.IsNullOrWhiteSpace(command.Text))
