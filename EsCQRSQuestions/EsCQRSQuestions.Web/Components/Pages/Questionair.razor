@@ -68,9 +68,18 @@
                             </div>
                             
                             <div class="mb-4">
-                                <label for="comment" class="form-label">Comment (optional)</label>
-                                <textarea class="form-control" id="comment" rows="3" 
-                                          @bind="comment" placeholder="Add your comment here"></textarea>
+                                @if (!string.IsNullOrEmpty(selectedOptionId))
+                                {
+                                    <label for="comment" class="form-label">Comment (optional)</label>
+                                    <textarea class="form-control" id="comment" rows="3" 
+                                              @bind="comment" placeholder="Add your comment here"></textarea>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-info">
+                                        Waiting to show question
+                                    </div>
+                                }
                             </div>
                             
                             <button class="btn btn-primary" @onclick="SubmitResponse" disabled="@isSubmitting">
