@@ -29,7 +29,15 @@ var apiService = builder.AddProject<EsCQRSQuestions_ApiService>("apiservice")
     .WithReference(orleans)
     // .WithReplicas(2); // Uncomment to run with 2 replicas
     ;
+
+// User web frontend
 builder.AddProject<Projects.EsCQRSQuestions_Web>("webfrontend")
+    .WithExternalHttpEndpoints()
+    .WithReference(apiService)
+    .WaitFor(apiService);
+
+// Admin web frontend
+builder.AddProject<Projects.EsCQRSQuestions_AdminWeb>("adminwebfrontend")
     .WithExternalHttpEndpoints()
     .WithReference(apiService)
     .WaitFor(apiService);
