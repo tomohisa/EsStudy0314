@@ -213,8 +213,8 @@ else
 </div>
 
 @code {
-    private HubConnection hubConnection;
-    private List<QuestionListQuery.QuestionSummaryRecord> questions;
+    private HubConnection? hubConnection;
+    private List<QuestionListQuery.QuestionSummaryRecord>? questions;
     private QuestionDetailQuery.QuestionDetailRecord? selectedQuestion;
     private QuestionModel questionModel = new();
     private bool isEditMode = false;
@@ -230,7 +230,7 @@ else
         // Join admin group
         hubConnection.On("Connected", async () =>
         {
-            await hubConnection.InvokeAsync("JoinAdminGroup");
+            await hubConnection!.InvokeAsync("JoinAdminGroup");
         });
 
         // Handle events
@@ -277,7 +277,7 @@ else
         hubConnection.On<object>("QuestionDeleted", async _ =>
         {
             await RefreshQuestions();
-            if (selectedQuestion != null && questions.All(q => q.QuestionId != selectedQuestion.QuestionId))
+            if (selectedQuestion != null && questions != null && questions.All(q => q.QuestionId != selectedQuestion.QuestionId))
             {
                 selectedQuestion = null;
             }
@@ -310,7 +310,7 @@ else
         selectedQuestion = await QuestionApi.GetQuestionByIdAsync(questionId);
     }
 
-    private void OpenCreateQuestionModal()
+    private async Task OpenCreateQuestionModal()
     {
         isEditMode = false;
         editQuestionId = null;
@@ -322,7 +322,7 @@ else
                 new QuestionOptionModel { Id = "2", Text = "" }
             }
         };
-        ShowModal();
+        await ShowModal();
     }
 
     private async Task OpenEditQuestionModal(Guid questionId)
@@ -338,7 +338,7 @@ else
                 Text = question.Text,
                 Options = question.Options.Select(o => new QuestionOptionModel { Id = o.Id, Text = o.Text }).ToList()
             };
-            ShowModal();
+            await ShowModal();
         }
     }
 
@@ -391,7 +391,7 @@ else
                 await QuestionApi.CreateQuestionAsync(questionModel.Text, options);
             }
             
-            CloseModal();
+            await CloseModal();
         }
         catch (Exception ex)
         {

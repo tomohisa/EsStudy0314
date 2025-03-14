@@ -19,6 +19,9 @@ builder.Services.AddHttpClient<QuestionApiClient>(client =>
         client.BaseAddress = new("https+http://apiservice");
     });
 
+// Register IHttpMessageHandlerFactory for SignalR client
+builder.Services.AddHttpClient();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
