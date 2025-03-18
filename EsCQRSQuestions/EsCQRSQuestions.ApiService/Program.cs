@@ -91,7 +91,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("https://localhost:7201")
+        policy.WithOrigins("https://localhost:7201", "https://localhost:5260")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -118,7 +118,7 @@ app.UseCors();
 
 // Map SignalR hub with CORS
 app.MapHub<QuestionHub>("/questionHub").RequireCors(policy => policy
-    .WithOrigins("https://localhost:7201")
+    .WithOrigins("https://localhost:7201", "https://localhost:5260")
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials());
