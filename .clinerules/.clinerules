@@ -6,3 +6,9 @@ Just suggest if you think about better refactoring.
 - The project follows a clean architecture pattern with Event Sourcing as the core persistence mechanism.
 - Domain models are organized into aggregates, each with its own events, commands, and projections.
 - The frontend is built with Blazor, following a component-based architecture.
+
+- **User Frontend**: https://localhost:7201
+  - Participant page: https://localhost:7201/questionair
+
+- **Admin Frontend**: https://localhost:7141
+  - Admin page: https://localhost:7141/planning

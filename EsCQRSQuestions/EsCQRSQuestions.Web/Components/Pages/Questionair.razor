@@ -211,6 +211,9 @@
 
         // Start the connection
         await hubConnection.StartAsync();
+        
+        // 明示的に参加者として参加
+        await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
 
         // Set participant name if already entered
         if (!string.IsNullOrEmpty(participantName))

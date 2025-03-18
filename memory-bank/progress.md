@@ -87,6 +87,8 @@ While the core functionality is working, there are some known issues and limitat
    - Fixed UI update issues in Planning.razor by improving the refresh mechanism and adding explicit StateHasChanged calls
    - Fixed Questionair.razor to only show comment section when a question option is selected
    - Enhanced real-time updates in Questionair.razor to ensure all users see responses from other participants
+   - Fixed Active Users counter to only count survey participants (not admin users)
+   - Improved SignalR connection stability with more aggressive reconnection settings
 
 ## Application URLs
 
@@ -123,6 +125,7 @@ When running the application using the Aspire host, the following URLs are avail
 5. Implement export functionality for survey results
 6. Add support for multiple active questions
 7. Enhance real-time synchronization for edge cases
+8. Add more comprehensive testing for the Active Users counter functionality
 
 ## Blockers
 

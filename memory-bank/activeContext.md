@@ -39,6 +39,15 @@ Recent UI improvements and bug fixes:
 - Improved error handling and logging throughout the application
 - Added explicit UI refresh calls to ensure consistent state updates
 
+Latest improvements:
+
+- Fixed Active Users counter issues:
+  - Improved SignalR connection stability with more aggressive reconnection settings
+  - Added detailed connection state logging for better debugging
+  - Modified user tracking to only count survey participants (not admin users)
+  - Updated QuestionHub.cs to separate admin and participant roles
+  - Added explicit role-based connection handling (JoinAdminGroup and JoinAsSurveyParticipant)
+
 ## Next Steps
 
 1. **Add Authentication**:
@@ -124,6 +133,7 @@ Recent UI improvements and bug fixes:
    - Ensuring consistent real-time updates across all clients
    - Handling edge cases like network disconnections
    - Optimizing SignalR event handling for better performance
+   - Maintaining accurate active user counts across multiple clients
 
 ## Implementation Status
 

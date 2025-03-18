@@ -28,8 +28,8 @@ public class QuestionHub : Hub
         // By default, add all clients to the Participants group
         await Groups.AddToGroupAsync(Context.ConnectionId, ParticipantGroup);
         
-        // Track the active user
-        await TrackUserConnection();
+        // 管理者接続時はActiveUsersに追加しない
+        // TrackUserConnectionは参加者専用のメソッドとして残す
         
         await base.OnConnectedAsync();
     }
@@ -83,6 +83,18 @@ public class QuestionHub : Hub
     public async Task JoinAdminGroup()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, AdminGroup);
+        
+        // 管理者グループに参加したユーザーはActiveUsersから削除
+        await _executor.CommandAsync(new UserDisconnectedCommand(
+            _activeUsersId,
+            Context.ConnectionId));
+    }
+    
+    // 参加者専用のメソッドを追加
+    public async Task JoinAsSurveyParticipant()
+    {
+        // 参加者としてActiveUsersに追加
+        await TrackUserConnection();
     }
     
     // Leave admin group
