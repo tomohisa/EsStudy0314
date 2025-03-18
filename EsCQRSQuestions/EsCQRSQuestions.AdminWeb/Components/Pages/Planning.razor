@@ -231,16 +231,51 @@ else
     private ActiveUsersQuery.ActiveUsersRecord? activeUsers;
     private Guid? activeUsersId;
 
+    // Try to find the active users ID by checking the server
+    private async Task TryFindActiveUsersId()
+    {
+        try
+        {
+            // We don't have a direct API to get the active users ID, so we'll need to
+            // check the server logs or implement a new API endpoint to get this information.
+            // For now, we'll add more logging to help diagnose the issue.
+            Console.WriteLine("Attempting to find active users ID...");
+            
+            // In a real implementation, we might query the server for the active users ID
+            // For example: activeUsersId = await SomeApi.GetActiveUsersIdAsync();
+            
+            if (!activeUsersId.HasValue)
+            {
+                Console.WriteLine("Could not find active users ID automatically.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error finding active users ID: {ex.Message}");
+            Console.Error.WriteLine(ex.StackTrace);
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         // Set up SignalR connection
         hubConnection = new HubConnectionBuilder()
             .WithUrlWithClientFactory("https+http://apiservice/questionHub", HttpMessageHandlerFactory)
+            .WithAutomaticReconnect()  // Add automatic reconnection
             .Build();
+
+        // Add connection state change logging
+        hubConnection.Closed += async (error) =>
+        {
+            Console.Error.WriteLine($"SignalR connection closed: {error?.Message}");
+            await Task.Delay(new Random().Next(0, 5) * 1000);
+            await hubConnection.StartAsync();
+        };
 
         // Join admin group
         hubConnection.On("Connected", async () =>
         {
+            Console.WriteLine("SignalR connected, joining admin group");
             await hubConnection!.InvokeAsync("JoinAdminGroup");
         });
 
@@ -249,33 +284,75 @@ else
         {
             try
             {
+                Console.WriteLine($"ActiveUsersCreated event received: {data}");
                 // Extract the aggregate ID from the data
                 var aggregateId = (data as dynamic)?.AggregateId;
+                Console.WriteLine($"Extracted aggregateId: {aggregateId}");
                 if (aggregateId != null)
                 {
                     activeUsersId = Guid.Parse(aggregateId.ToString());
+                    Console.WriteLine($"Set activeUsersId to {activeUsersId}");
                     await RefreshActiveUsers();
+                }
+                else
+                {
+                    Console.WriteLine("Failed to extract aggregateId from event data");
                 }
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Error handling ActiveUsersCreated event: {ex.Message}");
+                Console.Error.WriteLine(ex.StackTrace);
             }
         });
         
-        hubConnection.On<object>("UserConnected", async _ =>
+        hubConnection.On<object>("UserConnected", async (data) =>
         {
-            await RefreshActiveUsers();
+            try
+            {
+                Console.WriteLine($"UserConnected event received: {data}");
+                // Extract the aggregate ID from the data if available
+                var aggregateId = (data as dynamic)?.AggregateId;
+                if (aggregateId != null && !activeUsersId.HasValue)
+                {
+                    activeUsersId = Guid.Parse(aggregateId.ToString());
+                    Console.WriteLine($"Set activeUsersId to {activeUsersId} from UserConnected event");
+                }
+                await RefreshActiveUsers();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error handling UserConnected event: {ex.Message}");
+                Console.Error.WriteLine(ex.StackTrace);
+            }
         });
         
-        hubConnection.On<object>("UserDisconnected", async _ =>
+        hubConnection.On<object>("UserDisconnected", async (data) =>
         {
-            await RefreshActiveUsers();
+            try
+            {
+                Console.WriteLine($"UserDisconnected event received: {data}");
+                await RefreshActiveUsers();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error handling UserDisconnected event: {ex.Message}");
+                Console.Error.WriteLine(ex.StackTrace);
+            }
         });
         
-        hubConnection.On<object>("UserNameUpdated", async _ =>
+        hubConnection.On<object>("UserNameUpdated", async (data) =>
         {
-            await RefreshActiveUsers();
+            try
+            {
+                Console.WriteLine($"UserNameUpdated event received: {data}");
+                await RefreshActiveUsers();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error handling UserNameUpdated event: {ex.Message}");
+                Console.Error.WriteLine(ex.StackTrace);
+            }
         });
         
         hubConnection.On<object>("QuestionCreated", async _ =>
@@ -329,7 +406,20 @@ else
         });
 
         // Start the connection
-        await hubConnection.StartAsync();
+        try
+        {
+            Console.WriteLine("Starting SignalR connection...");
+            await hubConnection.StartAsync();
+            Console.WriteLine("SignalR connection started successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error starting SignalR connection: {ex.Message}");
+            Console.Error.WriteLine(ex.StackTrace);
+        }
+
+        // Try to find the active users ID if we don't have one
+        await TryFindActiveUsersId();
 
         // Load initial data
         await RefreshQuestions();
@@ -338,6 +428,10 @@ else
         if (activeUsersId.HasValue)
         {
             await RefreshActiveUsers();
+        }
+        else
+        {
+            Console.WriteLine("No activeUsersId available during initialization, cannot display active users count");
         }
     }
 
@@ -352,10 +446,15 @@ else
                 Console.WriteLine($"Active users count: {activeUsers?.TotalCount ?? 0}");
                 await InvokeAsync(() => StateHasChanged());
             }
+            else
+            {
+                Console.WriteLine("No activeUsersId available, cannot refresh active users");
+            }
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error refreshing active users: {ex.Message}");
+            Console.Error.WriteLine(ex.StackTrace);
         }
     }
     
