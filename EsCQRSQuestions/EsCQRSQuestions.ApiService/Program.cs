@@ -7,6 +7,7 @@ using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Commands;
 using EsCQRSQuestions.Domain.Generated;
+using Orleans.Storage;
 using ResultBoxes;
 using Scalar.AspNetCore;
 using Sekiban.Pure.AspNetCore;
@@ -32,6 +33,19 @@ builder.AddKeyedAzureQueueClient("orleans-sekiban-queue");
 builder.UseOrleans(
     config =>
     {
+        // Check for VNet IP Address from environment variable APP Service specific setting
+        if (!string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_IP"]) &&
+            !string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_PORTS"]))
+        {
+            // Get IP and ports from environment variables
+            var ip = System.Net.IPAddress.Parse(builder.Configuration["WEBSITE_PRIVATE_IP"]!);
+            var ports = builder.Configuration["WEBSITE_PRIVATE_PORTS"]!.Split(',');
+            if (ports.Length < 2) throw new Exception("Insufficient number of private ports");
+            int siloPort = int.Parse(ports[0]), gatewayPort = int.Parse(ports[1]);
+            Console.WriteLine($"Using WEBSITE_PRIVATE_IP: {ip}, siloPort: {siloPort}, gatewayPort: {gatewayPort}");
+            config.ConfigureEndpoints(ip, siloPort, gatewayPort, true);
+        }
+
         // config.UseDashboard(options => { });
         config.AddAzureQueueStreams("EventStreamProvider", (SiloAzureQueueStreamConfigurator configurator) =>
         {
@@ -52,6 +66,9 @@ builder.UseOrleans(
                 opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("orleans-sekiban-grain-state");
             });
         });
+        // Orleans will automatically discover grains in the same assembly
+        config.ConfigureServices(services =>
+            services.AddTransient<IGrainStorageSerializer, SystemTextJsonStorageSerializer>());
     });
 
 builder.Services.AddSingleton(
