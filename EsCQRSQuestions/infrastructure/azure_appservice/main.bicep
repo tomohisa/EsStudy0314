@@ -185,6 +185,48 @@ module blazorVnetIntegration '7.blazor/5.vnet-integration.bicep' = {
   ]
 }
 
+// 8. Admin Web App Service
+module adminWebPlan '8.adminweb/1.plan.bicep' = {
+  name: 'adminWebPlanDeployment'
+  params: {}
+}
+
+module adminWebAppService '8.adminweb/2.app-service.bicep' = {
+  name: 'adminWebAppServiceDeployment'
+  params: {}
+  dependsOn: [
+    adminWebPlan
+  ]
+}
+
+module adminWebDiagnosticSettings '8.adminweb/3.diagnositic-settings.bicep' = {
+  name: 'adminWebDiagnosticSettingsDeployment'
+  params: {}
+  dependsOn: [
+    logAnalyticsCreate
+    adminWebAppService
+  ]
+}
+
+module adminWebAppSettings '8.adminweb/4.app-settings.bicep' = {
+  name: 'adminWebAppSettingsDeployment'
+  params: {}
+  dependsOn: [
+    appInsightsCreate
+    backendAppServiceCreate // Depends on backend URL output from its creation module
+    adminWebAppService
+  ]
+}
+
+module adminWebVnetIntegration '8.adminweb/5.vnet-integration.bicep' = {
+  name: 'adminWebVnetIntegrationDeployment'
+  params: {}
+  dependsOn: [
+    vnetCreate
+    adminWebAppService
+  ]
+}
+
 // Outputs can be added here if needed, for example:
 // output backendHostName string = backendAppServiceCreate.outputs.hostName
 // output frontendHostName string = blazorAppService.outputs.hostName

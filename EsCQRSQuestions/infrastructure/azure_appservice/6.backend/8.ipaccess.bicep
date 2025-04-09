@@ -7,6 +7,7 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' existing = {
 }
 
 var frontendSubnetId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/providers/Microsoft.Network/virtualNetworks/${vnetName}/subnets/frontend-subnet'
+var adminwebSubnetId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/providers/Microsoft.Network/virtualNetworks/${vnetName}/subnets/adminweb-subnet'
 
 
 // IP restrictions configuration for the web app
@@ -21,6 +22,13 @@ resource webAppConfig 'Microsoft.Web/sites/config@2022-03-01' = {
         vnetSubnetResourceId: frontendSubnetId // Use the constructed subnet ID
         action: 'Allow'
         priority: 100 // Matches screenshot priority
+        name: 'AllowFrontendSubnetVNet' // Corresponds to 'frontendsubnet' rule in screenshot
+      }
+      {
+        // Allow traffic from the frontend subnet via VNet integration
+        vnetSubnetResourceId: adminwebSubnetId // Use the constructed subnet ID
+        action: 'Allow'
+        priority: 101 // Matches screenshot priority
         name: 'AllowFrontendSubnetVNet' // Corresponds to 'frontendsubnet' rule in screenshot
       }
       {

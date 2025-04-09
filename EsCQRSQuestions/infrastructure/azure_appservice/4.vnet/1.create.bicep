@@ -16,8 +16,12 @@ module newVnet 'deploy-vnet-general.bicep' = {
         addressPrefix: '10.0.0.0/24'
       }
       {
-        name: 'backend-subnet'
+        name: 'adminweb-subnet'
         addressPrefix: '10.0.1.0/24'
+      }
+      {
+        name: 'backend-subnet'
+        addressPrefix: '10.0.2.0/24'
       }
     ]
   }
