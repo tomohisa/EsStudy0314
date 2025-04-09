@@ -12,7 +12,8 @@ namespace EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 [GenerateSerializer]
 public record CreateQuestionCommand(
     string Text,
-    List<QuestionOption> Options
+    List<QuestionOption> Options,
+    Guid QuestionGroupId
 ) : ICommandWithHandler<CreateQuestionCommand, QuestionProjector>
 {
     public PartitionKeys SpecifyPartitionKeys(CreateQuestionCommand command) => 
@@ -38,7 +39,13 @@ public record CreateQuestionCommand(
             return new ArgumentException("Option IDs must be unique");
         }
         
+        // Validate QuestionGroupId
+        if (command.QuestionGroupId == Guid.Empty)
+        {
+            return new ArgumentException("QuestionGroupId is required");
+        }
+        
         // Create the event
-        return EventOrNone.Event(new QuestionCreated(command.Text, command.Options));
+        return EventOrNone.Event(new QuestionCreated(command.Text, command.Options, command.QuestionGroupId));
     }
 }

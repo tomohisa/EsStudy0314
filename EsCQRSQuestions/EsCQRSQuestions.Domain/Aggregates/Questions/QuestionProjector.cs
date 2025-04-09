@@ -16,7 +16,8 @@ public class QuestionProjector : IAggregateProjector
                 created.Text,
                 created.Options,
                 false,
-                new List<QuestionResponse>()),
+                new List<QuestionResponse>(),
+                created.QuestionGroupId),
             
             // Update an existing question
             (Question question, QuestionUpdated updated) => question with
@@ -53,7 +54,14 @@ public class QuestionProjector : IAggregateProjector
                 question.Text,
                 question.Options,
                 question.IsDisplayed,
-                question.Responses),
+                question.Responses,
+                question.QuestionGroupId),
+            
+            // Update question group ID
+            (Question question, QuestionGroupIdUpdated updated) => question with
+            {
+                QuestionGroupId = updated.QuestionGroupId
+            },
             
             // Default case - return the payload unchanged
             _ => payload

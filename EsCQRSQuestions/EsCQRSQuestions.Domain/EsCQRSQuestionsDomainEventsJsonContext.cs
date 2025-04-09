@@ -4,6 +4,10 @@ using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Events;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
+using EsCQRSQuestions.Domain.ValueObjects;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using Sekiban.Pure.Events;
 
 namespace EsCQRSQuestions.Domain;
@@ -28,6 +32,8 @@ namespace EsCQRSQuestions.Domain;
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionUpdated))]
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.Questions.Events.ResponseAdded>))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Events.ResponseAdded))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionGroupIdUpdated>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionGroupIdUpdated))]
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events.WeatherForecastDeleted>))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events.WeatherForecastDeleted))]
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events.WeatherForecastInputted>))]
@@ -42,13 +48,39 @@ namespace EsCQRSQuestions.Domain;
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserConnected))]
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserDisconnected>))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserDisconnected))]
+    // QuestionGroup Event documents
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupCreated>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupCreated))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupNameUpdated>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupNameUpdated))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionAddedToGroup>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionAddedToGroup))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionRemovedFromGroup>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionRemovedFromGroup))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionOrderChanged>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionOrderChanged))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupDeleted>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupDeleted))]
+    // Aggregate payloads
     [JsonSerializable(typeof(Question))]
     [JsonSerializable(typeof(DeletedQuestion))]
     [JsonSerializable(typeof(QuestionOption))]
     [JsonSerializable(typeof(QuestionResponse))]
+    [JsonSerializable(typeof(QuestionGroup))]
+    [JsonSerializable(typeof(DeletedQuestionGroup))]
+    [JsonSerializable(typeof(QuestionReference))]
+    // Other types
     [JsonSerializable(typeof(WeatherForecast))]
     [JsonSerializable(typeof(ActiveUsersAggregate))]
     [JsonSerializable(typeof(ActiveUser))]
+    // Query result types
+    [JsonSerializable(typeof(GetQuestionGroupsQuery.ResultRecord))]
+    [JsonSerializable(typeof(GetQuestionGroupsQuery.QuestionReferenceRecord))]
+    [JsonSerializable(typeof(GetQuestionsByGroupIdQuery.ResultRecord))]
+    [JsonSerializable(typeof(GetQuestionsByGroupIdQuery.QuestionOptionRecord))]
+    // Workflow command types
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Workflows.QuestionGroupWorkflow.CreateGroupWithQuestionsCommand))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Workflows.QuestionGroupWorkflow.MoveQuestionBetweenGroupsCommand))]
     public partial class EsCQRSQuestionsDomainEventsJsonContext : JsonSerializerContext
     {
     }
