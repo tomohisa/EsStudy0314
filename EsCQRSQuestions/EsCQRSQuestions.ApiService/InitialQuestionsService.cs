@@ -21,8 +21,8 @@ public class InitialQuestionsService : IHostedService
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         // Wait for 10 seconds to ensure the database is ready
-        _logger.LogInformation("Waiting for 10 seconds before creating initial questions...");
-        await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+        _logger.LogInformation("Waiting for 100 seconds before creating initial questions...");
+        await Task.Delay(TimeSpan.FromSeconds(100), cancellationToken);
         
         // Use a scope to get the required services
         using var scope = _serviceProvider.CreateScope();

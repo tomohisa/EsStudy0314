@@ -8,48 +8,47 @@ using Sekiban.Pure.Events;
 
 namespace EsCQRSQuestions.Domain;
 
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(EventDocumentCommon))]
-[JsonSerializable(typeof(EventDocumentCommon[]))]
-// Weather Forecast Events
-[JsonSerializable(typeof(EventDocument<WeatherForecastInputted>))]
-[JsonSerializable(typeof(WeatherForecastInputted))]
-[JsonSerializable(typeof(EventDocument<WeatherForecastDeleted>))]
-[JsonSerializable(typeof(WeatherForecastDeleted))]
-[JsonSerializable(typeof(EventDocument<WeatherForecastLocationUpdated>))]
-[JsonSerializable(typeof(WeatherForecastLocationUpdated))]
-
-// Question Events
-[JsonSerializable(typeof(EventDocument<QuestionCreated>))]
-[JsonSerializable(typeof(QuestionCreated))]
-[JsonSerializable(typeof(EventDocument<QuestionUpdated>))]
-[JsonSerializable(typeof(QuestionUpdated))]
-[JsonSerializable(typeof(EventDocument<QuestionDisplayStarted>))]
-[JsonSerializable(typeof(QuestionDisplayStarted))]
-[JsonSerializable(typeof(EventDocument<QuestionDisplayStopped>))]
-[JsonSerializable(typeof(QuestionDisplayStopped))]
-[JsonSerializable(typeof(EventDocument<ResponseAdded>))]
-[JsonSerializable(typeof(ResponseAdded))]
-[JsonSerializable(typeof(EventDocument<QuestionDeleted>))]
-[JsonSerializable(typeof(QuestionDeleted))]
-
-// Question Payload Types
-[JsonSerializable(typeof(QuestionOption))]
-[JsonSerializable(typeof(QuestionResponse))]
-
-// ActiveUsers Events
-[JsonSerializable(typeof(EventDocument<ActiveUsersCreated>))]
-[JsonSerializable(typeof(ActiveUsersCreated))]
-[JsonSerializable(typeof(EventDocument<UserConnected>))]
-[JsonSerializable(typeof(UserConnected))]
-[JsonSerializable(typeof(EventDocument<UserDisconnected>))]
-[JsonSerializable(typeof(UserDisconnected))]
-[JsonSerializable(typeof(EventDocument<UserNameUpdated>))]
-[JsonSerializable(typeof(UserNameUpdated))]
-
-// ActiveUsers Payload Types
-[JsonSerializable(typeof(ActiveUsersAggregate))]
-[JsonSerializable(typeof(ActiveUser))]
-public partial class EsCQRSQuestionsDomainEventsJsonContext : JsonSerializerContext
-{
-}
+    [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+    [JsonSerializable(typeof(EventDocumentCommon))]
+    [JsonSerializable(typeof(EventDocumentCommon[]))]
+    [JsonSerializable(typeof(Sekiban.Pure.Aggregates.EmptyAggregatePayload))]
+    [JsonSerializable(typeof(Sekiban.Pure.Projectors.IMultiProjectorCommon))]
+    [JsonSerializable(typeof(Sekiban.Pure.Documents.PartitionKeys))]
+    [JsonSerializable(typeof(Sekiban.Pure.Projectors.SerializableAggregateListProjector))]
+    [JsonSerializable(typeof(Sekiban.Pure.Aggregates.SerializableAggregate))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionCreated>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionCreated))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionDeleted>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionDeleted))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionDisplayStarted>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionDisplayStarted))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionDisplayStopped>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionDisplayStopped))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionUpdated>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionUpdated))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.Questions.Events.ResponseAdded>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Events.ResponseAdded))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events.WeatherForecastDeleted>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events.WeatherForecastDeleted))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events.WeatherForecastInputted>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events.WeatherForecastInputted))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events.WeatherForecastLocationUpdated>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events.WeatherForecastLocationUpdated))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.ActiveUsersCreated>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.ActiveUsersCreated))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserNameUpdated>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserNameUpdated))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserConnected>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserConnected))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserDisconnected>))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserDisconnected))]
+    [JsonSerializable(typeof(Question))]
+    [JsonSerializable(typeof(DeletedQuestion))]
+    [JsonSerializable(typeof(QuestionOption))]
+    [JsonSerializable(typeof(QuestionResponse))]
+    [JsonSerializable(typeof(WeatherForecast))]
+    [JsonSerializable(typeof(ActiveUsersAggregate))]
+    [JsonSerializable(typeof(ActiveUser))]
+    public partial class EsCQRSQuestionsDomainEventsJsonContext : JsonSerializerContext
+    {
+    }
