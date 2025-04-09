@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"github.copilot.chat.codeGeneration.instructions": [
+			{
+				"text": ".clinerules/Sekiban.Instructions.md has instructions to use Sekiban"
+			},
+			{
+				"text": ".clinerules/ResultBox-LLM.md has instructions to use ResultBox"
+			}
+		],
+	}
+}
