@@ -42,6 +42,13 @@ namespace EsCQRSQuestions.Domain;
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserConnected))]
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserDisconnected>))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events.UserDisconnected))]
+    [JsonSerializable(typeof(Question))]
+    [JsonSerializable(typeof(DeletedQuestion))]
+    [JsonSerializable(typeof(QuestionOption))]
+    [JsonSerializable(typeof(QuestionResponse))]
+    [JsonSerializable(typeof(WeatherForecast))]
+    [JsonSerializable(typeof(ActiveUsersAggregate))]
+    [JsonSerializable(typeof(ActiveUser))]
     public partial class EsCQRSQuestionsDomainEventsJsonContext : JsonSerializerContext
     {
     }

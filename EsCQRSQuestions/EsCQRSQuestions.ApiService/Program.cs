@@ -27,9 +27,9 @@ builder.Services.AddProblemDetails();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.AddKeyedAzureTableClient("orleans-sekiban-clustering");
-builder.AddKeyedAzureBlobClient("orleans-sekiban-grain-state");
-builder.AddKeyedAzureQueueClient("orleans-sekiban-queue");
+builder.AddKeyedAzureTableClient("OrleansSekibanClustering");
+builder.AddKeyedAzureBlobClient("OrleansSekibanGrainState");
+builder.AddKeyedAzureQueueClient("OrleansSekibanQueue");
 builder.UseOrleans(
     config =>
     {
@@ -53,7 +53,7 @@ builder.UseOrleans(
             {
                 options.Configure<IServiceProvider>((queueOptions, sp) =>
                 {
-                    queueOptions.QueueServiceClient = sp.GetKeyedService<QueueServiceClient>("orleans-sekiban-queue");
+                    queueOptions.QueueServiceClient = sp.GetKeyedService<QueueServiceClient>("OrleansSekibanQueue");
                 });
             });
         });
@@ -63,7 +63,7 @@ builder.UseOrleans(
         {
             options.Configure<IServiceProvider>((opt, sp) =>
             {
-                opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("orleans-sekiban-grain-state");
+                opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
             });
         });
         // Orleans will automatically discover grains in the same assembly

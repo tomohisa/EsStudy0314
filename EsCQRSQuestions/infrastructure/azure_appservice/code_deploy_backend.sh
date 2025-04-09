@@ -62,11 +62,12 @@ popd
 
 echo "Deploying to Azure App Service: $APP_SERVICE_NAME..."
 
-# Deploy to Azure App Service
-az webapp deployment source config-zip \
+# Deploy to Azure App Service using the recommended command
+az webapp deploy \
     --resource-group "$RESOURCE_GROUP" \
     --name "$APP_SERVICE_NAME" \
-    --src "$ZIP_FILE"
+    --src-path "$ZIP_FILE" \
+    --type zip
 
 # Check if deployment was successful
 if [ $? -eq 0 ]; then
