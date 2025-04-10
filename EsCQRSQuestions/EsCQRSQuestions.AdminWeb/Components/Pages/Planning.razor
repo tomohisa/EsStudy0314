@@ -2,11 +2,14 @@
 @attribute [StreamRendering(true)]
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
+@using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries
+@using EsCQRSQuestions.Domain.Workflows
 @using Microsoft.AspNetCore.SignalR.Client
 @implements IAsyncDisposable
 
 @using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Queries
 @inject QuestionApiClient QuestionApi
+@inject QuestionGroupApiClient QuestionGroupApi
 @inject ActiveUsersApiClient ActiveUsersApi
 @inject IJSRuntime JsRuntime
 @inject IHttpMessageHandlerFactory HttpMessageHandlerFactory
@@ -23,69 +26,205 @@
     </div>
 </div>
 
-<div class="mb-4">
-    <button class="btn btn-primary" @onclick="OpenCreateQuestionModal">Create New Question</button>
+<!-- グループ選択UI -->
+<div class="row mb-4">
+    <div class="col">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Question Groups</h5>
+                <button class="btn btn-primary btn-sm" @onclick="OpenCreateGroupModal">Create New Group</button>
+            </div>
+            <div class="card-body">
+                @if (groups == null)
+                {
+                    <p><em>Loading groups...</em></p>
+                }
+                else if (!groups.Any())
+                {
+                    <div class="alert alert-info">
+                        No question groups found. Create a group to get started.
+                    </div>
+                }
+                else
+                {
+                    <div class="list-group">
+                        @foreach (var group in groups)
+                        {
+                            <button type="button" 
+                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(selectedGroupId == group.Id ? "active" : "")"
+                                    @onclick="() => SelectGroup(group.Id)">
+                                @group.Name
+                                <span class="badge bg-primary rounded-pill">@group.Questions.Count</span>
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
 </div>
 
-@if (questions == null)
+<!-- グループ選択時のアクションボタン -->
+@if (selectedGroupId.HasValue)
 {
-    <p><em>Loading...</em></p>
-}
-else if (!questions.Any())
-{
-    <p>No questions found. Create a new question to get started.</p>
-}
-else
-{
-    <h2>Questions</h2>
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Question</th>
-                    <th>Options</th>
-                    <th>Status</th>
-                    <th>Responses</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var question in questions)
-                {
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>Questions in Group: @(groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.Name ?? "")</h2>
+            <div>
+                <button class="btn btn-outline-secondary me-2" @onclick="() => OpenEditGroupModal(selectedGroupId.Value)">
+                    <i class="bi bi-pencil"></i> Edit Group
+                </button>
+                <button class="btn btn-danger me-2" @onclick="() => DeleteGroup(selectedGroupId.Value)">
+                    <i class="bi bi-trash"></i> Delete Group
+                </button>
+                <button class="btn btn-primary" @onclick="() => OpenCreateQuestionInGroupModal(selectedGroupId.Value)">
+                    <i class="bi bi-plus"></i> Add Question
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 選択されたグループの質問を表示 -->
+    @if (questionsInGroup == null)
+    {
+        <p><em>Loading questions...</em></p>
+    }
+    else if (!questionsInGroup.Any())
+    {
+        <p>No questions in this group. Create a new question to get started.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
                     <tr>
-                        <td>@question.Text</td>
-                        <td>@question.OptionCount options</td>
-                        <td>
-                            @if (question.IsDisplayed)
-                            {
-                                <span class="badge bg-success">Active</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-secondary">Inactive</span>
-                            }
-                        </td>
-                        <td>@question.ResponseCount responses</td>
-                        <td>
-                            <div class="btn-group">
-                                <button class="btn btn-sm btn-info me-1" @onclick="() => ViewQuestionDetails(question.QuestionId)">View</button>
-                                <button class="btn btn-sm btn-primary me-1" @onclick="() => OpenEditQuestionModal(question.QuestionId)">Edit</button>
-                                @if (!question.IsDisplayed)
+                        <th>Order</th>
+                        <th>Question</th>
+                        <th>Options</th>
+                        <th>Status</th>
+                        <th>Responses</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var question in questionsInGroup.OrderBy(q => GetQuestionOrderInGroup(q.Id)))
+                    {
+                        <tr>
+                            <td>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ChangeQuestionOrder(question.Id, GetQuestionOrderInGroup(question.Id) - 1)" disabled="@(GetQuestionOrderInGroup(question.Id) <= 0)">
+                                        <i class="bi bi-arrow-up"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ChangeQuestionOrder(question.Id, GetQuestionOrderInGroup(question.Id) + 1)" disabled="@(GetQuestionOrderInGroup(question.Id) >= questionsInGroup.Count - 1)">
+                                        <i class="bi bi-arrow-down"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td>@question.Text</td>
+                            <td>@question.Options.Count options</td>
+                            <td>
+                                @if (question.IsDisplayed)
                                 {
-                                    <button class="btn btn-sm btn-success me-1" @onclick="() => StartDisplayQuestion(question.QuestionId)">Start Display</button>
-                                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteQuestion(question.QuestionId)">Delete</button>
+                                    <span class="badge bg-success">Active</span>
                                 }
                                 else
                                 {
-                                    <button class="btn btn-sm btn-warning" @onclick="() => StopDisplayQuestion(question.QuestionId)">Stop Display</button>
+                                    <span class="badge bg-secondary">Inactive</span>
                                 }
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                            </td>
+                            <td>@(GetResponseCountForQuestion(question.Id)) responses</td>
+                            <td>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-info me-1" @onclick="() => ViewQuestionDetails(question.Id)">View</button>
+                                    <button class="btn btn-sm btn-primary me-1" @onclick="() => OpenEditQuestionModal(question.Id)">Edit</button>
+                                    @if (!question.IsDisplayed)
+                                    {
+                                        <button class="btn btn-sm btn-success me-1" @onclick="() => StartDisplayQuestion(question.Id)">Start Display</button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteQuestion(question.Id)">Delete</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-warning" @onclick="() => StopDisplayQuestion(question.Id)">Stop Display</button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+else
+{
+    <div class="mb-4">
+        <button class="btn btn-primary" @onclick="OpenCreateQuestionModal">Create New Question</button>
     </div>
+
+    <!-- 全ての質問を表示 (グループが選択されていない場合) -->
+    @if (questions == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else if (!questions.Any())
+    {
+        <p>No questions found. Create a new question to get started.</p>
+    }
+    else
+    {
+        <h2>All Questions</h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Question</th>
+                        <th>Group</th>
+                        <th>Options</th>
+                        <th>Status</th>
+                        <th>Responses</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var question in questions)
+                    {
+                        <tr>
+                            <td>@question.Text</td>
+                            <td>@GetGroupName(question.QuestionId)</td>
+                            <td>@question.OptionCount options</td>
+                            <td>
+                                @if (question.IsDisplayed)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Inactive</span>
+                                }
+                            </td>
+                            <td>@question.ResponseCount responses</td>
+                            <td>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-info me-1" @onclick="() => ViewQuestionDetails(question.QuestionId)">View</button>
+                                    <button class="btn btn-sm btn-primary me-1" @onclick="() => OpenEditQuestionModal(question.QuestionId)">Edit</button>
+                                    @if (!question.IsDisplayed)
+                                    {
+                                        <button class="btn btn-sm btn-success me-1" @onclick="() => StartDisplayQuestion(question.QuestionId)">Start Display</button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteQuestion(question.QuestionId)">Delete</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-warning" @onclick="() => StopDisplayQuestion(question.QuestionId)">Stop Display</button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 }
 
 @if (selectedQuestion != null)
@@ -221,6 +360,32 @@ else
     </div>
 </div>
 
+<!-- Create/Edit Group Modal -->
+<div class="modal fade" id="groupModal" tabindex="-1" aria-labelledby="groupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="groupModalLabel">@(isEditGroupMode ? "Edit Group" : "Create New Group")</h5>
+                <button type="button" class="btn-close" @onclick="CloseGroupModal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="groupName" class="form-label">Group Name</label>
+                    <input type="text" class="form-control" id="groupName" @bind="groupModel.Name" />
+                    @if (!string.IsNullOrEmpty(groupModel.NameError))
+                    {
+                        <div class="text-danger">@groupModel.NameError</div>
+                    }
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseGroupModal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveGroup">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @code {
     private HubConnection? hubConnection;
     private List<QuestionListQuery.QuestionSummaryRecord>? questions;
@@ -229,6 +394,13 @@ else
     private bool isEditMode = false;
     private Guid? editQuestionId;
     private ActiveUsersQuery.ActiveUsersRecord? activeUsers;
+    // Question group related fields
+    private List<GetQuestionGroupsQuery.ResultRecord>? groups;
+    private List<GetQuestionsByGroupIdQuery.ResultRecord>? questionsInGroup;
+    private Guid? selectedGroupId;
+    private GroupModel groupModel = new();
+    private bool isEditGroupMode = false;
+    private Guid? editGroupId;
     // Fixed aggregate ID for the ActiveUsers aggregate
     private readonly Guid activeUsersId = Guid.Parse("0195a6f7-dfff-75a7-b99f-36a0552a8eca");
 
@@ -379,6 +551,51 @@ else
             }
         });
 
+        // Group-related event handlers
+        hubConnection.On<object>("QuestionGroupCreated", async _ =>
+        {
+            await RefreshGroups();
+            Console.WriteLine("Question group created event received");
+        });
+
+        hubConnection.On<object>("QuestionGroupUpdated", async _ =>
+        {
+            await RefreshGroups();
+            Console.WriteLine("Question group updated event received");
+        });
+
+        hubConnection.On<object>("QuestionGroupDeleted", async _ =>
+        {
+            await RefreshGroups();
+            if (selectedGroupId != null && groups != null && groups.All(g => g.Id != selectedGroupId))
+            {
+                selectedGroupId = null;
+                questionsInGroup = null;
+            }
+            Console.WriteLine("Question group deleted event received");
+        });
+
+        hubConnection.On<object>("QuestionAddedToGroup", async _ =>
+        {
+            await RefreshGroups();
+            await RefreshQuestionsInGroup();
+            Console.WriteLine("Question added to group event received");
+        });
+
+        hubConnection.On<object>("QuestionRemovedFromGroup", async _ =>
+        {
+            await RefreshGroups();
+            await RefreshQuestionsInGroup();
+            Console.WriteLine("Question removed from group event received");
+        });
+
+        hubConnection.On<object>("QuestionOrderChanged", async _ =>
+        {
+            await RefreshGroups();
+            await RefreshQuestionsInGroup();
+            Console.WriteLine("Question order changed event received");
+        });
+
         // Start the connection
         try
         {
@@ -400,6 +617,9 @@ else
         
         // Refresh active users
         await RefreshActiveUsers();
+
+        // Refresh groups
+        await RefreshGroups();
     }
 
     private async Task RefreshActiveUsers()
@@ -426,12 +646,76 @@ else
             var fetchedQuestions = await QuestionApi.GetQuestionsAsync();
             questions = fetchedQuestions.ToList();
             Console.WriteLine($"Fetched {questions.Count} questions");
+            await RefreshQuestionsInGroup();
             await InvokeAsync(() => StateHasChanged());
             Console.WriteLine("State has changed");
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error refreshing questions: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshQuestionsInGroup()
+    {
+        if (selectedGroupId.HasValue)
+        {
+            try {
+                Console.WriteLine($"Refreshing questions in group {selectedGroupId.Value}...");
+                questionsInGroup = await QuestionGroupApi.GetQuestionsInGroupAsync(selectedGroupId.Value);
+                Console.WriteLine($"Fetched {questionsInGroup.Count} questions in group");
+                await InvokeAsync(() => StateHasChanged());
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error refreshing questions in group: {ex.Message}");
+                // Fall back to filtering from the main questions list - using the GetGroupName method to find questions in this group
+                var groupId = selectedGroupId.Value;
+                
+                if (questions != null)
+                {
+                    var matchingQuestions = new List<GetQuestionsByGroupIdQuery.ResultRecord>();
+                    
+                    foreach (var q in questions)
+                    {
+                        if (GetGroupName(q.QuestionId) == GetGroupName(groupId))
+                        {
+                            // Need to get detailed question info to get options
+                            try
+                            {
+                                var detailedQuestion = await QuestionApi.GetQuestionByIdAsync(q.QuestionId);
+                                if (detailedQuestion != null)
+                                {
+                                    var options = detailedQuestion.Options
+                                        .Select(o => new GetQuestionsByGroupIdQuery.QuestionOptionRecord(o.Id, o.Text))
+                                        .ToList();
+                                        
+                                    matchingQuestions.Add(new GetQuestionsByGroupIdQuery.ResultRecord(
+                                        q.QuestionId, 
+                                        q.Text, 
+                                        options,
+                                        q.IsDisplayed,
+                                        groupId));
+                                }
+                            }
+                            catch (Exception optionEx)
+                            {
+                                Console.Error.WriteLine($"Error getting detailed question: {optionEx.Message}");
+                            }
+                        }
+                    }
+                    
+                    questionsInGroup = matchingQuestions;
+                }
+                else
+                {
+                    questionsInGroup = new List<GetQuestionsByGroupIdQuery.ResultRecord>();
+                }
+            }
+        }
+        else
+        {
+            questionsInGroup = null;
         }
     }
 
@@ -451,6 +735,21 @@ else
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error refreshing selected question: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshGroups()
+    {
+        try
+        {
+            Console.WriteLine("Refreshing groups...");
+            groups = await QuestionGroupApi.GetGroupsAsync();
+            Console.WriteLine($"Fetched {groups?.Count ?? 0} groups");
+            await InvokeAsync(() => StateHasChanged());
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error refreshing groups: {ex.Message}");
         }
     }
 
@@ -475,6 +774,22 @@ else
         editQuestionId = null;
         questionModel = new QuestionModel
         {
+            Options = new List<QuestionOptionModel>
+            {
+                new QuestionOptionModel { Id = "1", Text = "" },
+                new QuestionOptionModel { Id = "2", Text = "" }
+            }
+        };
+        await ShowModal();
+    }
+
+    private async Task OpenCreateQuestionInGroupModal(Guid groupId)
+    {
+        isEditMode = false;
+        editQuestionId = null;
+        questionModel = new QuestionModel
+        {
+            QuestionGroupId = groupId,
             Options = new List<QuestionOptionModel>
             {
                 new QuestionOptionModel { Id = "1", Text = "" },
@@ -549,8 +864,21 @@ else
             }
             else
             {
-                await QuestionApi.CreateQuestionAsync(questionModel.Text, options);
-                Console.WriteLine("Question created");
+                // Use the selected group if specified, otherwise use a default group
+                var groupId = questionModel.QuestionGroupId != Guid.Empty ? 
+                    questionModel.QuestionGroupId : 
+                    // If no group is selected and we have at least one group, use the first one
+                    (groups?.FirstOrDefault()?.Id ?? Guid.Parse("11111111-1111-1111-1111-111111111111")); 
+                
+                // Create the question with the appropriate group ID
+                await QuestionApi.CreateQuestionWithGroupAsync(questionModel.Text, options, groupId);
+                Console.WriteLine($"Question created in group {groupId}");
+                
+                // If we're creating within a group, add it to that group's questions
+                if (selectedGroupId.HasValue && selectedGroupId.Value == groupId)
+                {
+                    await RefreshQuestionsInGroup();
+                }
             }
             
             await CloseModal();
@@ -644,9 +972,152 @@ else
         }
     }
 
+    private async Task OpenCreateGroupModal()
+    {
+        isEditGroupMode = false;
+        editGroupId = null;
+        groupModel = new GroupModel();
+        await ShowGroupModal();
+    }
+
+    private async Task OpenEditGroupModal(Guid groupId)
+    {
+        isEditGroupMode = true;
+        editGroupId = groupId;
+
+        var group = groups?.FirstOrDefault(g => g.Id == groupId);
+        if (group != null)
+        {
+            groupModel = new GroupModel
+            {
+                Name = group.Name
+            };
+            await ShowGroupModal();
+        }
+    }
+
+    private async Task SaveGroup()
+    {
+        // Validate
+        bool isValid = true;
+
+        if (string.IsNullOrWhiteSpace(groupModel.Name))
+        {
+            groupModel.NameError = "Group name is required";
+            isValid = false;
+        }
+        else
+        {
+            groupModel.NameError = null;
+        }
+
+        if (!isValid)
+        {
+            return;
+        }
+
+        try
+        {
+            Console.WriteLine("Saving group...");
+            if (isEditGroupMode && editGroupId.HasValue)
+            {
+                await QuestionGroupApi.UpdateGroupAsync(editGroupId.Value, groupModel.Name);
+                Console.WriteLine("Group updated");
+            }
+            else
+            {
+                await QuestionGroupApi.CreateGroupAsync(groupModel.Name);
+                Console.WriteLine("Group created");
+            }
+
+            await CloseGroupModal();
+
+            // Manually refresh groups after saving
+            await RefreshGroups();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving group: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteGroup(Guid groupId)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this group?"))
+        {
+            try
+            {
+                Console.WriteLine($"Deleting group {groupId}...");
+                await QuestionGroupApi.DeleteGroupAsync(groupId);
+                Console.WriteLine("Group deleted");
+
+                if (selectedGroupId == groupId)
+                {
+                    selectedGroupId = null;
+                }
+
+                // Manually refresh groups after deleting
+                await RefreshGroups();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error deleting group: {ex.Message}");
+            }
+        }
+    }
+
+    private void SelectGroup(Guid groupId)
+    {
+        Console.WriteLine($"Selecting group {groupId}...");
+        selectedGroupId = groupId;
+        RefreshQuestionsInGroup();
+        StateHasChanged();
+    }
+
     private string GetOptionText(List<QuestionOption> options, string optionId)
     {
         return options.FirstOrDefault(o => o.Id == optionId)?.Text ?? "Unknown";
+    }
+
+    private string GetGroupName(Guid? groupId)
+    {
+        if (groupId == null || groupId == Guid.Empty)
+            return "No Group";
+            
+        return groups?.FirstOrDefault(g => g.Id == groupId)?.Name ?? "Unknown Group";
+    }
+
+    private int GetQuestionOrderInGroup(Guid questionId)
+    {
+        if (selectedGroupId == null || groups == null)
+            return -1;
+            
+        var group = groups.FirstOrDefault(g => g.Id == selectedGroupId);
+        if (group == null)
+            return -1;
+            
+        var questionRef = group.Questions.FirstOrDefault(q => q.QuestionId == questionId);
+        return questionRef != null ? questionRef.Order : -1;
+    }
+
+    private async Task ChangeQuestionOrder(Guid questionId, int newOrder)
+    {
+        if (selectedGroupId == null || newOrder < 0)
+            return;
+            
+        try
+        {
+            Console.WriteLine($"Changing order for question {questionId} to {newOrder}");
+            await QuestionGroupApi.ChangeQuestionOrderAsync(selectedGroupId.Value, questionId, newOrder);
+            
+            // Refresh the group's questions
+            await RefreshGroups();
+            await RefreshQuestionsInGroup();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error changing question order: {ex.Message}");
+        }
     }
 
     private async Task ShowModal()
@@ -657,6 +1128,35 @@ else
     private async Task CloseModal()
     {
         await JsRuntime.InvokeVoidAsync("hideModal", "questionModal");
+    }
+
+    private async Task ShowGroupModal()
+    {
+        await JsRuntime.InvokeVoidAsync("showModal", "groupModal");
+    }
+
+    private async Task CloseGroupModal()
+    {
+        await JsRuntime.InvokeVoidAsync("hideModal", "groupModal");
+    }
+
+    private int GetResponseCountForQuestion(Guid questionId)
+    {
+        // Try to get response count from the detailed data first
+        if (selectedQuestion != null && selectedQuestion.QuestionId == questionId)
+        {
+            return selectedQuestion.Responses.Count;
+        }
+        
+        // Otherwise, get it from the questions list
+        var questionSummary = questions?.FirstOrDefault(q => q.QuestionId == questionId);
+        if (questionSummary != null)
+        {
+            return questionSummary.ResponseCount;
+        }
+        
+        // Default fallback
+        return 0;
     }
 
     public async ValueTask DisposeAsync()
@@ -673,12 +1173,19 @@ else
         public string? TextError { get; set; }
         public List<QuestionOptionModel> Options { get; set; } = new();
         public string? OptionsError { get; set; }
+        public Guid QuestionGroupId { get; set; } = Guid.Empty;
     }
 
     private class QuestionOptionModel
     {
         public string Id { get; set; } = "";
         public string Text { get; set; } = "";
+    }
+
+    private class GroupModel
+    {
+        public string Name { get; set; } = "";
+        public string? NameError { get; set; }
     }
 }
 

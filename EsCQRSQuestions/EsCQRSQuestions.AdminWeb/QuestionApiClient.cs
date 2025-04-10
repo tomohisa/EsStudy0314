@@ -48,6 +48,15 @@ public class QuestionApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync<object>() ?? new {};
     }
 
+    // Create question with specific group ID
+    public async Task<object> CreateQuestionWithGroupAsync(string text, List<QuestionOption> options, Guid questionGroupId, CancellationToken cancellationToken = default)
+    {
+        var command = new CreateQuestionCommand(text, options, questionGroupId);
+        var response = await httpClient.PostAsJsonAsync("/api/questions/create", command, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+    }
+
     // Update question
     public async Task<object> UpdateQuestionAsync(Guid questionId, string text, List<QuestionOption> options, CancellationToken cancellationToken = default)
     {
