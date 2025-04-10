@@ -118,8 +118,11 @@ public class InitialQuestionsService : IHostedService
         {
             try
             {
-                // Create the question
-                var command = new CreateQuestionCommand(text, options);
+                // Create a default question group ID
+                var questionGroupId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+                
+                // Create the question with the required QuestionGroupId parameter
+                var command = new CreateQuestionCommand(text, options, questionGroupId);
                 await executor.CommandAsync(command);
                 _logger.LogInformation("Created question: {Text}", text);
                 return; // Success, exit the method

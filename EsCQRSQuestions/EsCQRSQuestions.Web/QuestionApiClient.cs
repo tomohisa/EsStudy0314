@@ -39,7 +39,10 @@ public class QuestionApiClient(HttpClient httpClient)
     // Create question
     public async Task<object> CreateQuestionAsync(string text, List<QuestionOption> options, CancellationToken cancellationToken = default)
     {
-        var command = new CreateQuestionCommand(text, options);
+        // Use a default question group ID
+        var questionGroupId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        
+        var command = new CreateQuestionCommand(text, options, questionGroupId);
         var response = await httpClient.PostAsJsonAsync("/api/questions/create", command, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<object>() ?? new {};
