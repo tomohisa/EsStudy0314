@@ -88,8 +88,10 @@ builder.Services.AddTransient<IHubNotificationService, HubNotificationService>()
 // Register the background service that will use the hub notification service
 builder.Services.AddHostedService<OrleansStreamBackgroundService>();
 
-// Register the service that will create initial questions
-builder.Services.AddHostedService<InitialQuestionsService>();
+// Register the InitialQuestionsCreator service instead of the hosted service
+builder.Services.AddTransient<InitialQuestionsCreator>();
+// Comment out or remove the hosted service registration
+// builder.Services.AddHostedService<InitialQuestionsService>();
 
 // Add SignalR
 builder.Services.AddSignalR();
@@ -275,5 +277,32 @@ apiRoute.MapGet("/activeusers/{id}", async (Guid id, [FromServices]SekibanOrlean
     })
     .WithOpenApi()
     .WithName("GetActiveUsers");
+
+// System administration endpoints
+apiRoute
+    .MapPost(
+        "/system/createInitialQuestions",
+        async (
+            HttpRequest request,
+            [FromServices] InitialQuestionsCreator creator,
+            [FromServices] IConfiguration configuration,
+            CancellationToken cancellationToken) => 
+        {
+            // Check authorization key for the initial questions creation
+            var initialQuestionsKey = configuration["InitialQuestionsKey"];
+            if (!string.IsNullOrEmpty(initialQuestionsKey))
+            {
+                var authHeader = request.Headers.Authorization.ToString();
+                if (string.IsNullOrEmpty(authHeader) || !authHeader.Equals($"Key {initialQuestionsKey}"))
+                {
+                    return Results.Unauthorized();
+                }
+            }
+            
+            await creator.CreateInitialQuestions(cancellationToken);
+            return Results.Ok(new { message = "Initial questions created successfully" });
+        })
+    .WithName("CreateInitialQuestions")
+    .WithOpenApi();
 
 app.Run();

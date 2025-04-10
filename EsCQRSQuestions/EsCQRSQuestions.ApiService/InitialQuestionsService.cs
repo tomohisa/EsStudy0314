@@ -1,9 +1,15 @@
+// NOTE: This class is deprecated and has been replaced by InitialQuestionsCreator.
+// The functionality has been moved to a dedicated endpoint and custom command.
+// See EsCQRSQuestions.ApiService.InitialQuestionsCreator for the implementation.
+
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using Sekiban.Pure.Orleans.Parts;
 
 namespace EsCQRSQuestions.ApiService;
 
+// This class is kept as a reference but is no longer used.
+// All functionality has been moved to InitialQuestionsCreator.
 public class InitialQuestionsService : IHostedService
 {
     private readonly IServiceProvider _serviceProvider;

@@ -57,6 +57,7 @@ namespace EsCQRSQuestions.Domain;
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionOrderChanged))]
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupDeleted>))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupDeleted))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupNameUpdated>))]
     // Aggregate payloads
     [JsonSerializable(typeof(Question))]
     [JsonSerializable(typeof(DeletedQuestion))]
