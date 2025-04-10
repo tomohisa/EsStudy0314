@@ -406,41 +406,72 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // Set up SignalR connection
+        // Set up SignalR connection with improved timeout and retry settings
         hubConnection = new HubConnectionBuilder()
             .WithUrlWithClientFactory("https+http://apiservice/questionHub", HttpMessageHandlerFactory)
-            .WithAutomaticReconnect(new[] { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(5) })  // より積極的な再接続
+            .WithAutomaticReconnect(new[] { 
+                TimeSpan.FromSeconds(1), 
+                TimeSpan.FromSeconds(2), 
+                TimeSpan.FromSeconds(5),
+                TimeSpan.FromSeconds(10) 
+            })
+            .ConfigureLogging(logging => {
+                logging.AddConsole();
+                logging.SetMinimumLevel(LogLevel.Debug);
+            })
             .Build();
 
-        // 接続状態の変更をより詳細にログ出力
+        // Configure closed event with exponential backoff retry
         hubConnection.Closed += async (error) =>
         {
             Console.Error.WriteLine($"SignalR connection closed: {error?.Message}");
             Console.Error.WriteLine($"Connection state: {hubConnection.State}");
-            await Task.Delay(new Random().Next(0, 5) * 1000);
-            try
+            
+            // Implement exponential backoff
+            for (var i = 0; i < 5; i++)
             {
-                await hubConnection.StartAsync();
-                Console.WriteLine("SignalR connection restarted successfully");
-                // 再接続後に管理者グループに再参加
-                await hubConnection.InvokeAsync("JoinAdminGroup");
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Error restarting SignalR connection: {ex.Message}");
+                try
+                {
+                    var retryDelay = Math.Min(1000 * Math.Pow(2, i), 30000); // exponential backoff capped at 30s
+                    Console.WriteLine($"Attempting reconnection in {retryDelay/1000} seconds...");
+                    await Task.Delay((int)retryDelay);
+                    
+                    await hubConnection.StartAsync();
+                    Console.WriteLine("SignalR connection restarted successfully");
+                    
+                    // Rejoin admin group after reconnection
+                    await hubConnection.InvokeAsync("JoinAdminGroup");
+                    
+                    // Refresh data after reconnection
+                    await RefreshActiveUsers();
+                    await RefreshQuestions();
+                    await RefreshGroups();
+                    
+                    break; // Exit the retry loop if successful
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Error during reconnection attempt {i+1}: {ex.Message}");
+                    if (i == 4) // Last attempt
+                    {
+                        Console.Error.WriteLine("Failed to reconnect after multiple attempts");
+                    }
+                }
             }
         };
 
-        // 接続状態の変更をログ出力
+        // Connection state change handlers with detailed logging
         hubConnection.Reconnecting += (error) =>
         {
-            Console.WriteLine($"SignalR reconnecting: {error?.Message}");
+            Console.WriteLine($"SignalR reconnecting... Error: {error?.Message}");
+            Console.WriteLine($"Connection state: {hubConnection.State}");
             return Task.CompletedTask;
         };
 
         hubConnection.Reconnected += (connectionId) =>
         {
             Console.WriteLine($"SignalR reconnected with connection ID: {connectionId}");
+            Console.WriteLine($"Connection state: {hubConnection.State}");
             return Task.CompletedTask;
         };
 
@@ -596,14 +627,29 @@ else
             Console.WriteLine("Question order changed event received");
         });
 
-        // Start the connection
+        // Start the connection with timeout handling
         try
         {
             Console.WriteLine("Starting SignalR connection...");
-            await hubConnection.StartAsync();
-            Console.WriteLine("SignalR connection started successfully");
             
-            // 明示的に管理者グループに参加
+            // Create a task that will complete if the connection times out
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
+            var connectionTask = hubConnection.StartAsync();
+            
+            // Wait for either the connection to complete or the timeout
+            var completedTask = await Task.WhenAny(connectionTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                throw new TimeoutException("SignalR connection timed out after 30 seconds");
+            }
+            
+            // Ensure the connection task completed successfully
+            await connectionTask;
+            
+            Console.WriteLine($"SignalR connection established successfully. State: {hubConnection.State}");
+            
+            // Join admin group explicitly
             await hubConnection.InvokeAsync("JoinAdminGroup");
         }
         catch (Exception ex)
@@ -614,11 +660,7 @@ else
 
         // Load initial data
         await RefreshQuestions();
-        
-        // Refresh active users
         await RefreshActiveUsers();
-
-        // Refresh groups
         await RefreshGroups();
     }
 

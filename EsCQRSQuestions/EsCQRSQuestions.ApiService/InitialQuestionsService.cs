@@ -20,10 +20,15 @@ public class InitialQuestionsService : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+#if DEBUG
+        // Wait for 10 seconds to ensure the database is ready
+        _logger.LogInformation("Waiting for 100 seconds before creating initial questions...");
+        await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+#else
         // Wait for 10 seconds to ensure the database is ready
         _logger.LogInformation("Waiting for 100 seconds before creating initial questions...");
         await Task.Delay(TimeSpan.FromSeconds(100), cancellationToken);
-        
+#endif
         // Use a scope to get the required services
         using var scope = _serviceProvider.CreateScope();
         var executor = scope.ServiceProvider.GetRequiredService<SekibanOrleansExecutor>();
