@@ -6,6 +6,7 @@
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
 @using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries
+@using EsCQRSQuestions.Domain.Projections.Questions
 @using EsCQRSQuestions.AdminWeb.Models // Added using for shared models
 
 @implements IAsyncDisposable
@@ -54,9 +55,8 @@
 }
 else
 {
-    <AllQuestionsList 
-        Questions="questions" 
-        GetGroupName="GetGroupName" 
+    <AllQuestionsWithGroupInfoList 
+        Questions="questionsWithGroupInfo" 
         OnViewQuestion="ViewQuestionDetails" 
         OnEditQuestion="OpenEditQuestionModal" 
         OnStartDisplay="StartDisplayQuestion" 
@@ -90,6 +90,7 @@ else
 @code {
     private HubConnection? hubConnection;
     private List<QuestionListQuery.QuestionSummaryRecord>? questions;
+    private List<QuestionsQuery.QuestionDetailRecord>? questionsWithGroupInfo;
     private QuestionDetailQuery.QuestionDetailRecord? selectedQuestion;
     private QuestionEditModel questionModel = new(); // Changed type to shared model
     private bool isEditMode = false;
@@ -381,9 +382,15 @@ else
         try
         {
             Console.WriteLine("Refreshing questions...");
+            // 旧APIを使用して互換性を維持
             var fetchedQuestions = await QuestionApi.GetQuestionsAsync();
             questions = fetchedQuestions.ToList();
-            Console.WriteLine($"Fetched {questions.Count} questions");
+            
+            // 新しいMultiProjectorを使用したAPIも呼び出す
+            var fetchedQuestionsWithGroupInfo = await QuestionApi.GetQuestionsWithGroupInfoAsync();
+            questionsWithGroupInfo = fetchedQuestionsWithGroupInfo.ToList();
+            
+            Console.WriteLine($"Fetched {questions.Count} questions and {questionsWithGroupInfo.Count} questions with group info");
             await RefreshQuestionsInGroup();
             await InvokeAsync(() => StateHasChanged());
             Console.WriteLine("State has changed");

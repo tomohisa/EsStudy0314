@@ -184,6 +184,17 @@ app.MapDefaultEndpoints();
 
 // Question API endpoints
 // Queries
+
+// 新しいマルチプロジェクターを使用するエンドポイント
+apiRoute.MapGet("/questions/multi", async ([FromServices]SekibanOrleansExecutor executor, [FromQuery] string textContains = "") =>
+    {
+        var list = await executor.QueryAsync(new EsCQRSQuestions.Domain.Projections.Questions.QuestionsQuery(textContains)).UnwrapBox();
+        return list.Items;
+    })
+    .WithOpenApi()
+    .WithName("GetQuestionsMulti");
+    
+// クライアント側との互換性のための既存エンドポイント維持
 apiRoute.MapGet("/questions", async ([FromServices]SekibanOrleansExecutor executor) =>
     {
         var list = await executor.QueryAsync(new QuestionListQuery()).UnwrapBox();
@@ -191,6 +202,14 @@ apiRoute.MapGet("/questions", async ([FromServices]SekibanOrleansExecutor execut
     })
     .WithOpenApi()
     .WithName("GetQuestions");
+    
+apiRoute.MapGet("/questions/bygroup/{groupId}", async (Guid groupId, [FromServices]SekibanOrleansExecutor executor, [FromQuery] string textContains = "") =>
+    {
+        var list = await executor.QueryAsync(new EsCQRSQuestions.Domain.Projections.Questions.QuestionsQuery(textContains, groupId)).UnwrapBox();
+        return list.Items;
+    })
+    .WithOpenApi()
+    .WithName("GetQuestionsByGroup");
 
 apiRoute.MapGet("/questions/active", async ([FromServices]SekibanOrleansExecutor executor) =>
     {

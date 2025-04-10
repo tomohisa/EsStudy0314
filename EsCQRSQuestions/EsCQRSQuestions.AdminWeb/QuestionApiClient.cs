@@ -1,18 +1,53 @@
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
+using EsCQRSQuestions.Domain.Projections.Questions;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace EsCQRSQuestions.AdminWeb;
 
 public class QuestionApiClient(HttpClient httpClient)
 {
-    // Get all questions
+    // Get all questions (existing method for compatibility)
     public async Task<QuestionListQuery.QuestionSummaryRecord[]> GetQuestionsAsync(CancellationToken cancellationToken = default)
     {
         List<QuestionListQuery.QuestionSummaryRecord>? questions = null;
 
         await foreach (var question in httpClient.GetFromJsonAsAsyncEnumerable<QuestionListQuery.QuestionSummaryRecord>("/api/questions", cancellationToken))
+        {
+            if (question is not null)
+            {
+                questions ??= [];
+                questions.Add(question);
+            }
+        }
+
+        return questions?.ToArray() ?? [];
+    }
+    
+    // Get all questions with group information using the multi projector
+    public async Task<QuestionsQuery.QuestionDetailRecord[]> GetQuestionsWithGroupInfoAsync(string textContains = "", CancellationToken cancellationToken = default)
+    {
+        List<QuestionsQuery.QuestionDetailRecord>? questions = null;
+
+        await foreach (var question in httpClient.GetFromJsonAsAsyncEnumerable<QuestionsQuery.QuestionDetailRecord>($"/api/questions/multi?textContains={Uri.EscapeDataString(textContains ?? "")}", cancellationToken))
+        {
+            if (question is not null)
+            {
+                questions ??= [];
+                questions.Add(question);
+            }
+        }
+
+        return questions?.ToArray() ?? [];
+    }
+    
+    // Get questions by group using the multi projector
+    public async Task<QuestionsQuery.QuestionDetailRecord[]> GetQuestionsByGroupAsync(Guid groupId, string textContains = "", CancellationToken cancellationToken = default)
+    {
+        List<QuestionsQuery.QuestionDetailRecord>? questions = null;
+
+        await foreach (var question in httpClient.GetFromJsonAsAsyncEnumerable<QuestionsQuery.QuestionDetailRecord>($"/api/questions/bygroup/{groupId}?textContains={Uri.EscapeDataString(textContains ?? "")}", cancellationToken))
         {
             if (question is not null)
             {

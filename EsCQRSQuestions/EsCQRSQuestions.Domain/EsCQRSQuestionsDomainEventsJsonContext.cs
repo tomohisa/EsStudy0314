@@ -76,6 +76,13 @@ namespace EsCQRSQuestions.Domain;
     // Workflow command types
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Workflows.QuestionGroupWorkflow.CreateGroupWithQuestionsCommand))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Workflows.QuestionGroupWorkflow.MoveQuestionBetweenGroupsCommand))]
+    
+    // MultiProjector and Query
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Projections.Questions.QuestionsMultiProjector))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Projections.Questions.QuestionsMultiProjector.QuestionGroupInfo))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Projections.Questions.QuestionsMultiProjector.QuestionInfo))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Projections.Questions.QuestionsQuery))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Projections.Questions.QuestionsQuery.QuestionDetailRecord))]
     public partial class EsCQRSQuestionsDomainEventsJsonContext : JsonSerializerContext
     {
     }
