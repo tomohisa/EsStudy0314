@@ -72,7 +72,7 @@ else
     public List<QuestionListQuery.QuestionSummaryRecord>? Questions { get; set; }
     
     [Parameter]
-    public Func<Guid, string> GetGroupName { get; set; } = _ => "Unknown Group";
+    public Func<Guid?, string> GetGroupName { get; set; } = _ => "Unknown Group";
     
     [Parameter]
     public EventCallback<Guid> OnViewQuestion { get; set; }

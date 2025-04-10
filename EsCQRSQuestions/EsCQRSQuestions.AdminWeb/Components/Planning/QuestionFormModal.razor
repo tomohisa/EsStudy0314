@@ -16,6 +16,23 @@
                         <div class="text-danger">@Model.TextError</div>
                     }
                 </div>
+
+                <div class="mb-3">
+                    <label for="questionGroup" class="form-label">Question Group</label>
+                    <select class="form-select" id="questionGroup" @bind="Model.QuestionGroupId">
+                        @if (AvailableGroups == null || !AvailableGroups.Any())
+                        {
+                            <option value="@Guid.Empty">No groups available</option>
+                        }
+                        else
+                        {
+                            @foreach (var group in AvailableGroups)
+                            {
+                                <option value="@group.Id">@group.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
                 
                 <div class="mb-3">
                     <label class="form-label">Options</label>
@@ -62,6 +79,9 @@
     
     [Parameter]
     public EventCallback OnSave { get; set; }
+    
+    [Parameter]
+    public IEnumerable<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries.GetQuestionGroupsQuery.ResultRecord>? AvailableGroups { get; set; }
     
     private void AddOption()
     {

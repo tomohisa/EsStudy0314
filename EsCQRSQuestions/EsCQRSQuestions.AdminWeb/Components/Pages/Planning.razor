@@ -77,7 +77,8 @@ else
                    IsEditMode="isEditMode" 
                    Model="questionModel" 
                    OnSave="SaveQuestion"
-                   OnClose="CloseQuestionModal" /> 
+                   OnClose="CloseQuestionModal"
+                   AvailableGroups="groups" /> 
 
 <!-- Note: @ref is removed as direct component interaction is replaced by JS interop -->
 <GroupFormModal 
@@ -516,10 +517,80 @@ else
     private async Task HideModal(string modalId)
     {
         try {
-            // Use getInstance to avoid issues if modal wasn't initialized or was already hidden
-            await JsRuntime.InvokeVoidAsync("eval", $"bootstrap.Modal.getInstance(document.getElementById('{modalId}'))?.hide()");
+            // モーダルを強制的に閉じるための直接的なJavaScriptコード
+            await JsRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    console.log('Attempting to close modal: #" + modalId + @"');
+                    
+                    // 方法1: Bootstrap 5のAPIを使用
+                    try {
+                        var modalElement = document.getElementById('" + modalId + @"');
+                        console.log('Modal element:', modalElement);
+                        if (modalElement) {
+                            var bsModal = bootstrap.Modal.getInstance(modalElement);
+                            console.log('Bootstrap modal instance:', bsModal);
+                            if (bsModal) {
+                                bsModal.hide();
+                                console.log('Modal hidden via Bootstrap API');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error using Bootstrap API:', e);
+                    }
+
+                    // 方法2: DOMから直接モーダル要素を非表示に
+                    try {
+                        var modalEl = document.getElementById('" + modalId + @"');
+                        if (modalEl) {
+                            modalEl.style.display = 'none';
+                            modalEl.classList.remove('show');
+                            modalEl.setAttribute('aria-hidden', 'true');
+                            modalEl.removeAttribute('aria-modal');
+                            modalEl.removeAttribute('role');
+                            console.log('Modal hidden via direct DOM manipulation');
+                        }
+                    } catch (e) {
+                        console.error('Error manipulating modal element:', e);
+                    }
+
+                    // 方法3: モーダル背景の削除
+                    try {
+                        var backdrops = document.getElementsByClassName('modal-backdrop');
+                        console.log('Backdrop elements found:', backdrops.length);
+                        while (backdrops.length > 0) {
+                            backdrops[0].parentNode.removeChild(backdrops[0]);
+                        }
+                        console.log('Backdrops removed');
+                    } catch (e) {
+                        console.error('Error removing backdrops:', e);
+                    }
+
+                    // 方法4: bodyからモーダル関連のクラスとスタイルを削除
+                    try {
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                        console.log('Body styles reset');
+                    } catch (e) {
+                        console.error('Error resetting body styles:', e);
+                    }
+
+                    console.log('All modal close operations attempted');
+                })();
+            ");
+            
+            // StateHasChangedを呼び出してUIを更新
+            await InvokeAsync(() => StateHasChanged());
+            Console.WriteLine($"Modal {modalId} close attempt completed");
         } catch (Exception ex) {
-             Console.Error.WriteLine($"Error hiding modal {modalId}: {ex.Message}");
+            Console.Error.WriteLine($"Error hiding modal {modalId}: {ex.Message}");
+            try {
+                // 最終手段: ページをリロード
+                Console.WriteLine("Attempting page reload as last resort");
+                await JsRuntime.InvokeVoidAsync("eval", "window.location.reload();");
+            } catch (Exception reloadEx) {
+                Console.Error.WriteLine($"Even page reload failed: {reloadEx.Message}");
+            }
         }
     }
     
@@ -569,12 +640,29 @@ else
         var question = await QuestionApi.GetQuestionByIdAsync(questionId);
         if (question is not null)
         {
-            questionModel = new QuestionEditModel // Changed type to shared model
+            // 質問が所属するグループを特定
+            Guid questionGroupId = Guid.Empty;
+            if (groups != null)
+            {
+                foreach (var group in groups)
+                {
+                    if (group.Questions.Any(q => q.QuestionId == questionId))
+                    {
+                        questionGroupId = group.Id;
+                        break;
+                    }
+                }
+            }
+            
+            questionModel = new QuestionEditModel
             {
                 Text = question.Text,
-                Options = question.Options.Select(o => new QuestionOptionEditModel { Id = o.Id, Text = o.Text }).ToList() // Changed type to shared model
+                QuestionGroupId = questionGroupId, // グループIDを設定
+                Options = question.Options.Select(o => new QuestionOptionEditModel { Id = o.Id, Text = o.Text }).ToList()
             };
-            await ShowQuestionModal(); // Fixed
+            
+            Console.WriteLine($"Editing question {questionId} in group {questionGroupId}");
+            await ShowQuestionModal();
         }
     }
 
@@ -585,29 +673,81 @@ else
             Console.WriteLine("Saving question...");
             var options = questionModel.Options.Select(o => new QuestionOption(o.Id, o.Text)).ToList();
             
+            // デフォルトのグループIDを設定（モデルのグループIDが空の場合）
+            var groupIdToUse = questionModel.QuestionGroupId != Guid.Empty 
+                ? questionModel.QuestionGroupId 
+                : (groups?.FirstOrDefault()?.Id ?? Guid.Parse("11111111-1111-1111-1111-111111111111"));
+            
+            Console.WriteLine($"Selected group for question: {groupIdToUse}");
+            
             if (isEditMode && editQuestionId.HasValue)
             {
+                // まず質問自体を更新
                 await QuestionApi.UpdateQuestionAsync(editQuestionId.Value, questionModel.Text, options);
                 Console.WriteLine("Question updated");
+                
+                // 次に質問のグループ所属を処理
+                // グループを特定
+                Guid currentGroupId = Guid.Empty;
+                bool foundInGroup = false;
+                
+                if (groups != null)
+                {
+                    foreach (var group in groups)
+                    {
+                        if (group.Questions.Any(q => q.QuestionId == editQuestionId.Value))
+                        {
+                            currentGroupId = group.Id;
+                            foundInGroup = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // グループが変更された場合は移動処理
+                if (selectedGroupId != currentGroupId)
+                {
+                    Console.WriteLine($"Moving question from group {currentGroupId} to {selectedGroupId}");
+                    
+                    if (foundInGroup && currentGroupId != Guid.Empty)
+                    {
+                        // まず古いグループから削除
+                        await QuestionGroupApi.RemoveQuestionFromGroupAsync(currentGroupId, editQuestionId.Value);
+                    }
+                    
+                    // 新しいグループに追加
+                    if (selectedGroupId != Guid.Empty)
+                    {
+                        // 新しいグループの質問数を取得して最後に追加
+                        int order = 0;
+                        var groupQuestions = await QuestionGroupApi.GetQuestionsInGroupAsync(selectedGroupId ?? throw new ApplicationException("Group ID is null"));
+                        if (groupQuestions != null)
+                        {
+                            order = groupQuestions.Count;
+                        }
+                        
+                        await QuestionGroupApi.AddQuestionToGroupAsync(selectedGroupId.Value, editQuestionId.Value, order);
+                    }
+                }
             }
             else
             {
-                var groupId = questionModel.QuestionGroupId != Guid.Empty ? 
-                    questionModel.QuestionGroupId : 
-                    (groups?.FirstOrDefault()?.Id ?? Guid.Parse("11111111-1111-1111-1111-111111111111")); 
-                
-                await QuestionApi.CreateQuestionWithGroupAsync(questionModel.Text, options, groupId);
-                Console.WriteLine($"Question created in group {groupId}");
-                
-                if (selectedGroupId.HasValue && selectedGroupId.Value == groupId)
-                {
-                    await RefreshQuestionsInGroup();
-                }
+                // 新規質問作成 - groupIdToUse変数を使用
+                await QuestionApi.CreateQuestionWithGroupAsync(questionModel.Text, options, groupIdToUse);
+                Console.WriteLine($"Question created in group {groupIdToUse}");
             }
             
-            await CloseQuestionModal(); // Fixed
+            // モーダルを閉じる
+            await CloseQuestionModal();
             
+            // データを更新
             await RefreshQuestions();
+            await RefreshGroups();
+            
+            if (this.selectedGroupId.HasValue)
+            {
+                await RefreshQuestionsInGroup();
+            }
         }
         catch (Exception ex)
         {
@@ -761,7 +901,7 @@ else
     }
 
     // Fixed: Changed Guid? to Guid and removed null check
-    private string GetGroupName(Guid questionId) 
+    private string GetGroupName(Guid? questionId) 
     {
         var group = groups?.FirstOrDefault(g => g.Questions.Any(qRef => qRef.QuestionId == questionId));
         return group?.Name ?? "No Group";
@@ -773,7 +913,7 @@ else
         // If the currently selected detailed question matches the ID, return its response count.
         if (selectedQuestion?.QuestionId == questionId && selectedQuestion.Responses != null)
         {
-            return selectedQuestion.Responses.Count; // Use Responses.Count
+            return selectedQuestion.Responses.Count(); // Use Responses.Count()
         }
         // Otherwise, we don't have the detailed data readily available without another API call.
         // Returning 0 for now, indicating no data available in the current view model.
