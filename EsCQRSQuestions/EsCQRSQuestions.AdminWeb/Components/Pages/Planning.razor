@@ -267,14 +267,15 @@ else
 
         hubConnection.On<object>("ResponseAdded", async _ =>
         {
-            // Refresh the detailed view if the added response is for the selected question
-            // Note: The event payload might need to include the QuestionId to be more efficient
+            // すべての質問の情報をリフレッシュして回答数を更新する
+            Console.WriteLine("Response added event received - refreshing all questions");
+            await RefreshQuestions();
+            
+            // 詳細ビューも更新（選択中の質問がある場合）
             if (selectedQuestion is not null) 
             {
                  await RefreshSelectedQuestion();
             }
-            // Also refresh the list view response counts if applicable (requires changes to list query/component)
-            // For now, only refreshing detail view.
         });
 
         hubConnection.On<object>("QuestionDeleted", async _ =>
