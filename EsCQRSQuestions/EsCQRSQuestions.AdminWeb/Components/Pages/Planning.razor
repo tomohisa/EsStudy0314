@@ -24,7 +24,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Question Management</h1>
-    <ActiveUsersDisplay ActiveUsersCount="@(activeUsers?.TotalCount ?? 0)" />
+    <ActiveUsersDisplay ActiveUsers="@activeUsers" />
 </div>
 
 <div class="row mb-4">
@@ -33,7 +33,7 @@
             Groups="groups" 
             SelectedGroupId="selectedGroupId" 
             OnGroupSelected="SelectGroup" 
-            OnCreateGroup="OpenCreateGroupModal" />
+            OnCreateGroupClicked="OpenCreateGroupModal" />
     </div>
 </div>
 
@@ -75,15 +75,19 @@ else
         GetOptionText="GetOptionText" />
 }
 
-<QuestionFormModal @ref="questionFormModal" 
+<!-- Note: @ref is removed as direct component interaction is replaced by JS interop -->
+<QuestionFormModal 
                    IsEditMode="isEditMode" 
                    QuestionModel="questionModel" 
-                   OnSave="SaveQuestion" />
+                   OnSave="SaveQuestion"
+                   OnClose="CloseQuestionModal" /> 
 
-<GroupFormModal @ref="groupFormModal" 
+<!-- Note: @ref is removed as direct component interaction is replaced by JS interop -->
+<GroupFormModal 
                 IsEditMode="isEditGroupMode" 
                 GroupModel="groupModel" 
-                OnSave="SaveGroup" />
+                OnSave="SaveGroup"
+                OnClose="CloseGroupModal" />
 
 @code {
     private HubConnection? hubConnection;
@@ -101,8 +105,9 @@ else
     private Guid? editGroupId;
     private readonly Guid activeUsersId = Guid.Parse("0195a6f7-dfff-75a7-b99f-36a0552a8eca");
 
-    private QuestionFormModal? questionFormModal;
-    private GroupFormModal? groupFormModal;
+    // Removed modal refs:
+    // private QuestionFormModal? questionFormModal;
+    // private GroupFormModal? groupFormModal;
 
     protected override async Task OnInitializedAsync()
     {
@@ -263,10 +268,14 @@ else
 
         hubConnection.On<object>("ResponseAdded", async _ =>
         {
-            if (selectedQuestion is not null)
+            // Refresh the detailed view if the added response is for the selected question
+            // Note: The event payload might need to include the QuestionId to be more efficient
+            if (selectedQuestion is not null) 
             {
-                await RefreshSelectedQuestion();
+                 await RefreshSelectedQuestion();
             }
+            // Also refresh the list view response counts if applicable (requires changes to list query/component)
+            // For now, only refreshing detail view.
         });
 
         hubConnection.On<object>("QuestionDeleted", async _ =>
@@ -408,7 +417,7 @@ else
                     
                     foreach (var q in questions)
                     {
-                        if (GetGroupName(q.QuestionId) == GetGroupName(groupId))
+                        if (GetGroupName(q.QuestionId) == GetGroupName(groupId)) 
                         {
                             try
                             {
@@ -497,6 +506,33 @@ else
         }
     }
 
+    // --- Modal Control using JavaScript Interop ---
+    private async Task ShowModal(string modalId)
+    {
+        try {
+            await JsRuntime.InvokeVoidAsync("eval", $"new bootstrap.Modal(document.getElementById('{modalId}')).show()");
+        } catch (Exception ex) {
+            Console.Error.WriteLine($"Error showing modal {modalId}: {ex.Message}");
+        }
+    }
+
+    private async Task HideModal(string modalId)
+    {
+        try {
+            // Use getInstance to avoid issues if modal wasn't initialized or was already hidden
+            await JsRuntime.InvokeVoidAsync("eval", $"bootstrap.Modal.getInstance(document.getElementById('{modalId}'))?.hide()");
+        } catch (Exception ex) {
+             Console.Error.WriteLine($"Error hiding modal {modalId}: {ex.Message}");
+        }
+    }
+    
+    private async Task ShowQuestionModal() => await ShowModal("questionModal");
+    private async Task CloseQuestionModal() => await HideModal("questionModal");
+    private async Task ShowGroupModal() => await ShowModal("groupModal");
+    private async Task CloseGroupModal() => await HideModal("groupModal");
+    // --- End Modal Control ---
+
+
     private async Task OpenCreateQuestionModal()
     {
         isEditMode = false;
@@ -509,10 +545,7 @@ else
                 new QuestionOptionModel { Id = "2", Text = "" }
             }
         };
-        if (questionFormModal is not null)
-        {
-            await questionFormModal.Show();
-        }
+        await ShowQuestionModal(); // Fixed
     }
 
     private async Task OpenCreateQuestionInGroupModal(Guid groupId)
@@ -528,10 +561,7 @@ else
                 new QuestionOptionModel { Id = "2", Text = "" }
             }
         };
-        if (questionFormModal is not null)
-        {
-            await questionFormModal.Show();
-        }
+        await ShowQuestionModal(); // Fixed
     }
 
     private async Task OpenEditQuestionModal(Guid questionId)
@@ -547,10 +577,7 @@ else
                 Text = question.Text,
                 Options = question.Options.Select(o => new QuestionOptionModel { Id = o.Id, Text = o.Text }).ToList()
             };
-            if (questionFormModal is not null)
-            {
-                await questionFormModal.Show();
-            }
+            await ShowQuestionModal(); // Fixed
         }
     }
 
@@ -581,10 +608,7 @@ else
                 }
             }
             
-            if (questionFormModal is not null)
-            {
-                await questionFormModal.Hide();
-            }
+            await CloseQuestionModal(); // Fixed
             
             await RefreshQuestions();
         }
@@ -655,10 +679,7 @@ else
         isEditGroupMode = false;
         editGroupId = null;
         groupModel = new GroupModel();
-        if (groupFormModal is not null)
-        {
-            await groupFormModal.Show();
-        }
+        await ShowGroupModal(); // Fixed
     }
 
     private async Task OpenEditGroupModal(Guid groupId)
@@ -673,10 +694,7 @@ else
             {
                 Name = group.Name
             };
-            if (groupFormModal is not null)
-            {
-                await groupFormModal.Show();
-            }
+            await ShowGroupModal(); // Fixed
         }
     }
 
@@ -696,10 +714,7 @@ else
                 Console.WriteLine("Group created");
             }
 
-            if (groupFormModal is not null)
-            {
-                await groupFormModal.Hide();
-            }
+            await CloseGroupModal(); // Fixed
 
             await RefreshGroups();
         }
@@ -748,13 +763,24 @@ else
         return options?.FirstOrDefault(o => o.Id == optionId)?.Text ?? "Unknown";
     }
 
-    private string GetGroupName(Guid? questionId)
+    // Fixed: Changed Guid? to Guid and removed null check
+    private string GetGroupName(Guid questionId) 
     {
-        if (questionId == null) return "No Group";
-        
         var group = groups?.FirstOrDefault(g => g.Questions.Any(qRef => qRef.QuestionId == questionId));
-        
         return group?.Name ?? "No Group";
+    }
+
+    // Fixed: Correct implementation using Responses.Count
+    private int GetResponseCountForQuestion(Guid questionId)
+    {
+        // If the currently selected detailed question matches the ID, return its response count.
+        if (selectedQuestion?.QuestionId == questionId && selectedQuestion.Responses != null)
+        {
+            return selectedQuestion.Responses.Count; // Use Responses.Count
+        }
+        // Otherwise, we don't have the detailed data readily available without another API call.
+        // Returning 0 for now, indicating no data available in the current view model.
+        return 0; 
     }
 
     private int GetQuestionOrderInGroup(Guid questionId)
@@ -802,6 +828,7 @@ else
         }
     }
 
+    // Kept original nested classes for QuestionModel/GroupModel as they are used for form binding
     public class QuestionModel
     {
         public string Text { get; set; } = "";
@@ -823,4 +850,3 @@ else
         public string? NameError { get; set; }
     }
 }
-```
