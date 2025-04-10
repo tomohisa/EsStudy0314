@@ -19,6 +19,7 @@ else
         <table class="table table-striped">
             <thead>
                 <tr>
+                    <th>Order</th>
                     <th>Question</th>
                     <th>Group</th>
                     <th>Options</th>
@@ -31,6 +32,7 @@ else
                 @foreach (var question in Questions)
                 {
                     <tr>
+                        <td>@question.Order</td>
                         <td>@question.Text</td>
                         <td>@GetGroupName(question.QuestionId)</td>
                         <td>@question.OptionCount options</td>

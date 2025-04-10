@@ -38,7 +38,8 @@ public record QuestionsQuery(string TextContains = "", Guid? GroupId = null)
                 q.IsDisplayed,
                 q.Responses.Count,
                 q.QuestionGroupId,
-                q.QuestionGroupName))
+                q.QuestionGroupName,
+                q.Order)) // Order情報も含める
             .ToResultBox();
     }
 
@@ -49,8 +50,9 @@ public record QuestionsQuery(string TextContains = "", Guid? GroupId = null)
     {
         return filteredList
             .OrderBy(q => q.QuestionGroupName)
-            .ThenByDescending(q => q.IsDisplayed)
-            .ThenBy(q => q.Text)
+            .ThenBy(q => q.Order)                 // Order順を優先
+            .ThenByDescending(q => q.IsDisplayed) // 次に表示状態
+            .ThenBy(q => q.Text)                  // 最後にテキスト
             .AsEnumerable()
             .ToResultBox();
     }
@@ -63,6 +65,7 @@ public record QuestionsQuery(string TextContains = "", Guid? GroupId = null)
         bool IsDisplayed,
         int ResponseCount,
         Guid QuestionGroupId,
-        string QuestionGroupName
+        string QuestionGroupName,
+        int Order
     );
 }
