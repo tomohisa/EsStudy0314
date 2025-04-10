@@ -18,6 +18,6 @@ public record RemoveQuestionFromGroup(Guid QuestionGroupId, Guid QuestionId) :
     public ResultBox<EventOrNone> Handle(RemoveQuestionFromGroup command, ICommandContext<QuestionGroup> context)
         => context.GetAggregate()
             .Conveyor(aggregate => aggregate.Payload.Questions.Any(q => q.QuestionId == command.QuestionId)
-                ? EventOrNone.Event(new QuestionRemovedFromGroup(command.QuestionId))
+                ? EventOrNone.Event(new QuestionRemovedFromGroup(command.QuestionGroupId, command.QuestionId))
                 : new ArgumentException($"Question {command.QuestionId} is not in group"));
 }

@@ -19,5 +19,5 @@ public record AddQuestionToGroup(Guid QuestionGroupId, Guid QuestionId, int Orde
         => context.GetAggregate()
             .Conveyor(aggregate => aggregate.Payload.Questions.Any(q => q.QuestionId == command.QuestionId)
                 ? new ArgumentException($"Question {command.QuestionId} is already in group")
-                : EventOrNone.Event(new QuestionAddedToGroup(command.QuestionId, command.Order)));
+                : EventOrNone.Event(new QuestionAddedToGroup(command.QuestionGroupId, command.QuestionId, command.Order)));
 }

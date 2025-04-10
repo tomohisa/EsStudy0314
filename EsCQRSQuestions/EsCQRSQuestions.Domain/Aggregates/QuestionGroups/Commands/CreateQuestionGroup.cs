@@ -15,5 +15,9 @@ public record CreateQuestionGroup(string Name) : ICommandWithHandler<CreateQuest
         PartitionKeys.Generate<QuestionGroupProjector>();
 
     public ResultBox<EventOrNone> Handle(CreateQuestionGroup command, ICommandContext<IAggregatePayload> context)
-        => EventOrNone.Event(new QuestionGroupCreated(command.Name));
+        => context.GetAggregate()
+            .Conveyor(aggregate => {
+                var groupId = aggregate.PartitionKeys.AggregateId;
+                return EventOrNone.Event(new QuestionGroupCreated(groupId, command.Name, new List<Guid>()));
+            });
 }
