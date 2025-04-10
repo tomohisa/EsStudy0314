@@ -1,6 +1,5 @@
 using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Payloads;
 using ResultBoxes;
-using Sekiban.Pure.Aggregates;
 using Sekiban.Pure.Projectors;
 using Sekiban.Pure.Query;
 

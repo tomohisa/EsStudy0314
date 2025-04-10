@@ -1,5 +1,4 @@
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events;
-using EsCQRSQuestions.Domain.ValueObjects;
 using Sekiban.Pure.Aggregates;
 using Sekiban.Pure.Events;
 using Sekiban.Pure.Projectors;

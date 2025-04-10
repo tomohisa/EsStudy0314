@@ -4,7 +4,6 @@ using Sekiban.Pure.Documents;
 using Sekiban.Pure.Events;
 using Sekiban.Pure.Aggregates;
 using ResultBoxes;
-using System;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Events;
 
 namespace EsCQRSQuestions.Domain.Aggregates.Questions.Commands;

@@ -1,12 +1,10 @@
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events;
 using ResultBoxes;
 using Sekiban.Pure.Command.Handlers;
-using Sekiban.Pure.Commands;
 using Sekiban.Pure.Documents;
 using Sekiban.Pure.Events;
-using System;
-using System.Collections.Generic;
-using Sekiban.Pure.Aggregates; // Required for ICommandContext
+using Sekiban.Pure.Aggregates;
+using Sekiban.Pure.Command.Executor;
 
 namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Commands
 {

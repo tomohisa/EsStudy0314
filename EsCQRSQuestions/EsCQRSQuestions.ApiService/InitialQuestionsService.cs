@@ -1,6 +1,5 @@
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
-using Sekiban.Pure.Command.Executor;
 using Sekiban.Pure.Orleans.Parts;
 
 namespace EsCQRSQuestions.ApiService;

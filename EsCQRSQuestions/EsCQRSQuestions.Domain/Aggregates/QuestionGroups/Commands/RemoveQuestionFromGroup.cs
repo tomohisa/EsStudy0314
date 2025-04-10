@@ -2,10 +2,7 @@ using Sekiban.Pure.Command.Handlers;
 using Sekiban.Pure.Command.Executor;
 using Sekiban.Pure.Documents;
 using Sekiban.Pure.Events;
-using Sekiban.Pure.Aggregates;
 using ResultBoxes;
-using System;
-using System.Linq;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
 

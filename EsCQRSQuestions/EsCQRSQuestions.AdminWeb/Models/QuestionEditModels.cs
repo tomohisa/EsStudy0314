@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace EsCQRSQuestions.AdminWeb.Models
 {
     // Shared model for the Question Form

@@ -1,8 +1,6 @@
 using Sekiban.Pure.Query;
 using Sekiban.Pure.Projectors;
-using EsCQRSQuestions.Domain.Aggregates.QuestionGroups;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
-using EsCQRSQuestions.Domain.ValueObjects;
 using ResultBoxes;
 
 namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;

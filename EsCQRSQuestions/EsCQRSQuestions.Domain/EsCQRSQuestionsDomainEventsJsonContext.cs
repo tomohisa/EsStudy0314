@@ -1,10 +1,6 @@
 using System.Text.Json.Serialization;
-using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events;
 using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Payloads;
-using EsCQRSQuestions.Domain.Aggregates.Questions.Events;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
-using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events;
-using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
 using EsCQRSQuestions.Domain.ValueObjects;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
@@ -67,8 +63,6 @@ namespace EsCQRSQuestions.Domain;
     [JsonSerializable(typeof(QuestionOption))]
     [JsonSerializable(typeof(QuestionResponse))]
     [JsonSerializable(typeof(QuestionGroup))]
-    [JsonSerializable(typeof(DeletedQuestionGroup))]
-    [JsonSerializable(typeof(QuestionReference))]
     // Other types
     [JsonSerializable(typeof(WeatherForecast))]
     [JsonSerializable(typeof(ActiveUsersAggregate))]

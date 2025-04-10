@@ -1,6 +1,5 @@
 using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Commands;
 using Microsoft.AspNetCore.SignalR;
-using Sekiban.Pure.Command.Executor;
 using Sekiban.Pure.Orleans.Parts;
 
 namespace EsCQRSQuestions.ApiService;

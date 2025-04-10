@@ -1,7 +1,6 @@
 using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Events;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events; // Added using for QuestionGroup events
-using Microsoft.AspNetCore.SignalR;
 using Orleans.Streams;
 using Sekiban.Pure.Events;
 

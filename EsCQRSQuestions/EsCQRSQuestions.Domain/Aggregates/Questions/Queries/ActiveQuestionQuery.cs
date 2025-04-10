@@ -1,9 +1,7 @@
-using EsCQRSQuestions.Domain.Aggregates.Questions;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using ResultBoxes;
 using Sekiban.Pure.Projectors;
 using Sekiban.Pure.Query;
-using System.Diagnostics.CodeAnalysis;
 
 namespace EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
 

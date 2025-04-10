@@ -2,7 +2,7 @@ using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
 using Sekiban.Pure.Aggregates;
 using Sekiban.Pure.Events;
-using System.Linq;
+using Sekiban.Pure.Projectors;
 
 namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups
 {

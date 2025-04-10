@@ -1,4 +1,3 @@
-using EsCQRSQuestions.Domain.Aggregates.Questions;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using ResultBoxes;
 using Sekiban.Pure.Projectors;

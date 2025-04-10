@@ -5,10 +5,7 @@ using EsCQRSQuestions.Domain.Generated;
 using EsCQRSQuestions.Domain.ValueObjects;
 using ResultBoxes;
 using Sekiban.Pure;
-using Sekiban.Pure.Documents;
-using Sekiban.Pure.Query;
 using Sekiban.Pure.xUnit;
-using System.Linq;
 
 namespace EsCQRSQuestions.Unit;
 

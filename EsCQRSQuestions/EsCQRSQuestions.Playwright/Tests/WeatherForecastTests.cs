@@ -1,10 +1,7 @@
 using Microsoft.Playwright;
-using NUnit.Framework;
 using EsCQRSQuestions.Playwright.Base;
 using EsCQRSQuestions.Playwright.PageObjects;
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 
 namespace EsCQRSQuestions.Playwright.Tests
 {
