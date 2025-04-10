@@ -51,8 +51,8 @@ namespace EsCQRSQuestions.Domain;
     // QuestionGroup Event documents
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupCreated>))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupCreated))]
-    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupNameUpdated>))]
-    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupNameUpdated))]
+    [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupUpdated>))] // Corrected typo
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionGroupUpdated))] // Corrected typo
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionAddedToGroup>))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionAddedToGroup))]
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events.QuestionRemovedFromGroup>))]
