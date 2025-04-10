@@ -1,3 +1,5 @@
+@using EsCQRSQuestions.AdminWeb.Models // Added using for shared models
+
 <div class="modal fade" id="groupModal" tabindex="-1" aria-labelledby="groupModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -25,7 +27,7 @@
 
 @code {
     [Parameter]
-    public GroupModel Model { get; set; } = new GroupModel();
+    public GroupEditModel Model { get; set; } = new GroupEditModel(); // Changed parameter type to shared model
     
     [Parameter]
     public bool IsEditMode { get; set; }
@@ -40,10 +42,6 @@
     {
         await OnSave.InvokeAsync();
     }
-    
-    public class GroupModel
-    {
-        public string Name { get; set; } = "";
-        public string? NameError { get; set; }
-    }
+
+    // Removed original nested class as it is now in Models/QuestionEditModels.cs
 }

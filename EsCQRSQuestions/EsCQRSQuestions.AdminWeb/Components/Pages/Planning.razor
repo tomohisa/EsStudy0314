@@ -10,6 +10,7 @@
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
 @using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries
 @using EsCQRSQuestions.Domain.Workflows
+@using EsCQRSQuestions.AdminWeb.Models // Added using for shared models
 
 @implements IAsyncDisposable
 
@@ -78,14 +79,14 @@ else
 <!-- Note: @ref is removed as direct component interaction is replaced by JS interop -->
 <QuestionFormModal 
                    IsEditMode="isEditMode" 
-                   QuestionModel="questionModel" 
+                   Model="questionModel" 
                    OnSave="SaveQuestion"
                    OnClose="CloseQuestionModal" /> 
 
 <!-- Note: @ref is removed as direct component interaction is replaced by JS interop -->
 <GroupFormModal 
                 IsEditMode="isEditGroupMode" 
-                GroupModel="groupModel" 
+                Model="groupModel" 
                 OnSave="SaveGroup"
                 OnClose="CloseGroupModal" />
 
@@ -93,14 +94,14 @@ else
     private HubConnection? hubConnection;
     private List<QuestionListQuery.QuestionSummaryRecord>? questions;
     private QuestionDetailQuery.QuestionDetailRecord? selectedQuestion;
-    private QuestionModel questionModel = new();
+    private QuestionEditModel questionModel = new(); // Changed type to shared model
     private bool isEditMode = false;
     private Guid? editQuestionId;
     private ActiveUsersQuery.ActiveUsersRecord? activeUsers;
     private List<GetQuestionGroupsQuery.ResultRecord>? groups;
     private List<GetQuestionsByGroupIdQuery.ResultRecord>? questionsInGroup;
     private Guid? selectedGroupId;
-    private GroupModel groupModel = new();
+    private GroupEditModel groupModel = new(); // Changed type to shared model
     private bool isEditGroupMode = false;
     private Guid? editGroupId;
     private readonly Guid activeUsersId = Guid.Parse("0195a6f7-dfff-75a7-b99f-36a0552a8eca");
@@ -537,12 +538,12 @@ else
     {
         isEditMode = false;
         editQuestionId = null;
-        questionModel = new QuestionModel
+        questionModel = new QuestionEditModel // Changed type to shared model
         {
-            Options = new List<QuestionOptionModel>
+            Options = new List<QuestionOptionEditModel> // Changed type to shared model
             {
-                new QuestionOptionModel { Id = "1", Text = "" },
-                new QuestionOptionModel { Id = "2", Text = "" }
+                new QuestionOptionEditModel { Id = "1", Text = "" }, // Changed type to shared model
+                new QuestionOptionEditModel { Id = "2", Text = "" } // Changed type to shared model
             }
         };
         await ShowQuestionModal(); // Fixed
@@ -552,13 +553,13 @@ else
     {
         isEditMode = false;
         editQuestionId = null;
-        questionModel = new QuestionModel
+        questionModel = new QuestionEditModel // Changed type to shared model
         {
             QuestionGroupId = groupId,
-            Options = new List<QuestionOptionModel>
+            Options = new List<QuestionOptionEditModel> // Changed type to shared model
             {
-                new QuestionOptionModel { Id = "1", Text = "" },
-                new QuestionOptionModel { Id = "2", Text = "" }
+                new QuestionOptionEditModel { Id = "1", Text = "" }, // Changed type to shared model
+                new QuestionOptionEditModel { Id = "2", Text = "" } // Changed type to shared model
             }
         };
         await ShowQuestionModal(); // Fixed
@@ -572,10 +573,10 @@ else
         var question = await QuestionApi.GetQuestionByIdAsync(questionId);
         if (question is not null)
         {
-            questionModel = new QuestionModel
+            questionModel = new QuestionEditModel // Changed type to shared model
             {
                 Text = question.Text,
-                Options = question.Options.Select(o => new QuestionOptionModel { Id = o.Id, Text = o.Text }).ToList()
+                Options = question.Options.Select(o => new QuestionOptionEditModel { Id = o.Id, Text = o.Text }).ToList() // Changed type to shared model
             };
             await ShowQuestionModal(); // Fixed
         }
@@ -678,7 +679,7 @@ else
     {
         isEditGroupMode = false;
         editGroupId = null;
-        groupModel = new GroupModel();
+        groupModel = new GroupEditModel(); // Changed type to shared model
         await ShowGroupModal(); // Fixed
     }
 
@@ -690,7 +691,7 @@ else
         var group = groups?.FirstOrDefault(g => g.Id == groupId);
         if (group is not null)
         {
-            groupModel = new GroupModel
+            groupModel = new GroupEditModel // Changed type to shared model
             {
                 Name = group.Name
             };
@@ -828,25 +829,5 @@ else
         }
     }
 
-    // Kept original nested classes for QuestionModel/GroupModel as they are used for form binding
-    public class QuestionModel
-    {
-        public string Text { get; set; } = "";
-        public List<QuestionOptionModel> Options { get; set; } = new();
-        public Guid QuestionGroupId { get; set; } = Guid.Empty;
-        public string? TextError { get; set; }
-        public string? OptionsError { get; set; }
-    }
-
-    public class QuestionOptionModel
-    {
-        public string Id { get; set; } = "";
-        public string Text { get; set; } = "";
-    }
-
-    public class GroupModel
-    {
-        public string Name { get; set; } = "";
-        public string? NameError { get; set; }
-    }
+    // Removed original nested classes as they are now in Models/QuestionEditModels.cs
 }

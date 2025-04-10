@@ -1,4 +1,5 @@
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads
+@using EsCQRSQuestions.AdminWeb.Models // Added using for shared models
 
 <div class="modal fade" id="questionModal" tabindex="-1" aria-labelledby="questionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -23,7 +24,7 @@
                     {
                         var index = i;
                         <div class="input-group mb-2">
-                            <input type="text" class="form-control" placeholder="Option text" 
+                            <input type="text" class="form-control" placeholder="Option text"
                                    @bind="Model.Options[index].Text" />
                             @if (Model.Options.Count > 2)
                             {
@@ -52,7 +53,7 @@
 
 @code {
     [Parameter]
-    public QuestionModel Model { get; set; } = new QuestionModel();
+    public QuestionEditModel Model { get; set; } = new QuestionEditModel(); // Changed parameter type to shared model
     
     [Parameter]
     public bool IsEditMode { get; set; }
@@ -66,12 +67,12 @@
     private void AddOption()
     {
         var maxId = Model.Options.Count > 0 
-            ? Model.Options.Max(o => int.Parse(o.Id)) 
+            ? Model.Options.Max(o => int.Parse(o.Id))
             : 0;
-        
-        Model.Options.Add(new QuestionOptionModel 
-        { 
-            Id = (maxId + 1).ToString(), 
+
+        Model.Options.Add(new QuestionOptionEditModel // Changed type to shared model
+        {
+            Id = (maxId + 1).ToString(),
             Text = "" 
         });
     }
@@ -88,19 +89,6 @@
     {
         await OnSave.InvokeAsync();
     }
-    
-    public class QuestionModel
-    {
-        public string Text { get; set; } = "";
-        public string? TextError { get; set; }
-        public List<QuestionOptionModel> Options { get; set; } = new();
-        public string? OptionsError { get; set; }
-        public Guid QuestionGroupId { get; set; } = Guid.Empty;
-    }
 
-    public class QuestionOptionModel
-    {
-        public string Id { get; set; } = "";
-        public string Text { get; set; } = "";
-    }
+    // Removed original nested classes as they are now in Models/QuestionEditModels.cs
 }
