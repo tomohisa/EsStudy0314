@@ -1,7 +1,5 @@
 using Microsoft.Playwright;
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 
 namespace EsCQRSQuestions.Playwright.PageObjects
 {

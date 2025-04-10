@@ -1,7 +1,4 @@
 using Microsoft.Playwright;
-using NUnit.Framework;
-using System;
-using System.Threading.Tasks;
 
 namespace EsCQRSQuestions.Playwright.Tests
 {

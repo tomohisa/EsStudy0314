@@ -1,6 +1,6 @@
 using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Events;
-using Microsoft.AspNetCore.SignalR;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events; // Added using for QuestionGroup events
 using Orleans.Streams;
 using Sekiban.Pure.Events;
 
@@ -97,6 +97,31 @@ public class OrleansStreamBackgroundService : BackgroundService
                     Name = userNameUpdated.Name,
                     UpdatedAt = userNameUpdated.UpdatedAt
                 });
+                break;
+
+            // QuestionGroup events
+            case QuestionGroupCreated groupCreated:
+                await _hubService.NotifyAdminsAsync("QuestionGroupCreated", new { AggregateId = aggregateId, Name = groupCreated.Name });
+                break;
+
+            case QuestionGroupUpdated groupUpdated:
+                await _hubService.NotifyAdminsAsync("QuestionGroupUpdated", new { AggregateId = aggregateId, NewName = groupUpdated.NewName });
+                break;
+
+            case QuestionGroupDeleted groupDeleted:
+                await _hubService.NotifyAdminsAsync("QuestionGroupDeleted", new { AggregateId = aggregateId });
+                break;
+
+            case QuestionAddedToGroup questionAdded:
+                await _hubService.NotifyAdminsAsync("QuestionAddedToGroup", new { AggregateId = aggregateId, QuestionId = questionAdded.QuestionId, Order = questionAdded.Order });
+                break;
+
+            case QuestionRemovedFromGroup questionRemoved:
+                await _hubService.NotifyAdminsAsync("QuestionRemovedFromGroup", new { AggregateId = aggregateId, QuestionId = questionRemoved.QuestionId });
+                break;
+
+            case QuestionOrderChanged orderChanged:
+                await _hubService.NotifyAdminsAsync("QuestionOrderChanged", new { AggregateId = aggregateId, QuestionId = orderChanged.QuestionId, NewOrder = orderChanged.NewOrder });
                 break;
                 
             default:

@@ -1,9 +1,5 @@
-using EsCQRSQuestions.Domain.Aggregates.Questions;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using ResultBoxes;
-using Sekiban.Pure.Aggregates;
-using Sekiban.Pure.Command.Executor;
-using Sekiban.Pure.Documents;
 using Sekiban.Pure.Projectors;
 using Sekiban.Pure.Query;
 

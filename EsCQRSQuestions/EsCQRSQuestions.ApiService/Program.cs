@@ -5,6 +5,8 @@ using EsCQRSQuestions.Domain;
 using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Commands;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Commands;
 using EsCQRSQuestions.Domain.Generated;
 using Orleans.Storage;
@@ -88,8 +90,10 @@ builder.Services.AddTransient<IHubNotificationService, HubNotificationService>()
 // Register the background service that will use the hub notification service
 builder.Services.AddHostedService<OrleansStreamBackgroundService>();
 
-// Register the service that will create initial questions
-builder.Services.AddHostedService<InitialQuestionsService>();
+// Register the InitialQuestionsCreator service instead of the hosted service
+builder.Services.AddTransient<InitialQuestionsCreator>();
+// Comment out or remove the hosted service registration
+// builder.Services.AddHostedService<InitialQuestionsService>();
 
 // Add SignalR
 builder.Services.AddSignalR();
@@ -180,6 +184,17 @@ app.MapDefaultEndpoints();
 
 // Question API endpoints
 // Queries
+
+// 新しいマルチプロジェクターを使用するエンドポイント
+apiRoute.MapGet("/questions/multi", async ([FromServices]SekibanOrleansExecutor executor, [FromQuery] string textContains = "") =>
+    {
+        var list = await executor.QueryAsync(new EsCQRSQuestions.Domain.Projections.Questions.QuestionsQuery(textContains)).UnwrapBox();
+        return list.Items;
+    })
+    .WithOpenApi()
+    .WithName("GetQuestionsMulti");
+    
+// クライアント側との互換性のための既存エンドポイント維持
 apiRoute.MapGet("/questions", async ([FromServices]SekibanOrleansExecutor executor) =>
     {
         var list = await executor.QueryAsync(new QuestionListQuery()).UnwrapBox();
@@ -187,6 +202,14 @@ apiRoute.MapGet("/questions", async ([FromServices]SekibanOrleansExecutor execut
     })
     .WithOpenApi()
     .WithName("GetQuestions");
+    
+apiRoute.MapGet("/questions/bygroup/{groupId}", async (Guid groupId, [FromServices]SekibanOrleansExecutor executor, [FromQuery] string textContains = "") =>
+    {
+        var list = await executor.QueryAsync(new EsCQRSQuestions.Domain.Projections.Questions.QuestionsQuery(textContains, groupId)).UnwrapBox();
+        return list.Items;
+    })
+    .WithOpenApi()
+    .WithName("GetQuestionsByGroup");
 
 apiRoute.MapGet("/questions/active", async ([FromServices]SekibanOrleansExecutor executor) =>
     {
@@ -275,5 +298,149 @@ apiRoute.MapGet("/activeusers/{id}", async (Guid id, [FromServices]SekibanOrlean
     })
     .WithOpenApi()
     .WithName("GetActiveUsers");
+
+// QuestionGroups API endpoints
+// Queries
+apiRoute.MapGet("/questionGroups", async ([FromServices]SekibanOrleansExecutor executor) =>
+    {
+        var list = await executor.QueryAsync(new GetQuestionGroupsQuery()).UnwrapBox();
+        return list.Items;
+    })
+    .WithOpenApi()
+    .WithName("GetQuestionGroups");
+
+apiRoute.MapGet("/questionGroups/{id}", async (Guid id, [FromServices]SekibanOrleansExecutor executor) =>
+    {
+        var groups = await executor.QueryAsync(new GetQuestionGroupsQuery()).UnwrapBox();
+        var group = groups.Items.FirstOrDefault(g => g.Id == id);
+        if (group == null)
+        {
+            return Results.NotFound();
+        }
+        return Results.Ok(group);
+    })
+    .WithOpenApi()
+    .WithName("GetQuestionGroupById");
+
+apiRoute.MapGet("/questionGroups/{id}/questions", async (Guid id, [FromServices]SekibanOrleansExecutor executor) =>
+    {
+        var questions = await executor.QueryAsync(new GetQuestionsByGroupIdQuery(id)).UnwrapBox();
+        return questions.Items;
+    })
+    .WithOpenApi()
+    .WithName("GetQuestionsByGroupId");
+
+// Commands
+apiRoute
+    .MapPost(
+        "/questionGroups",
+        async (
+            [FromBody] CreateQuestionGroup command,
+            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+    .WithOpenApi()
+    .WithName("CreateQuestionGroup");
+
+apiRoute
+    .MapPut(
+        "/questionGroups/{id}",
+        async (
+            Guid id,
+            [FromBody] UpdateQuestionGroupName command,
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            if (id != command.QuestionGroupId)
+            {
+                return Results.BadRequest("ID in URL does not match ID in command");
+            }
+            return Results.Ok(await executor.CommandAsync(command).UnwrapBox());
+        })
+    .WithOpenApi()
+    .WithName("UpdateQuestionGroup");
+
+apiRoute
+    .MapDelete(
+        "/questionGroups/{id}",
+        async (
+            Guid id,
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            var command = new DeleteQuestionGroup(id);
+            return Results.Ok(await executor.CommandAsync(command).UnwrapBox());
+        })
+    .WithOpenApi()
+    .WithName("DeleteQuestionGroup");
+
+apiRoute
+    .MapPost(
+        "/questionGroups/{id}/questions",
+        async (
+            Guid id,
+            [FromBody] AddQuestionToGroup command,
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            if (id != command.QuestionGroupId)
+            {
+                return Results.BadRequest("Group ID in URL does not match ID in command");
+            }
+            return Results.Ok(await executor.CommandAsync(command).UnwrapBox());
+        })
+    .WithOpenApi()
+    .WithName("AddQuestionToGroup");
+
+apiRoute
+    .MapPut(
+        "/questionGroups/{groupId}/questions/{questionId}/order",
+        async (
+            Guid groupId,
+            Guid questionId,
+            [FromBody] int newOrder,
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            var command = new ChangeQuestionOrder(groupId, questionId, newOrder);
+            return Results.Ok(await executor.CommandAsync(command).UnwrapBox());
+        })
+    .WithOpenApi()
+    .WithName("ChangeQuestionOrder");
+
+apiRoute
+    .MapDelete(
+        "/questionGroups/{groupId}/questions/{questionId}",
+        async (
+            Guid groupId,
+            Guid questionId,
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            var command = new RemoveQuestionFromGroup(groupId, questionId);
+            return Results.Ok(await executor.CommandAsync(command).UnwrapBox());
+        })
+    .WithOpenApi()
+    .WithName("RemoveQuestionFromGroup");
+
+// System administration endpoints
+apiRoute
+    .MapPost(
+        "/system/createInitialQuestions",
+        async (
+            HttpRequest request,
+            [FromServices] InitialQuestionsCreator creator,
+            [FromServices] IConfiguration configuration,
+            CancellationToken cancellationToken) => 
+        {
+            // Check authorization key for the initial questions creation
+            var initialQuestionsKey = configuration["InitialQuestionsKey"];
+            if (!string.IsNullOrEmpty(initialQuestionsKey))
+            {
+                var authHeader = request.Headers.Authorization.ToString();
+                if (string.IsNullOrEmpty(authHeader) || !authHeader.Equals($"Key {initialQuestionsKey}"))
+                {
+                    return Results.Unauthorized();
+                }
+            }
+            
+            await creator.CreateInitialQuestions(cancellationToken);
+            return Results.Ok(new { message = "Initial questions created successfully" });
+        })
+    .WithName("CreateInitialQuestions")
+    .WithOpenApi();
 
 app.Run();

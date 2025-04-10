@@ -1,4 +1,10 @@
 using Projects;
+using Microsoft.Extensions.Hosting;
+using System;
+using System.Threading.Tasks;
+using Aspire.Hosting.Dashboard;
+using Aspire.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -28,7 +34,8 @@ var apiService = builder.AddProject<EsCQRSQuestions_ApiService>("apiservice")
     .WithReference(postgres)
     .WithReference(orleans)
     // .WithReplicas(2); // Uncomment to run with 2 replicas
-    ;
+    ; // Use our custom extension method
+
 
 // User web frontend
 builder.AddProject<Projects.EsCQRSQuestions_Web>("webfrontend")

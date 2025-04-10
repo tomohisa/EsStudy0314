@@ -6,5 +6,6 @@ namespace EsCQRSQuestions.Domain.Aggregates.Questions.Events;
 [GenerateSerializer]
 public record QuestionCreated(
     string Text,
-    List<QuestionOption> Options
+    List<QuestionOption> Options,
+    Guid QuestionGroupId
 ) : IEventPayload;

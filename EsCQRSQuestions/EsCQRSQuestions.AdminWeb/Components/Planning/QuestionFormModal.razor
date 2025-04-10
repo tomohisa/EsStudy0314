@@ -1,0 +1,113 @@
+@using EsCQRSQuestions.AdminWeb.Models // Added using for shared models
+
+<div class="modal fade" id="questionModal" tabindex="-1" aria-labelledby="questionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="questionModalLabel">@(IsEditMode ? "Edit Question" : "Create New Question")</h5>
+                <button type="button" class="btn-close" @onclick="OnClose" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="questionText" class="form-label">Question Text</label>
+                    <input type="text" class="form-control" id="questionText" @bind="Model.Text" />
+                    @if (!string.IsNullOrEmpty(Model.TextError))
+                    {
+                        <div class="text-danger">@Model.TextError</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <label for="questionGroup" class="form-label">Question Group</label>
+                    <select class="form-select" id="questionGroup" @bind="Model.QuestionGroupId">
+                        @if (AvailableGroups == null || !AvailableGroups.Any())
+                        {
+                            <option value="@Guid.Empty">No groups available</option>
+                        }
+                        else
+                        {
+                            @foreach (var group in AvailableGroups)
+                            {
+                                <option value="@group.Id">@group.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Options</label>
+                    @for (int i = 0; i < Model.Options.Count; i++)
+                    {
+                        var index = i;
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" placeholder="Option text"
+                                   @bind="Model.Options[index].Text" />
+                            @if (Model.Options.Count > 2)
+                            {
+                                <button class="btn btn-outline-danger" type="button" @onclick="() => RemoveOption(index)">
+                                    <span class="bi bi-trash" aria-hidden="true"></span>
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.OptionsError))
+                    {
+                        <div class="text-danger">@Model.OptionsError</div>
+                    }
+                    <button class="btn btn-outline-secondary" type="button" @onclick="AddOption">
+                        <span class="bi bi-plus" aria-hidden="true"></span> Add Option
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="OnClose">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="Save">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public QuestionEditModel Model { get; set; } = new QuestionEditModel(); // Changed parameter type to shared model
+    
+    [Parameter]
+    public bool IsEditMode { get; set; }
+    
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+    
+    [Parameter]
+    public EventCallback OnSave { get; set; }
+    
+    [Parameter]
+    public IEnumerable<EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries.GetQuestionGroupsQuery.ResultRecord>? AvailableGroups { get; set; }
+    
+    private void AddOption()
+    {
+        var maxId = Model.Options.Count > 0 
+            ? Model.Options.Max(o => int.Parse(o.Id))
+            : 0;
+
+        Model.Options.Add(new QuestionOptionEditModel // Changed type to shared model
+        {
+            Id = (maxId + 1).ToString(),
+            Text = "" 
+        });
+    }
+
+    private void RemoveOption(int index)
+    {
+        if (Model.Options.Count > 2 && index >= 0 && index < Model.Options.Count)
+        {
+            Model.Options.RemoveAt(index);
+        }
+    }
+    
+    private async Task Save()
+    {
+        await OnSave.InvokeAsync();
+    }
+
+    // Removed original nested classes as they are now in Models/QuestionEditModels.cs
+}

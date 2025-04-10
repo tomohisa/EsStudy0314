@@ -1,0 +1,91 @@
+@using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
+@using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads
+
+<div class="mt-4">
+    <h3>Question Details: @Question?.Text</h3>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Options</h4>
+        </div>
+        <div class="card-body">
+            <ul class="list-group">
+                @foreach (var option in Question?.Options ?? new List<QuestionOption>())
+                {
+                    <li class="list-group-item">@option.Text</li>
+                }
+            </ul>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h4>Responses (@(Question?.Responses.Count ?? 0))</h4>
+        </div>
+        <div class="card-body">
+            @if (Question?.Responses == null || !Question.Responses.Any())
+            {
+                <p>No responses yet.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Participant</th>
+                                <th>Selected Option</th>
+                                <th>Comment</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var response in Question.Responses)
+                            {
+                                <tr>
+                                    <td>@(string.IsNullOrEmpty(response.ParticipantName) ? "Anonymous" : response.ParticipantName)</td>
+                                    <td>@GetOptionText(Question.Options, response.SelectedOptionId)</td>
+                                    <td>@(string.IsNullOrEmpty(response.Comment) ? "-" : response.Comment)</td>
+                                    <td>@response.Timestamp.ToString("g")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-4">
+                    <h5>Response Statistics</h5>
+                    <div class="row">
+                        @foreach (var option in Question.Options)
+                        {
+                            var count = Question.Responses.Count(r => r.SelectedOptionId == option.Id);
+                            var percentage = Question.Responses.Any() 
+                                ? (count * 100.0 / Question.Responses.Count) 
+                                : 0;
+                            
+                            <div class="col-md-6 mb-3">
+                                <div>@option.Text</div>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" style="width: @percentage%;" 
+                                         aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">
+                                        @count (@percentage.ToString("0.0")%)
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public QuestionDetailQuery.QuestionDetailRecord? Question { get; set; }
+    
+    private string GetOptionText(List<QuestionOption> options, string optionId)
+    {
+        return options.FirstOrDefault(o => o.Id == optionId)?.Text ?? "Unknown";
+    }
+}

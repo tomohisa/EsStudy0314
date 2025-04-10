@@ -1,0 +1,182 @@
+@using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries
+
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>Questions in Group: @GroupName</h2>
+        <div>
+            <button class="btn btn-outline-secondary me-2" @onclick="EditGroupClicked">
+                <i class="bi bi-pencil"></i> Edit Group
+            </button>
+            <button class="btn btn-danger me-2" @onclick="DeleteGroupClicked">
+                <i class="bi bi-trash"></i> Delete Group
+            </button>
+            <button class="btn btn-primary" @onclick="AddQuestionClicked">
+                <i class="bi bi-plus"></i> Add Question
+            </button>
+        </div>
+    </div>
+</div>
+
+@if (QuestionsInGroup == null)
+{
+    <p><em>Loading questions...</em></p>
+}
+else if (!QuestionsInGroup.Any())
+{
+    <p>No questions in this group. Create a new question to get started.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Order</th>
+                    <th>Question</th>
+                    <th>Options</th>
+                    <th>Status</th>
+                    <th>Responses</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var question in QuestionsInGroup.OrderBy(q => GetQuestionOrderInGroup(q.Id)))
+                {
+                    <tr>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        @onclick="() => ChangeOrderClicked(question.Id, GetQuestionOrderInGroup(question.Id) - 1)" 
+                                        disabled="@(GetQuestionOrderInGroup(question.Id) <= 0)">
+                                    <i class="bi bi-arrow-up"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        @onclick="() => ChangeOrderClicked(question.Id, GetQuestionOrderInGroup(question.Id) + 1)" 
+                                        disabled="@(GetQuestionOrderInGroup(question.Id) >= QuestionsInGroup.Count - 1)">
+                                    <i class="bi bi-arrow-down"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td>@question.Text</td>
+                        <td>@question.Options.Count options</td>
+                        <td>
+                            @if (question.IsDisplayed)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Inactive</span>
+                            }
+                        </td>
+                        <td>@(GetResponseCount(question.Id)) responses</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-info me-1" @onclick="() => ViewQuestionClicked(question.Id)">View</button>
+                                <button class="btn btn-sm btn-primary me-1" @onclick="() => EditQuestionClicked(question.Id)">Edit</button>
+                                @if (!question.IsDisplayed)
+                                {
+                                    <button class="btn btn-sm btn-success me-1" @onclick="() => StartDisplayClicked(question.Id)">Start Display</button>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteQuestionClicked(question.Id)">Delete</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-warning" @onclick="() => StopDisplayClicked(question.Id)">Stop Display</button>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public List<GetQuestionsByGroupIdQuery.ResultRecord>? QuestionsInGroup { get; set; }
+    
+    [Parameter, EditorRequired]
+    public Guid GroupId { get; set; }
+    
+    [Parameter]
+    public string GroupName { get; set; } = "";
+    
+    [Parameter]
+    public Func<Guid, int> GetResponseCount { get; set; } = _ => 0;
+    
+    [Parameter]
+    public Func<Guid, int> GetQuestionOrderInGroup { get; set; } = _ => 0;
+    
+    [Parameter]
+    public EventCallback<Guid> OnViewQuestion { get; set; }
+    
+    [Parameter]
+    public EventCallback<Guid> OnEditQuestion { get; set; }
+    
+    [Parameter]
+    public EventCallback<Guid> OnStartDisplay { get; set; }
+    
+    [Parameter]
+    public EventCallback<Guid> OnStopDisplay { get; set; }
+    
+    [Parameter]
+    public EventCallback<Guid> OnDeleteQuestion { get; set; }
+    
+    [Parameter]
+    public EventCallback OnEditGroup { get; set; }
+    
+    [Parameter]
+    public EventCallback OnDeleteGroup { get; set; }
+    
+    [Parameter]
+    public EventCallback OnAddQuestion { get; set; }
+    
+    [Parameter]
+    public EventCallback<(Guid QuestionId, int NewOrder)> OnChangeQuestionOrder { get; set; }
+    
+    private async Task ViewQuestionClicked(Guid questionId)
+    {
+        await OnViewQuestion.InvokeAsync(questionId);
+    }
+    
+    private async Task EditQuestionClicked(Guid questionId)
+    {
+        await OnEditQuestion.InvokeAsync(questionId);
+    }
+    
+    private async Task StartDisplayClicked(Guid questionId)
+    {
+        await OnStartDisplay.InvokeAsync(questionId);
+    }
+    
+    private async Task StopDisplayClicked(Guid questionId)
+    {
+        await OnStopDisplay.InvokeAsync(questionId);
+    }
+    
+    private async Task DeleteQuestionClicked(Guid questionId)
+    {
+        await OnDeleteQuestion.InvokeAsync(questionId);
+    }
+    
+    private async Task EditGroupClicked()
+    {
+        await OnEditGroup.InvokeAsync();
+    }
+    
+    private async Task DeleteGroupClicked()
+    {
+        await OnDeleteGroup.InvokeAsync();
+    }
+    
+    private async Task AddQuestionClicked()
+    {
+        await OnAddQuestion.InvokeAsync();
+    }
+    
+    private async Task ChangeOrderClicked(Guid questionId, int newOrder)
+    {
+        await OnChangeQuestionOrder.InvokeAsync((questionId, newOrder));
+    }
+}

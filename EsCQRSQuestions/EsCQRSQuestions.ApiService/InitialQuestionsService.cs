@@ -1,10 +1,15 @@
+// NOTE: This class is deprecated and has been replaced by InitialQuestionsCreator.
+// The functionality has been moved to a dedicated endpoint and custom command.
+// See EsCQRSQuestions.ApiService.InitialQuestionsCreator for the implementation.
+
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
-using Sekiban.Pure.Command.Executor;
 using Sekiban.Pure.Orleans.Parts;
 
 namespace EsCQRSQuestions.ApiService;
 
+// This class is kept as a reference but is no longer used.
+// All functionality has been moved to InitialQuestionsCreator.
 public class InitialQuestionsService : IHostedService
 {
     private readonly IServiceProvider _serviceProvider;
@@ -20,10 +25,15 @@ public class InitialQuestionsService : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+#if DEBUG
+        // Wait for 10 seconds to ensure the database is ready
+        _logger.LogInformation("Waiting for 100 seconds before creating initial questions...");
+        await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+#else
         // Wait for 10 seconds to ensure the database is ready
         _logger.LogInformation("Waiting for 100 seconds before creating initial questions...");
         await Task.Delay(TimeSpan.FromSeconds(100), cancellationToken);
-        
+#endif
         // Use a scope to get the required services
         using var scope = _serviceProvider.CreateScope();
         var executor = scope.ServiceProvider.GetRequiredService<SekibanOrleansExecutor>();
@@ -118,8 +128,11 @@ public class InitialQuestionsService : IHostedService
         {
             try
             {
-                // Create the question
-                var command = new CreateQuestionCommand(text, options);
+                // Create a default question group ID
+                var questionGroupId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+                
+                // Create the question with the required QuestionGroupId parameter
+                var command = new CreateQuestionCommand(text, options, questionGroupId);
                 await executor.CommandAsync(command);
                 _logger.LogInformation("Created question: {Text}", text);
                 return; // Success, exit the method

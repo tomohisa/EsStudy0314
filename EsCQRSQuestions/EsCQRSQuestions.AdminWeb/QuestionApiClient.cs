@@ -1,18 +1,53 @@
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
+using EsCQRSQuestions.Domain.Projections.Questions;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace EsCQRSQuestions.AdminWeb;
 
 public class QuestionApiClient(HttpClient httpClient)
 {
-    // Get all questions
+    // Get all questions (existing method for compatibility)
     public async Task<QuestionListQuery.QuestionSummaryRecord[]> GetQuestionsAsync(CancellationToken cancellationToken = default)
     {
         List<QuestionListQuery.QuestionSummaryRecord>? questions = null;
 
         await foreach (var question in httpClient.GetFromJsonAsAsyncEnumerable<QuestionListQuery.QuestionSummaryRecord>("/api/questions", cancellationToken))
+        {
+            if (question is not null)
+            {
+                questions ??= [];
+                questions.Add(question);
+            }
+        }
+
+        return questions?.ToArray() ?? [];
+    }
+    
+    // Get all questions with group information using the multi projector
+    public async Task<QuestionsQuery.QuestionDetailRecord[]> GetQuestionsWithGroupInfoAsync(string textContains = "", CancellationToken cancellationToken = default)
+    {
+        List<QuestionsQuery.QuestionDetailRecord>? questions = null;
+
+        await foreach (var question in httpClient.GetFromJsonAsAsyncEnumerable<QuestionsQuery.QuestionDetailRecord>($"/api/questions/multi?textContains={Uri.EscapeDataString(textContains ?? "")}", cancellationToken))
+        {
+            if (question is not null)
+            {
+                questions ??= [];
+                questions.Add(question);
+            }
+        }
+
+        return questions?.ToArray() ?? [];
+    }
+    
+    // Get questions by group using the multi projector
+    public async Task<QuestionsQuery.QuestionDetailRecord[]> GetQuestionsByGroupAsync(Guid groupId, string textContains = "", CancellationToken cancellationToken = default)
+    {
+        List<QuestionsQuery.QuestionDetailRecord>? questions = null;
+
+        await foreach (var question in httpClient.GetFromJsonAsAsyncEnumerable<QuestionsQuery.QuestionDetailRecord>($"/api/questions/bygroup/{groupId}?textContains={Uri.EscapeDataString(textContains ?? "")}", cancellationToken))
         {
             if (question is not null)
             {
@@ -39,7 +74,19 @@ public class QuestionApiClient(HttpClient httpClient)
     // Create question
     public async Task<object> CreateQuestionAsync(string text, List<QuestionOption> options, CancellationToken cancellationToken = default)
     {
-        var command = new CreateQuestionCommand(text, options);
+        // Use a default question group ID
+        var questionGroupId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        
+        var command = new CreateQuestionCommand(text, options, questionGroupId);
+        var response = await httpClient.PostAsJsonAsync("/api/questions/create", command, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+    }
+
+    // Create question with specific group ID
+    public async Task<object> CreateQuestionWithGroupAsync(string text, List<QuestionOption> options, Guid questionGroupId, CancellationToken cancellationToken = default)
+    {
+        var command = new CreateQuestionCommand(text, options, questionGroupId);
         var response = await httpClient.PostAsJsonAsync("/api/questions/create", command, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<object>() ?? new {};

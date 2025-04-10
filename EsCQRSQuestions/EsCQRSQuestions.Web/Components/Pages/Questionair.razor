@@ -1,6 +1,5 @@
 @page "/questionair"
 @attribute [StreamRendering(true)]
-@using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
 @using Microsoft.AspNetCore.SignalR.Client
 @implements IAsyncDisposable
@@ -167,10 +166,82 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Set up SignalR connection
+        // Set up SignalR connection with improved timeout and resilience settings
         hubConnection = new HubConnectionBuilder()
             .WithUrlWithClientFactory("https+http://apiservice/questionHub", HttpMessageHandlerFactory)
+            .WithAutomaticReconnect(new[] { 
+                TimeSpan.FromSeconds(1), 
+                TimeSpan.FromSeconds(2), 
+                TimeSpan.FromSeconds(5), 
+                TimeSpan.FromSeconds(10) 
+            })
+            .ConfigureLogging(logging => {
+                logging.AddConsole();
+                logging.SetMinimumLevel(LogLevel.Debug);
+            })
             .Build();
+
+        hubConnection.Closed += async (error) =>
+        {
+            Console.Error.WriteLine($"SignalR connection closed: {error?.Message}");
+            
+            // Implement exponential backoff for reconnection attempts
+            for (var i = 0; i < 5; i++)
+            {
+                try
+                {
+                    var retryDelay = Math.Min(1000 * Math.Pow(2, i), 30000); // exponential backoff capped at 30s
+                    Console.WriteLine($"Attempting reconnection in {retryDelay/1000} seconds...");
+                    await Task.Delay((int)retryDelay);
+                    
+                    await hubConnection.StartAsync();
+                    Console.WriteLine("SignalR connection restarted successfully");
+                    
+                    // Set participant name again after reconnection
+                    if (!string.IsNullOrEmpty(participantName))
+                    {
+                        await hubConnection.InvokeAsync("SetParticipantName", participantName);
+                    }
+                    
+                    // Join as survey participant
+                    await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
+                    
+                    // Refresh active question
+                    await RefreshActiveQuestion();
+                    await InvokeAsync(StateHasChanged);
+                    
+                    break; // Exit the retry loop if successful
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Error during reconnection attempt {i+1}: {ex.Message}");
+                    if (i == 4) // Last attempt
+                    {
+                        errorMessage = "Connection lost. Please refresh the page to reconnect.";
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }
+            }
+        };
+        
+        // Improved connection state logging
+        hubConnection.Reconnecting += (error) =>
+        {
+            Console.WriteLine($"SignalR reconnecting... Error: {error?.Message}");
+            Console.WriteLine($"Connection state: {hubConnection.State}");
+            errorMessage = "Connection unstable. Attempting to reconnect...";
+            InvokeAsync(StateHasChanged);
+            return Task.CompletedTask;
+        };
+
+        hubConnection.Reconnected += (connectionId) =>
+        {
+            Console.WriteLine($"SignalR reconnected with connection ID: {connectionId}");
+            Console.WriteLine($"Connection state: {hubConnection.State}");
+            errorMessage = "";
+            InvokeAsync(StateHasChanged);
+            return Task.CompletedTask;
+        };
 
         // Handle events
         hubConnection.On<object>("QuestionDisplayStarted", async _ =>
@@ -179,6 +250,7 @@
             hasSubmitted = false;
             selectedOptionId = "";
             comment = "";
+            errorMessage = "";
             await InvokeAsync(StateHasChanged);
         });
 
@@ -209,19 +281,38 @@
             InvokeAsync(StateHasChanged);
         });
 
-        // Start the connection
-        await hubConnection.StartAsync();
-        
-        // 明示的に参加者として参加
-        await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
-
-        // Set participant name if already entered
-        if (!string.IsNullOrEmpty(participantName))
+        // Start the connection with timeout handling
+        try
         {
-            await hubConnection.InvokeAsync("SetParticipantName", participantName);
+            Console.WriteLine("Starting SignalR connection...");
+            
+            // Create a task that will complete if the connection times out
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
+            var connectionTask = hubConnection.StartAsync();
+            
+            // Wait for either the connection to complete or the timeout
+            var completedTask = await Task.WhenAny(connectionTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                throw new TimeoutException("SignalR connection timed out after 30 seconds");
+            }
+            
+            // Ensure the connection task completed successfully
+            await connectionTask;
+            
+            Console.WriteLine($"SignalR connection established successfully. State: {hubConnection.State}");
+            
+            // Join as survey participant
+            await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error starting SignalR connection: {ex.Message}");
+            errorMessage = $"Connection error: {ex.Message}";
         }
 
-        // Load initial data
+        // Get the active question
         await RefreshActiveQuestion();
     }
 
@@ -231,24 +322,36 @@
         {
             Console.WriteLine("Refreshing active question...");
             activeQuestion = await QuestionApi.GetActiveQuestionAsync();
-            Console.WriteLine($"Active question refreshed. Has {activeQuestion?.Responses.Count ?? 0} responses");
-            errorMessage = "";
-            await InvokeAsync(() => StateHasChanged());
+            if (activeQuestion != null)
+            {
+                Console.WriteLine($"Active question received: {activeQuestion.Text}");
+                // Reset submission status if question changed
+                var currentResponses = activeQuestion.Responses.Where(r => r.ParticipantName == participantName);
+                hasSubmitted = currentResponses.Any();
+            }
+            else
+            {
+                Console.WriteLine("No active question at this time");
+            }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error loading question: {ex.Message}";
-            Console.Error.WriteLine(errorMessage);
+            Console.Error.WriteLine($"Error refreshing active question: {ex.Message}");
+            // Don't update the error message here to avoid overriding connection errors
         }
+    }
+
+    private void ToggleResponses()
+    {
+        showResponses = !showResponses;
     }
 
     private async Task SubmitResponse()
     {
-        // Validate
-        if (string.IsNullOrEmpty(selectedOptionId))
+        // Validate input
+        if (string.IsNullOrWhiteSpace(selectedOptionId))
         {
             optionError = "Please select an option";
-            return;
         }
         else
         {
