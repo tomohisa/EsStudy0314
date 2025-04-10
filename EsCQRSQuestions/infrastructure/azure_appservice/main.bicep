@@ -4,7 +4,7 @@
 targetScope = 'resourceGroup'
 
 // 1. Key Vault
-module keyVaultCreate '1.kevault/create.bicep' = {
+module keyVaultCreate '1.keyvault/create.bicep' = {
   name: 'keyVaultDeployment'
   params: {}
 }
