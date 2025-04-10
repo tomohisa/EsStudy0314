@@ -1,0 +1,58 @@
+@using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Question Groups</h5>
+        <button class="btn btn-primary btn-sm" @onclick="CreateGroupClicked">Create New Group</button>
+    </div>
+    <div class="card-body">
+        @if (Groups == null)
+        {
+            <p><em>Loading groups...</em></p>
+        }
+        else if (!Groups.Any())
+        {
+            <div class="alert alert-info">
+                No question groups found. Create a group to get started.
+            </div>
+        }
+        else
+        {
+            <div class="list-group">
+                @foreach (var group in Groups)
+                {
+                    <button type="button" 
+                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(SelectedGroupId == group.Id ? "active" : "")"
+                            @onclick="() => GroupSelected(group.Id)">
+                        @group.Name
+                        <span class="badge bg-primary rounded-pill">@group.Questions.Count</span>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public List<GetQuestionGroupsQuery.ResultRecord>? Groups { get; set; }
+
+    [Parameter]
+    public Guid? SelectedGroupId { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnGroupSelected { get; set; }
+
+    [Parameter]
+    public EventCallback OnCreateGroupClicked { get; set; }
+
+    private async Task GroupSelected(Guid groupId)
+    {
+        await OnGroupSelected.InvokeAsync(groupId);
+    }
+
+    private async Task CreateGroupClicked()
+    {
+        await OnCreateGroupClicked.InvokeAsync();
+    }
+}

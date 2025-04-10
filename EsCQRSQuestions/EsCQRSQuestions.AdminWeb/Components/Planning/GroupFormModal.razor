@@ -1,0 +1,49 @@
+<div class="modal fade" id="groupModal" tabindex="-1" aria-labelledby="groupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="groupModalLabel">@(IsEditMode ? "Edit Group" : "Create New Group")</h5>
+                <button type="button" class="btn-close" @onclick="OnClose" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="groupName" class="form-label">Group Name</label>
+                    <input type="text" class="form-control" id="groupName" @bind="Model.Name" />
+                    @if (!string.IsNullOrEmpty(Model.NameError))
+                    {
+                        <div class="text-danger">@Model.NameError</div>
+                    }
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="OnClose">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="Save">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public GroupModel Model { get; set; } = new GroupModel();
+    
+    [Parameter]
+    public bool IsEditMode { get; set; }
+    
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+    
+    [Parameter]
+    public EventCallback OnSave { get; set; }
+    
+    private async Task Save()
+    {
+        await OnSave.InvokeAsync();
+    }
+    
+    public class GroupModel
+    {
+        public string Name { get; set; } = "";
+        public string? NameError { get; set; }
+    }
+}

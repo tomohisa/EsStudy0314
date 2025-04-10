@@ -1,0 +1,106 @@
+@using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads
+
+<div class="modal fade" id="questionModal" tabindex="-1" aria-labelledby="questionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="questionModalLabel">@(IsEditMode ? "Edit Question" : "Create New Question")</h5>
+                <button type="button" class="btn-close" @onclick="OnClose" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="questionText" class="form-label">Question Text</label>
+                    <input type="text" class="form-control" id="questionText" @bind="Model.Text" />
+                    @if (!string.IsNullOrEmpty(Model.TextError))
+                    {
+                        <div class="text-danger">@Model.TextError</div>
+                    }
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Options</label>
+                    @for (int i = 0; i < Model.Options.Count; i++)
+                    {
+                        var index = i;
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" placeholder="Option text" 
+                                   @bind="Model.Options[index].Text" />
+                            @if (Model.Options.Count > 2)
+                            {
+                                <button class="btn btn-outline-danger" type="button" @onclick="() => RemoveOption(index)">
+                                    <span class="bi bi-trash" aria-hidden="true"></span>
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.OptionsError))
+                    {
+                        <div class="text-danger">@Model.OptionsError</div>
+                    }
+                    <button class="btn btn-outline-secondary" type="button" @onclick="AddOption">
+                        <span class="bi bi-plus" aria-hidden="true"></span> Add Option
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="OnClose">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="Save">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public QuestionModel Model { get; set; } = new QuestionModel();
+    
+    [Parameter]
+    public bool IsEditMode { get; set; }
+    
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+    
+    [Parameter]
+    public EventCallback OnSave { get; set; }
+    
+    private void AddOption()
+    {
+        var maxId = Model.Options.Count > 0 
+            ? Model.Options.Max(o => int.Parse(o.Id)) 
+            : 0;
+        
+        Model.Options.Add(new QuestionOptionModel 
+        { 
+            Id = (maxId + 1).ToString(), 
+            Text = "" 
+        });
+    }
+
+    private void RemoveOption(int index)
+    {
+        if (Model.Options.Count > 2 && index >= 0 && index < Model.Options.Count)
+        {
+            Model.Options.RemoveAt(index);
+        }
+    }
+    
+    private async Task Save()
+    {
+        await OnSave.InvokeAsync();
+    }
+    
+    public class QuestionModel
+    {
+        public string Text { get; set; } = "";
+        public string? TextError { get; set; }
+        public List<QuestionOptionModel> Options { get; set; } = new();
+        public string? OptionsError { get; set; }
+        public Guid QuestionGroupId { get; set; } = Guid.Empty;
+    }
+
+    public class QuestionOptionModel
+    {
+        public string Id { get; set; } = "";
+        public string Text { get; set; } = "";
+    }
+}

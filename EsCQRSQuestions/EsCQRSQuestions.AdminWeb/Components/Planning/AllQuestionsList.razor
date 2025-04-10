@@ -1,0 +1,124 @@
+@using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
+
+<div class="mb-4">
+    <button class="btn btn-primary" @onclick="CreateQuestionClicked">Create New Question</button>
+</div>
+
+@if (Questions == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!Questions.Any())
+{
+    <p>No questions found. Create a new question to get started.</p>
+}
+else
+{
+    <h2>All Questions</h2>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Question</th>
+                    <th>Group</th>
+                    <th>Options</th>
+                    <th>Status</th>
+                    <th>Responses</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var question in Questions)
+                {
+                    <tr>
+                        <td>@question.Text</td>
+                        <td>@GetGroupName(question.QuestionId)</td>
+                        <td>@question.OptionCount options</td>
+                        <td>
+                            @if (question.IsDisplayed)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Inactive</span>
+                            }
+                        </td>
+                        <td>@question.ResponseCount responses</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-info me-1" @onclick="() => ViewQuestionClicked(question.QuestionId)">View</button>
+                                <button class="btn btn-sm btn-primary me-1" @onclick="() => EditQuestionClicked(question.QuestionId)">Edit</button>
+                                @if (!question.IsDisplayed)
+                                {
+                                    <button class="btn btn-sm btn-success me-1" @onclick="() => StartDisplayClicked(question.QuestionId)">Start Display</button>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteQuestionClicked(question.QuestionId)">Delete</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-warning" @onclick="() => StopDisplayClicked(question.QuestionId)">Stop Display</button>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public List<QuestionListQuery.QuestionSummaryRecord>? Questions { get; set; }
+    
+    [Parameter]
+    public Func<Guid, string> GetGroupName { get; set; } = _ => "Unknown Group";
+    
+    [Parameter]
+    public EventCallback<Guid> OnViewQuestion { get; set; }
+    
+    [Parameter]
+    public EventCallback<Guid> OnEditQuestion { get; set; }
+    
+    [Parameter]
+    public EventCallback<Guid> OnStartDisplay { get; set; }
+    
+    [Parameter]
+    public EventCallback<Guid> OnStopDisplay { get; set; }
+    
+    [Parameter]
+    public EventCallback<Guid> OnDeleteQuestion { get; set; }
+    
+    [Parameter]
+    public EventCallback OnCreateQuestion { get; set; }
+    
+    private async Task ViewQuestionClicked(Guid questionId)
+    {
+        await OnViewQuestion.InvokeAsync(questionId);
+    }
+    
+    private async Task EditQuestionClicked(Guid questionId)
+    {
+        await OnEditQuestion.InvokeAsync(questionId);
+    }
+    
+    private async Task StartDisplayClicked(Guid questionId)
+    {
+        await OnStartDisplay.InvokeAsync(questionId);
+    }
+    
+    private async Task StopDisplayClicked(Guid questionId)
+    {
+        await OnStopDisplay.InvokeAsync(questionId);
+    }
+    
+    private async Task DeleteQuestionClicked(Guid questionId)
+    {
+        await OnDeleteQuestion.InvokeAsync(questionId);
+    }
+    
+    private async Task CreateQuestionClicked()
+    {
+        await OnCreateQuestion.InvokeAsync();
+    }
+}
