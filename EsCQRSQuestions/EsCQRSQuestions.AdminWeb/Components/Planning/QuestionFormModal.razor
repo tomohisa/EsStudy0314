@@ -18,13 +18,10 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="questionGroup" class="form-label">Question Group</label>
-                    <select class="form-select" id="questionGroup" @bind="Model.QuestionGroupId">
-                        @if (AvailableGroups == null || !AvailableGroups.Any())
-                        {
-                            <option value="@Guid.Empty">No groups available</option>
-                        }
-                        else
+                    <label for="questionGroup" class="form-label">Question Group <span class="text-danger">*</span></label>
+                    <select class="form-select" id="questionGroup" @bind="Model.QuestionGroupId" required>
+                        <option value="@Guid.Empty">-- Select a Group --</option>
+                        @if (AvailableGroups != null && AvailableGroups.Any())
                         {
                             @foreach (var group in AvailableGroups)
                             {
@@ -32,6 +29,7 @@
                             }
                         }
                     </select>
+                    <div class="invalid-feedback">Question group is required</div>
                 </div>
                 
                 <div class="mb-3">

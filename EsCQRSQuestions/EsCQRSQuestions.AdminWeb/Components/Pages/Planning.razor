@@ -35,12 +35,12 @@
     </div>
 </div>
 
-@if (selectedGroupId.HasValue)
+@if (selectedGroupId.HasValue && groups?.Any() == true)
 {
     <GroupQuestionsList 
         QuestionsInGroup="questionsInGroup" 
         GroupId="selectedGroupId.Value" 
-        GroupName="@(groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.Name ?? "")" 
+        GroupName="@(groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.Name ?? "Selected Group")" 
         GetResponseCount="GetResponseCountForQuestion" 
         GetQuestionOrderInGroup="GetQuestionOrderInGroup" 
         OnViewQuestion="ViewQuestionDetails" 
@@ -55,14 +55,12 @@
 }
 else
 {
-    <AllQuestionsWithGroupInfoList 
-        Questions="questionsWithGroupInfo" 
-        OnViewQuestion="ViewQuestionDetails" 
-        OnEditQuestion="OpenEditQuestionModal" 
-        OnStartDisplay="StartDisplayQuestion" 
-        OnStopDisplay="StopDisplayQuestion" 
-        OnDeleteQuestion="DeleteQuestion" 
-        OnCreateQuestion="OpenCreateQuestionModal" />
+    <div class="alert alert-info">
+        <h4 class="alert-heading">No Group Selected</h4>
+        <p>Please select or create a question group to manage questions.</p>
+        <hr>
+        <p class="mb-0">Questions must belong to a group to be properly organized and displayed.</p>
+    </div>
 }
 
 @if (selectedQuestion is not null)
@@ -360,6 +358,15 @@ else
         await RefreshQuestions();
         await RefreshActiveUsers();
         await RefreshGroups();
+        
+        // アプリ起動時に最初のグループを選択
+        if (groups?.Any() == true && selectedGroupId == null)
+        {
+            selectedGroupId = groups.First().Id;
+            await RefreshQuestionsInGroup();
+            StateHasChanged();
+            Console.WriteLine($"Auto-selected first group: {selectedGroupId}");
+        }
     }
 
     private async Task RefreshActiveUsers()
@@ -611,17 +618,25 @@ else
 
     private async Task OpenCreateQuestionModal()
     {
+        // グループが選択されていない場合は処理を中止
+        if (!selectedGroupId.HasValue)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Please select a question group first.");
+            return;
+        }
+
         isEditMode = false;
         editQuestionId = null;
-        questionModel = new QuestionEditModel // Changed type to shared model
+        questionModel = new QuestionEditModel
         {
-            Options = new List<QuestionOptionEditModel> // Changed type to shared model
+            QuestionGroupId = selectedGroupId.Value, // 現在選択されているグループを強制的に設定
+            Options = new List<QuestionOptionEditModel>
             {
-                new QuestionOptionEditModel { Id = "1", Text = "" }, // Changed type to shared model
-                new QuestionOptionEditModel { Id = "2", Text = "" } // Changed type to shared model
+                new QuestionOptionEditModel { Id = "1", Text = "" },
+                new QuestionOptionEditModel { Id = "2", Text = "" }
             }
         };
-        await ShowQuestionModal(); // Fixed
+        await ShowQuestionModal();
     }
 
     private async Task OpenCreateQuestionInGroupModal(Guid groupId)
