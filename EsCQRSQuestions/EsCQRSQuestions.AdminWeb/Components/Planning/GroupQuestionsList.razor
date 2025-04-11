@@ -42,19 +42,23 @@ else
             <tbody>
                 @foreach (var question in QuestionsInGroup.OrderBy(q => GetQuestionOrderInGroup(q.Id)))
                 {
+                    var order = GetQuestionOrderInGroup(question.Id);
                     <tr>
                         <td>
-                            <div class="btn-group">
-                                <button class="btn btn-sm btn-outline-secondary" 
-                                        @onclick="() => ChangeOrderClicked(question.Id, GetQuestionOrderInGroup(question.Id) - 1)" 
-                                        disabled="@(GetQuestionOrderInGroup(question.Id) <= 0)">
-                                    <i class="bi bi-arrow-up"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary" 
-                                        @onclick="() => ChangeOrderClicked(question.Id, GetQuestionOrderInGroup(question.Id) + 1)" 
-                                        disabled="@(GetQuestionOrderInGroup(question.Id) >= QuestionsInGroup.Count - 1)">
-                                    <i class="bi bi-arrow-down"></i>
-                                </button>
+                            <div class="d-flex align-items-center">
+                                <span class="me-2">@order</span>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-secondary" 
+                                            @onclick="() => ChangeOrderClicked(question.Id, order - 1)" 
+                                            disabled="@(order <= 0)">
+                                        <i class="bi bi-arrow-up"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" 
+                                            @onclick="() => ChangeOrderClicked(question.Id, order + 1)" 
+                                            disabled="@(order >= QuestionsInGroup.Count - 1)">
+                                        <i class="bi bi-arrow-down"></i>
+                                    </button>
+                                </div>
                             </div>
                         </td>
                         <td>@question.Text</td>

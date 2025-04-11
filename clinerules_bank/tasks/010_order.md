@@ -1,0 +1,4 @@
+EsCQRSQuestions/EsCQRSQuestions.AdminWeb/Components/Pages/Planning.razor
+でCreate Questionsしたときに
+
+EsCQRSQuestions/EsCQRSQuestions.ApiService/Program.cs

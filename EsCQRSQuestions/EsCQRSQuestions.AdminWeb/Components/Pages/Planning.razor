@@ -35,32 +35,44 @@
     </div>
 </div>
 
-@if (selectedGroupId.HasValue && groups?.Any() == true)
+@if (groups?.Any() != true)
 {
-    <GroupQuestionsList 
-        QuestionsInGroup="questionsInGroup" 
-        GroupId="selectedGroupId.Value" 
-        GroupName="@(groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.Name ?? "Selected Group")" 
-        GetResponseCount="GetResponseCountForQuestion" 
-        GetQuestionOrderInGroup="GetQuestionOrderInGroup" 
-        OnViewQuestion="ViewQuestionDetails" 
-        OnEditQuestion="OpenEditQuestionModal" 
-        OnStartDisplay="StartDisplayQuestion" 
-        OnStopDisplay="StopDisplayQuestion" 
-        OnDeleteQuestion="DeleteQuestion" 
-        OnEditGroup="() => OpenEditGroupModal(selectedGroupId.Value)" 
-        OnDeleteGroup="() => DeleteGroup(selectedGroupId.Value)" 
-        OnAddQuestion="() => OpenCreateQuestionInGroupModal(selectedGroupId.Value)" 
-        OnChangeQuestionOrder="HandleChangeQuestionOrder" />
+    <div class="alert alert-warning">
+        <h4 class="alert-heading">No Question Groups Available</h4>
+        <p>You need to create a question group first before adding questions.</p>
+        <hr>
+        <p class="mb-0">Click the "Create New Group" button above to get started.</p>
+    </div>
 }
 else
 {
-    <div class="alert alert-info">
-        <h4 class="alert-heading">No Group Selected</h4>
-        <p>Please select or create a question group to manage questions.</p>
-        <hr>
-        <p class="mb-0">Questions must belong to a group to be properly organized and displayed.</p>
-    </div>
+    @if (selectedGroupId.HasValue)
+    {
+        <GroupQuestionsList 
+            QuestionsInGroup="questionsInGroup" 
+            GroupId="selectedGroupId.Value" 
+            GroupName="@(groups.FirstOrDefault(g => g.Id == selectedGroupId)?.Name ?? "Selected Group")" 
+            GetResponseCount="GetResponseCountForQuestion" 
+            GetQuestionOrderInGroup="GetQuestionOrderInGroup" 
+            OnViewQuestion="ViewQuestionDetails" 
+            OnEditQuestion="OpenEditQuestionModal" 
+            OnStartDisplay="StartDisplayQuestion" 
+            OnStopDisplay="StopDisplayQuestion" 
+            OnDeleteQuestion="DeleteQuestion" 
+            OnEditGroup="() => OpenEditGroupModal(selectedGroupId.Value)" 
+            OnDeleteGroup="() => DeleteGroup(selectedGroupId.Value)" 
+            OnAddQuestion="() => OpenCreateQuestionInGroupModal(selectedGroupId.Value)" 
+            OnChangeQuestionOrder="HandleChangeQuestionOrder" />
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <h4 class="alert-heading">No Group Selected</h4>
+            <p>Please select a question group from the list above to manage questions.</p>
+            <hr>
+            <p class="mb-0">Questions must belong to a group to be properly organized and displayed.</p>
+        </div>
+    }
 }
 
 @if (selectedQuestion is not null)
@@ -693,14 +705,17 @@ else
     {
         try
         {
+            // グループIDが空の場合はエラーとする
+            if (questionModel.QuestionGroupId == Guid.Empty)
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Question group is required. Please select a group.");
+                return;
+            }
+            
             Console.WriteLine("Saving question...");
             var options = questionModel.Options.Select(o => new QuestionOption(o.Id, o.Text)).ToList();
             
-            // デフォルトのグループIDを設定（モデルのグループIDが空の場合）
-            var groupIdToUse = questionModel.QuestionGroupId != Guid.Empty 
-                ? questionModel.QuestionGroupId 
-                : (groups?.FirstOrDefault()?.Id ?? Guid.Parse("11111111-1111-1111-1111-111111111111"));
-            
+            var groupIdToUse = questionModel.QuestionGroupId;
             Console.WriteLine($"Selected group for question: {groupIdToUse}");
             
             if (isEditMode && editQuestionId.HasValue)
