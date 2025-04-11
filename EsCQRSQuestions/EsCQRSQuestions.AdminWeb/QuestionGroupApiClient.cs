@@ -1,7 +1,14 @@
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Commands;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.Workflows;
+using EsCQRSQuestions.Domain.Projections.Questions;
 
 namespace EsCQRSQuestions.AdminWeb;
 
@@ -29,15 +36,15 @@ public class QuestionGroupApiClient(HttpClient httpClient)
     }
     
     // Get questions in a group
-    public async Task<List<GetQuestionsByGroupIdQuery.ResultRecord>> GetQuestionsInGroupAsync(
+    public async Task<List<QuestionsQuery.QuestionDetailRecord>> GetQuestionsInGroupAsync(
         Guid groupId,
         CancellationToken cancellationToken = default)
     {
-        var questions = await httpClient.GetFromJsonAsync<List<GetQuestionsByGroupIdQuery.ResultRecord>>(
-            $"/api/questionGroups/{groupId}/questions", 
+        var questions = await httpClient.GetFromJsonAsync<List<QuestionsQuery.QuestionDetailRecord>>(
+            $"/api/questions/bygroup/{groupId}", 
             cancellationToken);
         
-        return questions ?? new List<GetQuestionsByGroupIdQuery.ResultRecord>();
+        return questions ?? new List<QuestionsQuery.QuestionDetailRecord>();
     }
     
     // Create a new question group

@@ -1,4 +1,5 @@
 @using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries
+@using EsCQRSQuestions.Domain.Projections.Questions
 
 <div class="mb-4">
     <div class="d-flex justify-content-between align-items-center">
@@ -40,21 +41,21 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var question in QuestionsInGroup.OrderBy(q => GetQuestionOrderInGroup(q.Id)))
+                @foreach (var question in QuestionsInGroup.OrderBy(q => GetQuestionOrderInGroup(q.QuestionId)))
                 {
-                    var order = GetQuestionOrderInGroup(question.Id);
+                    var order = GetQuestionOrderInGroup(question.QuestionId);
                     <tr>
                         <td>
                             <div class="d-flex align-items-center">
                                 <span class="me-2">@order</span>
                                 <div class="btn-group">
                                     <button class="btn btn-sm btn-outline-secondary" 
-                                            @onclick="() => ChangeOrderClicked(question.Id, order - 1)" 
+                                            @onclick="() => ChangeOrderClicked(question.QuestionId, order - 1)" 
                                             disabled="@(order <= 0)">
                                         <i class="bi bi-arrow-up"></i>
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary" 
-                                            @onclick="() => ChangeOrderClicked(question.Id, order + 1)" 
+                                            @onclick="() => ChangeOrderClicked(question.QuestionId, order + 1)" 
                                             disabled="@(order >= QuestionsInGroup.Count - 1)">
                                         <i class="bi bi-arrow-down"></i>
                                     </button>
@@ -73,19 +74,19 @@ else
                                 <span class="badge bg-secondary">Inactive</span>
                             }
                         </td>
-                        <td>@(GetResponseCount(question.Id)) responses</td>
+                        <td>@(GetResponseCount(question.QuestionId)) responses</td>
                         <td>
                             <div class="btn-group">
-                                <button class="btn btn-sm btn-info me-1" @onclick="() => ViewQuestionClicked(question.Id)">View</button>
-                                <button class="btn btn-sm btn-primary me-1" @onclick="() => EditQuestionClicked(question.Id)">Edit</button>
+                                <button class="btn btn-sm btn-info me-1" @onclick="() => ViewQuestionClicked(question.QuestionId)">View</button>
+                                <button class="btn btn-sm btn-primary me-1" @onclick="() => EditQuestionClicked(question.QuestionId)">Edit</button>
                                 @if (!question.IsDisplayed)
                                 {
-                                    <button class="btn btn-sm btn-success me-1" @onclick="() => StartDisplayClicked(question.Id)">Start Display</button>
-                                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteQuestionClicked(question.Id)">Delete</button>
+                                    <button class="btn btn-sm btn-success me-1" @onclick="() => StartDisplayClicked(question.QuestionId)">Start Display</button>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteQuestionClicked(question.QuestionId)">Delete</button>
                                 }
                                 else
                                 {
-                                    <button class="btn btn-sm btn-warning" @onclick="() => StopDisplayClicked(question.Id)">Stop Display</button>
+                                    <button class="btn btn-sm btn-warning" @onclick="() => StopDisplayClicked(question.QuestionId)">Stop Display</button>
                                 }
                             </div>
                         </td>
@@ -98,7 +99,7 @@ else
 
 @code {
     [Parameter, EditorRequired]
-    public List<GetQuestionsByGroupIdQuery.ResultRecord>? QuestionsInGroup { get; set; }
+    public List<QuestionsQuery.QuestionDetailRecord>? QuestionsInGroup { get; set; }
     
     [Parameter, EditorRequired]
     public Guid GroupId { get; set; }
