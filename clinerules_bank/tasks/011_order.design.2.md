@@ -1,16 +1,26 @@
-using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
-using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
-using EsCQRSQuestions.Domain.Workflows;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Sekiban.Pure.Orleans.Parts;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+# QuestionGroup と Question の表示順序処理の設計
 
-namespace EsCQRSQuestions.ApiService;
+## 現状の問題点
 
+現在、Planning.razor から `CreateQuestions` を実行すると、EsCQRSQuestions/EsCQRSQuestions.ApiService/Program.cs の `/system/createInitialQuestions` エンドポイントが呼び出されています。このエンドポイントは `InitialQuestionsCreator` クラスを使用してQuestionを作成していますが、以下の問題があります：
+
+1. Question のみを作成し、QuestionGroup の Order 設定が行われていない
+2. すべての Question が固定の QuestionGroup ID (`11111111-1111-1111-1111-111111111111`) に割り当てられている
+3. 順序の概念が適切に実装されていない
+
+一方、EsCQRSQuestions/EsCQRSQuestions.Domain/Workflows/QuestionGroupWorkflow.cs には `CreateGroupWithQuestionsAsync` メソッドが実装されており、以下の機能を持っています：
+
+1. Question グループの作成
+2. 複数の Question をグループに追加
+3. 各 Question に順序を設定
+
+## 改善計画
+
+### 1. InitialQuestionsCreator の修正
+
+現在の `InitialQuestionsCreator` クラスを修正して `QuestionGroupWorkflow` を利用するようにします。
+
+```csharp
 public class InitialQuestionsCreator
 {
     private readonly IServiceProvider _serviceProvider;
@@ -26,7 +36,7 @@ public class InitialQuestionsCreator
 
     public async Task CreateInitialQuestions(CancellationToken cancellationToken = default)
     {
-        // Use a scope to get the required services
+        // スコープを使用して必要なサービスを取得
         using var scope = _serviceProvider.CreateScope();
         var executor = scope.ServiceProvider.GetRequiredService<SekibanOrleansExecutor>();
         
@@ -110,14 +120,77 @@ public class InitialQuestionsCreator
             {
                 _logger.LogError("Failed to create initial question group: {Error}", result.GetException().Message);
             }
-            
-            _logger.LogInformation("Initial questions created successfully");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating initial questions");
-            throw; // Re-throw to propagate error to the caller
+            throw; // エラーを呼び出し元に伝播
         }
     }
-
 }
+```
+
+### 2. API エンドポイントの修正
+
+`Program.cs` に新しいエンドポイントを追加します。QuestionGroupWorkflow はDIから注入せず、SekibanOrleansExecutor から作成します。
+
+```csharp
+// サービス登録は不要 (QuestionGroupWorkflow はDIせず、直接インスタンス化)
+
+// API エンドポイント
+apiRoute
+    .MapPost(
+        "/questionGroups/createWithQuestions",
+        async (
+            [FromBody] QuestionGroupWorkflow.CreateGroupWithQuestionsCommand command,
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            // executorを使用してワークフローを作成
+            var workflow = new QuestionGroupWorkflow(executor);
+            var result = await workflow.CreateGroupWithQuestionsAsync(command);
+            return result.Match(
+                groupId => Results.Ok(new { GroupId = groupId }),
+                error => Results.Problem(error.Message)
+            );
+        })
+    .WithOpenApi()
+    .WithName("CreateQuestionGroupWithQuestions");
+```
+
+### 3. フロントエンドの修正（AdminWeb）
+
+`QuestionGroupApiClient.cs` にワークフローを呼び出すメソッドを追加します。
+
+```csharp
+public async Task<Guid> CreateGroupWithQuestionsAsync(
+    string groupName,
+    List<(string Text, List<QuestionOption> Options)> questions,
+    CancellationToken cancellationToken = default)
+{
+    var command = new CreateGroupWithQuestionsCommand(groupName, questions);
+    var response = await _httpClient.PostAsJsonAsync("/api/questionGroups/createWithQuestions", command, cancellationToken);
+    response.EnsureSuccessStatusCode();
+    var result = await response.Content.ReadFromJsonAsync<dynamic>(cancellationToken);
+    return result.GroupId;
+}
+```
+
+## 実装手順
+
+1. `InitialQuestionsCreator.cs` を修正して `QuestionGroupWorkflow` を利用するよう変更
+2. `Program.cs` に新しいエンドポイント追加 (DIへの登録は不要)
+3. `QuestionGroupApiClient.cs` に新しいメソッドを追加
+4. （必要に応じて）Planning.razor の実装を更新
+
+## 利点
+
+1. 質問グループと質問の作成を一度のトランザクションで行える
+2. 質問の順序が適切に設定される
+3. API 呼び出し回数が減少する（複数のコマンドが単一のワークフローに集約される）
+4. コードがより再利用可能になる
+
+## 注意点
+
+1. 既存の機能と互換性を保持すること
+2. エラーハンドリングを適切に行うこと
+3. ワークフローの呼び出しに失敗した場合の回復メカニズムを検討すること
