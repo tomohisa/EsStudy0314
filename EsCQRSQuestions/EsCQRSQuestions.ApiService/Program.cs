@@ -262,7 +262,12 @@ apiRoute
         "/questions/startDisplay",
         async (
             [FromBody] StartDisplayCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            // ワークフローを使って排他制御を実装
+            var workflow = new QuestionDisplayWorkflow(executor);
+            return await workflow.StartDisplayQuestionExclusivelyAsync(command.QuestionId).UnwrapBox();
+        })
     .WithOpenApi()
     .WithName("StartDisplayQuestion");
 
