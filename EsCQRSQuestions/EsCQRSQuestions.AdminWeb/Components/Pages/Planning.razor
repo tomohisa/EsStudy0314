@@ -107,7 +107,7 @@ else
     private Guid? editQuestionId;
     private ActiveUsersQuery.ActiveUsersRecord? activeUsers;
     private List<GetQuestionGroupsQuery.ResultRecord>? groups;
-    private List<GetQuestionsByGroupIdQuery.ResultRecord>? questionsInGroup;
+    private List<QuestionsQuery.QuestionDetailRecord>? questionsInGroup;
     private Guid? selectedGroupId;
     private GroupEditModel groupModel = new(); // Changed type to shared model
     private bool isEditGroupMode = false;
@@ -427,7 +427,8 @@ else
         {
             try {
                 Console.WriteLine($"Refreshing questions in group {selectedGroupId.Value}...");
-                questionsInGroup = await QuestionGroupApi.GetQuestionsInGroupAsync(selectedGroupId.Value);
+                var questionArray = await QuestionApi.GetQuestionsByGroupAsync(selectedGroupId.Value);
+                questionsInGroup = questionArray.ToList(); // Convert array to List
                 Console.WriteLine($"Fetched {questionsInGroup?.Count ?? 0} questions in group");
                 await InvokeAsync(() => StateHasChanged());
             }
@@ -436,43 +437,16 @@ else
                 Console.Error.WriteLine($"Error refreshing questions in group: {ex.Message}");
                 var groupId = selectedGroupId.Value;
                 
-                if (questions is not null)
+                if (questionsWithGroupInfo is not null)
                 {
-                    var matchingQuestions = new List<GetQuestionsByGroupIdQuery.ResultRecord>();
-                    
-                    foreach (var q in questions)
-                    {
-                        if (GetGroupName(q.QuestionId) == GetGroupName(groupId)) 
-                        {
-                            try
-                            {
-                                var detailedQuestion = await QuestionApi.GetQuestionByIdAsync(q.QuestionId);
-                                if (detailedQuestion is not null)
-                                {
-                                    var options = detailedQuestion.Options
-                                        .Select(o => new GetQuestionsByGroupIdQuery.QuestionOptionRecord(o.Id, o.Text))
-                                        .ToList();
-                                        
-                                    matchingQuestions.Add(new GetQuestionsByGroupIdQuery.ResultRecord(
-                                        q.QuestionId, 
-                                        q.Text, 
-                                        options,
-                                        q.IsDisplayed,
-                                        groupId));
-                                }
-                            }
-                            catch (Exception optionEx)
-                            {
-                                Console.Error.WriteLine($"Error getting detailed question: {optionEx.Message}");
-                            }
-                        }
-                    }
-                    
-                    questionsInGroup = matchingQuestions;
+                    // Filter questions by the selected group ID
+                    questionsInGroup = questionsWithGroupInfo
+                        .Where(q => q.QuestionGroupId == groupId)
+                        .ToList();
                 }
                 else
                 {
-                    questionsInGroup = new List<GetQuestionsByGroupIdQuery.ResultRecord>();
+                    questionsInGroup = new List<QuestionsQuery.QuestionDetailRecord>();
                 }
             }
         }

@@ -469,22 +469,7 @@ apiRoute
     .WithOpenApi()
     .WithName("CreateQuestionGroupWithQuestions");
 
-// If this endpoint doesn't already exist, add it:
-app.MapGet("/api/questions/bygroup/{groupId}", async (IQuerySession session, Guid groupId) =>
-{
-    try
-    {
-        var questions = await session.Query<QuestionsQuery>()
-            .Where(q => q.GroupId == groupId)
-            .OrderBy(q => q.Order)
-            .ToListAsync();
-            
-        return Results.Ok(questions);
-    }
-    catch (Exception ex)
-    {
-        return Results.Problem(ex.Message);
-    }
-});
+// This endpoint is already implemented above with SekibanOrleansExecutor
+
 
 app.Run();
