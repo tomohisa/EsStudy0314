@@ -1,5 +1,6 @@
 using EsCQRSQuestions.AdminWeb;
 using EsCQRSQuestions.AdminWeb.Components;
+using EsCQRSQuestions.AdminWeb.Services; // Add this line
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +33,9 @@ builder.Services.AddHttpClient<QuestionGroupApiClient>(client =>
 
 // Register IHttpMessageHandlerFactory for SignalR client
 builder.Services.AddHttpClient();
+
+// Register QuestionHubService as a scoped service
+builder.Services.AddScoped<QuestionHubService>();
 
 var app = builder.Build();
 

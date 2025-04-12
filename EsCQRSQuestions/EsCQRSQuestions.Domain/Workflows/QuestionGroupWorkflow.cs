@@ -1,5 +1,6 @@
 using Sekiban.Pure.Executors;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Commands;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using ResultBoxes;
@@ -124,5 +125,47 @@ public class QuestionGroupWorkflow
             
             return ResultBox.FromValue(true);
         });
+    }
+    
+    /// <summary>
+    /// Creates a question and adds it to a group with a specified order
+    /// </summary>
+    public async Task<ResultBox<Guid>> CreateQuestionAndAddToGroupAsync(
+        CreateQuestionCommand command,
+        int order)
+    {
+        // 1. Create the question
+        var createQuestionResult = await _executor.CommandAsync(command);
+        
+        // Use Conveyor to process the command result only if it was successful
+        return await createQuestionResult.Conveyor(async questionResult => {
+            var questionId = questionResult.PartitionKeys.AggregateId;
+            
+            // 2. Add the question to the group with proper order
+            await _executor.CommandAsync(new AddQuestionToGroup(
+                command.QuestionGroupId, 
+                questionId, 
+                order
+            ));
+            
+            return ResultBox.FromValue(questionId);
+        });
+    }
+
+    /// <summary>
+    /// Creates a question and adds it to the end of a group
+    /// </summary>
+    public async Task<ResultBox<Guid>> CreateQuestionAndAddToGroupEndAsync(
+        CreateQuestionCommand command)
+    {
+        // グループ内の質問数を取得して、新しい質問を最後に追加
+        var questionsInGroup = await _executor.QueryAsync(
+            new GetQuestionsByGroupIdQuery(command.QuestionGroupId));
+        
+        int order = questionsInGroup.IsSuccess ? 
+            questionsInGroup.GetValue().Items.Count() : 0;
+        
+        // 上記のメソッドを使用
+        return await CreateQuestionAndAddToGroupAsync(command, order);
     }
 }

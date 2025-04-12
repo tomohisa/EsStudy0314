@@ -7,7 +7,8 @@
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
 @using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries
 @using EsCQRSQuestions.Domain.Projections.Questions
-@using EsCQRSQuestions.AdminWeb.Models // Added using for shared models
+@using EsCQRSQuestions.AdminWeb.Models
+@using EsCQRSQuestions.AdminWeb.Services
 
 @implements IAsyncDisposable
 
@@ -17,6 +18,7 @@
 @inject IJSRuntime JsRuntime
 @inject IHttpMessageHandlerFactory HttpMessageHandlerFactory
 @inject NavigationManager NavigationManager
+@inject QuestionHubService HubService
 
 <PageTitle>Question Management</PageTitle>
 
@@ -35,34 +37,44 @@
     </div>
 </div>
 
-@if (selectedGroupId.HasValue)
+@if (groups?.Any() != true)
 {
-    <GroupQuestionsList 
-        QuestionsInGroup="questionsInGroup" 
-        GroupId="selectedGroupId.Value" 
-        GroupName="@(groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.Name ?? "")" 
-        GetResponseCount="GetResponseCountForQuestion" 
-        GetQuestionOrderInGroup="GetQuestionOrderInGroup" 
-        OnViewQuestion="ViewQuestionDetails" 
-        OnEditQuestion="OpenEditQuestionModal" 
-        OnStartDisplay="StartDisplayQuestion" 
-        OnStopDisplay="StopDisplayQuestion" 
-        OnDeleteQuestion="DeleteQuestion" 
-        OnEditGroup="() => OpenEditGroupModal(selectedGroupId.Value)" 
-        OnDeleteGroup="() => DeleteGroup(selectedGroupId.Value)" 
-        OnAddQuestion="() => OpenCreateQuestionInGroupModal(selectedGroupId.Value)" 
-        OnChangeQuestionOrder="HandleChangeQuestionOrder" />
+    <div class="alert alert-warning">
+        <h4 class="alert-heading">No Question Groups Available</h4>
+        <p>You need to create a question group first before adding questions.</p>
+        <hr>
+        <p class="mb-0">Click the "Create New Group" button above to get started.</p>
+    </div>
 }
 else
 {
-    <AllQuestionsWithGroupInfoList 
-        Questions="questionsWithGroupInfo" 
-        OnViewQuestion="ViewQuestionDetails" 
-        OnEditQuestion="OpenEditQuestionModal" 
-        OnStartDisplay="StartDisplayQuestion" 
-        OnStopDisplay="StopDisplayQuestion" 
-        OnDeleteQuestion="DeleteQuestion" 
-        OnCreateQuestion="OpenCreateQuestionModal" />
+    @if (selectedGroupId.HasValue)
+    {
+        <GroupQuestionsList 
+            QuestionsInGroup="questionsInGroup" 
+            GroupId="selectedGroupId.Value" 
+            GroupName="@(groups.FirstOrDefault(g => g.Id == selectedGroupId)?.Name ?? "Selected Group")" 
+            GetResponseCount="GetResponseCountForQuestion" 
+            GetQuestionOrderInGroup="GetQuestionOrderInGroup" 
+            OnViewQuestion="ViewQuestionDetails" 
+            OnEditQuestion="OpenEditQuestionModal" 
+            OnStartDisplay="StartDisplayQuestion" 
+            OnStopDisplay="StopDisplayQuestion" 
+            OnDeleteQuestion="DeleteQuestion" 
+            OnEditGroup="() => OpenEditGroupModal(selectedGroupId.Value)" 
+            OnDeleteGroup="() => DeleteGroup(selectedGroupId.Value)" 
+            OnAddQuestion="() => OpenCreateQuestionInGroupModal(selectedGroupId.Value)" 
+            OnChangeQuestionOrder="HandleChangeQuestionOrder" />
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <h4 class="alert-heading">No Group Selected</h4>
+            <p>Please select a question group from the list above to manage questions.</p>
+            <hr>
+            <p class="mb-0">Questions must belong to a group to be properly organized and displayed.</p>
+        </div>
+    }
 }
 
 @if (selectedQuestion is not null)
@@ -72,7 +84,6 @@ else
         GetOptionText="GetOptionText" />
 }
 
-<!-- Note: @ref is removed as direct component interaction is replaced by JS interop -->
 <QuestionFormModal 
                    IsEditMode="isEditMode" 
                    Model="questionModel" 
@@ -80,7 +91,6 @@ else
                    OnClose="CloseQuestionModal"
                    AvailableGroups="groups" /> 
 
-<!-- Note: @ref is removed as direct component interaction is replaced by JS interop -->
 <GroupFormModal 
                 IsEditMode="isEditGroupMode" 
                 Model="groupModel" 
@@ -88,278 +98,72 @@ else
                 OnClose="CloseGroupModal" />
 
 @code {
-    private HubConnection? hubConnection;
     private List<QuestionListQuery.QuestionSummaryRecord>? questions;
     private List<QuestionsQuery.QuestionDetailRecord>? questionsWithGroupInfo;
     private QuestionDetailQuery.QuestionDetailRecord? selectedQuestion;
-    private QuestionEditModel questionModel = new(); // Changed type to shared model
+    private QuestionEditModel questionModel = new(); 
     private bool isEditMode = false;
     private Guid? editQuestionId;
     private ActiveUsersQuery.ActiveUsersRecord? activeUsers;
     private List<GetQuestionGroupsQuery.ResultRecord>? groups;
-    private List<GetQuestionsByGroupIdQuery.ResultRecord>? questionsInGroup;
+    private List<QuestionsQuery.QuestionDetailRecord>? questionsInGroup;
     private Guid? selectedGroupId;
-    private GroupEditModel groupModel = new(); // Changed type to shared model
+    private GroupEditModel groupModel = new();
     private bool isEditGroupMode = false;
     private Guid? editGroupId;
     private readonly Guid activeUsersId = Guid.Parse("0195a6f7-dfff-75a7-b99f-36a0552a8eca");
 
-    // Removed modal refs:
-    // private QuestionFormModal? questionFormModal;
-    // private GroupFormModal? groupFormModal;
-
     protected override async Task OnInitializedAsync()
     {
-        hubConnection = new HubConnectionBuilder()
-            .WithUrlWithClientFactory("https+http://apiservice/questionHub", HttpMessageHandlerFactory)
-            .WithAutomaticReconnect(new[] { 
-                TimeSpan.FromSeconds(1), 
-                TimeSpan.FromSeconds(2), 
-                TimeSpan.FromSeconds(5),
-                TimeSpan.FromSeconds(10) 
-            })
-            .ConfigureLogging(logging => {
-                logging.AddConsole();
-                logging.SetMinimumLevel(LogLevel.Debug);
-            })
-            .Build();
-
-        hubConnection.Closed += async (error) =>
-        {
-            Console.Error.WriteLine($"SignalR connection closed: {error?.Message}");
-            Console.Error.WriteLine($"Connection state: {hubConnection?.State}");
-            
-            for (var i = 0; i < 5; i++)
-            {
-                try
-                {
-                    var retryDelay = Math.Min(1000 * Math.Pow(2, i), 30000);
-                    Console.WriteLine($"Attempting reconnection in {retryDelay/1000} seconds...");
-                    await Task.Delay((int)retryDelay);
-                    
-                    if (hubConnection is not null)
-                    {
-                        await hubConnection.StartAsync();
-                        Console.WriteLine("SignalR connection restarted successfully");
-                        
-                        await hubConnection.InvokeAsync("JoinAdminGroup");
-                        
-                        await RefreshActiveUsers();
-                        await RefreshQuestions();
-                        await RefreshGroups();
-                        
-                        break;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"Error during reconnection attempt {i+1}: {ex.Message}");
-                    if (i == 4)
-                    {
-                        Console.Error.WriteLine("Failed to reconnect after multiple attempts");
-                    }
-                }
-            }
-        };
-
-        hubConnection.Reconnecting += (error) =>
-        {
-            Console.WriteLine($"SignalR reconnecting... Error: {error?.Message}");
-            Console.WriteLine($"Connection state: {hubConnection?.State}");
-            return Task.CompletedTask;
-        };
-
-        hubConnection.Reconnected += (connectionId) =>
-        {
-            Console.WriteLine($"SignalR reconnected with connection ID: {connectionId}");
-            Console.WriteLine($"Connection state: {hubConnection?.State}");
-            return Task.CompletedTask;
-        };
-
-        hubConnection.On<object>("ActiveUsersCreated", async (data) =>
-        {
-            try
-            {
-                Console.WriteLine($"ActiveUsersCreated event received: {data}");
-                await RefreshActiveUsers();
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Error handling ActiveUsersCreated event: {ex.Message}");
-                Console.Error.WriteLine(ex.StackTrace);
-            }
-        });
+        // Set up event handlers for the hub service
+        HubService.ActiveUsersChanged += RefreshActiveUsers;
+        HubService.QuestionChanged += OnQuestionChanged;
+        HubService.QuestionGroupChanged += OnQuestionGroupChanged;
+        HubService.ResponseAdded += OnResponseAdded;
         
-        hubConnection.On<object>("UserConnected", async (data) =>
-        {
-            try
-            {
-                Console.WriteLine($"UserConnected event received: {data}");
-                await RefreshActiveUsers();
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Error handling UserConnected event: {ex.Message}");
-                Console.Error.WriteLine(ex.StackTrace);
-            }
-        });
+        // Initialize the hub connection
+        await HubService.InitializeAsync();
+        await HubService.JoinAdminGroup();
         
-        hubConnection.On<object>("UserDisconnected", async (data) =>
-        {
-            try
-            {
-                Console.WriteLine($"UserDisconnected event received: {data}");
-                await RefreshActiveUsers();
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Error handling UserDisconnected event: {ex.Message}");
-                Console.Error.WriteLine(ex.StackTrace);
-            }
-        });
-        
-        hubConnection.On<object>("UserNameUpdated", async (data) =>
-        {
-            try
-            {
-                Console.WriteLine($"UserNameUpdated event received: {data}");
-                await RefreshActiveUsers();
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Error handling UserNameUpdated event: {ex.Message}");
-                Console.Error.WriteLine(ex.StackTrace);
-            }
-        });
-        
-        hubConnection.On<object>("QuestionCreated", async _ =>
-        {
-            await RefreshQuestions();
-            Console.WriteLine("Question created event received");
-        });
-
-        hubConnection.On<object>("QuestionUpdated", async _ =>
-        {
-            await RefreshQuestions();
-            if (selectedQuestion is not null)
-            {
-                await RefreshSelectedQuestion();
-            }
-        });
-
-        hubConnection.On<object>("QuestionDisplayStarted", async _ =>
-        {
-            await RefreshQuestions();
-            if (selectedQuestion is not null)
-            {
-                await RefreshSelectedQuestion();
-            }
-        });
-
-        hubConnection.On<object>("QuestionDisplayStopped", async _ =>
-        {
-            await RefreshQuestions();
-            if (selectedQuestion is not null)
-            {
-                await RefreshSelectedQuestion();
-            }
-        });
-
-        hubConnection.On<object>("ResponseAdded", async _ =>
-        {
-            // すべての質問の情報をリフレッシュして回答数を更新する
-            Console.WriteLine("Response added event received - refreshing all questions");
-            await RefreshQuestions();
-            
-            // 詳細ビューも更新（選択中の質問がある場合）
-            if (selectedQuestion is not null) 
-            {
-                 await RefreshSelectedQuestion();
-            }
-        });
-
-        hubConnection.On<object>("QuestionDeleted", async _ =>
-        {
-            await RefreshQuestions();
-            if (selectedQuestion is not null && questions is not null && questions.All(q => q.QuestionId != selectedQuestion.QuestionId))
-            {
-                selectedQuestion = null;
-            }
-        });
-
-        hubConnection.On<object>("QuestionGroupCreated", async _ =>
-        {
-            await RefreshGroups();
-            Console.WriteLine("Question group created event received");
-        });
-
-        hubConnection.On<object>("QuestionGroupUpdated", async _ =>
-        {
-            await RefreshGroups();
-            Console.WriteLine("Question group updated event received");
-        });
-
-        hubConnection.On<object>("QuestionGroupDeleted", async _ =>
-        {
-            await RefreshGroups();
-            if (selectedGroupId is not null && groups is not null && groups.All(g => g.Id != selectedGroupId))
-            {
-                selectedGroupId = null;
-                questionsInGroup = null;
-            }
-            Console.WriteLine("Question group deleted event received");
-        });
-
-        hubConnection.On<object>("QuestionAddedToGroup", async _ =>
-        {
-            await RefreshGroups();
-            await RefreshQuestionsInGroup();
-            Console.WriteLine("Question added to group event received");
-        });
-
-        hubConnection.On<object>("QuestionRemovedFromGroup", async _ =>
-        {
-            await RefreshGroups();
-            await RefreshQuestionsInGroup();
-            Console.WriteLine("Question removed from group event received");
-        });
-
-        hubConnection.On<object>("QuestionOrderChanged", async _ =>
-        {
-            await RefreshGroups();
-            await RefreshQuestionsInGroup();
-            Console.WriteLine("Question order changed event received");
-        });
-
-        try
-        {
-            Console.WriteLine("Starting SignalR connection...");
-            
-            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
-            var connectionTask = hubConnection.StartAsync();
-            
-            var completedTask = await Task.WhenAny(connectionTask, timeoutTask);
-            
-            if (completedTask == timeoutTask)
-            {
-                throw new TimeoutException("SignalR connection timed out after 30 seconds");
-            }
-            
-            await connectionTask;
-            
-            Console.WriteLine($"SignalR connection established successfully. State: {hubConnection.State}");
-            
-            await hubConnection.InvokeAsync("JoinAdminGroup");
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error starting SignalR connection: {ex.Message}");
-            Console.Error.WriteLine(ex.StackTrace);
-        }
-
+        // Load initial data
         await RefreshQuestions();
         await RefreshActiveUsers();
         await RefreshGroups();
+        
+        // Select first group if none selected
+        if (groups?.Any() == true && selectedGroupId == null)
+        {
+            selectedGroupId = groups.First().Id;
+            await RefreshQuestionsInGroup();
+            StateHasChanged();
+            Console.WriteLine($"Auto-selected first group: {selectedGroupId}");
+        }
+    }
+
+    private async Task OnQuestionChanged()
+    {
+        await RefreshQuestions();
+        if (selectedQuestion is not null)
+        {
+            await RefreshSelectedQuestion();
+        }
+    }
+
+    private async Task OnQuestionGroupChanged() 
+    {
+        await RefreshGroups();
+        await RefreshQuestionsInGroup();
+    }
+
+    private async Task OnResponseAdded()
+    {
+        Console.WriteLine("Response added event received - refreshing all questions");
+        await RefreshQuestions();
+        
+        if (selectedQuestion is not null) 
+        {
+             await RefreshSelectedQuestion();
+        }
     }
 
     private async Task RefreshActiveUsers()
@@ -408,7 +212,8 @@ else
         {
             try {
                 Console.WriteLine($"Refreshing questions in group {selectedGroupId.Value}...");
-                questionsInGroup = await QuestionGroupApi.GetQuestionsInGroupAsync(selectedGroupId.Value);
+                var questionArray = await QuestionApi.GetQuestionsByGroupAsync(selectedGroupId.Value);
+                questionsInGroup = questionArray.ToList(); // Convert array to List
                 Console.WriteLine($"Fetched {questionsInGroup?.Count ?? 0} questions in group");
                 await InvokeAsync(() => StateHasChanged());
             }
@@ -417,43 +222,16 @@ else
                 Console.Error.WriteLine($"Error refreshing questions in group: {ex.Message}");
                 var groupId = selectedGroupId.Value;
                 
-                if (questions is not null)
+                if (questionsWithGroupInfo is not null)
                 {
-                    var matchingQuestions = new List<GetQuestionsByGroupIdQuery.ResultRecord>();
-                    
-                    foreach (var q in questions)
-                    {
-                        if (GetGroupName(q.QuestionId) == GetGroupName(groupId)) 
-                        {
-                            try
-                            {
-                                var detailedQuestion = await QuestionApi.GetQuestionByIdAsync(q.QuestionId);
-                                if (detailedQuestion is not null)
-                                {
-                                    var options = detailedQuestion.Options
-                                        .Select(o => new GetQuestionsByGroupIdQuery.QuestionOptionRecord(o.Id, o.Text))
-                                        .ToList();
-                                        
-                                    matchingQuestions.Add(new GetQuestionsByGroupIdQuery.ResultRecord(
-                                        q.QuestionId, 
-                                        q.Text, 
-                                        options,
-                                        q.IsDisplayed,
-                                        groupId));
-                                }
-                            }
-                            catch (Exception optionEx)
-                            {
-                                Console.Error.WriteLine($"Error getting detailed question: {optionEx.Message}");
-                            }
-                        }
-                    }
-                    
-                    questionsInGroup = matchingQuestions;
+                    // Filter questions by the selected group ID
+                    questionsInGroup = questionsWithGroupInfo
+                        .Where(q => q.QuestionGroupId == groupId)
+                        .ToList();
                 }
                 else
                 {
-                    questionsInGroup = new List<GetQuestionsByGroupIdQuery.ResultRecord>();
+                    questionsInGroup = new List<QuestionsQuery.QuestionDetailRecord>();
                 }
             }
         }
@@ -608,36 +386,43 @@ else
     private async Task CloseGroupModal() => await HideModal("groupModal");
     // --- End Modal Control ---
 
-
     private async Task OpenCreateQuestionModal()
     {
+        // グループが選択されていない場合は処理を中止
+        if (!selectedGroupId.HasValue)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Please select a question group first.");
+            return;
+        }
+
         isEditMode = false;
         editQuestionId = null;
-        questionModel = new QuestionEditModel // Changed type to shared model
+        questionModel = new QuestionEditModel
         {
-            Options = new List<QuestionOptionEditModel> // Changed type to shared model
+            QuestionGroupId = selectedGroupId.Value, // 現在選択されているグループを強制的に設定
+            Options = new List<QuestionOptionEditModel>
             {
-                new QuestionOptionEditModel { Id = "1", Text = "" }, // Changed type to shared model
-                new QuestionOptionEditModel { Id = "2", Text = "" } // Changed type to shared model
+                new QuestionOptionEditModel { Id = "1", Text = "" },
+                new QuestionOptionEditModel { Id = "2", Text = "" }
             }
         };
-        await ShowQuestionModal(); // Fixed
+        await ShowQuestionModal();
     }
 
     private async Task OpenCreateQuestionInGroupModal(Guid groupId)
     {
         isEditMode = false;
         editQuestionId = null;
-        questionModel = new QuestionEditModel // Changed type to shared model
+        questionModel = new QuestionEditModel 
         {
             QuestionGroupId = groupId,
-            Options = new List<QuestionOptionEditModel> // Changed type to shared model
+            Options = new List<QuestionOptionEditModel> 
             {
-                new QuestionOptionEditModel { Id = "1", Text = "" }, // Changed type to shared model
-                new QuestionOptionEditModel { Id = "2", Text = "" } // Changed type to shared model
+                new QuestionOptionEditModel { Id = "1", Text = "" }, 
+                new QuestionOptionEditModel { Id = "2", Text = "" } 
             }
         };
-        await ShowQuestionModal(); // Fixed
+        await ShowQuestionModal(); 
     }
 
     private async Task OpenEditQuestionModal(Guid questionId)
@@ -678,14 +463,17 @@ else
     {
         try
         {
+            // グループIDが空の場合はエラーとする
+            if (questionModel.QuestionGroupId == Guid.Empty)
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Question group is required. Please select a group.");
+                return;
+            }
+            
             Console.WriteLine("Saving question...");
             var options = questionModel.Options.Select(o => new QuestionOption(o.Id, o.Text)).ToList();
             
-            // デフォルトのグループIDを設定（モデルのグループIDが空の場合）
-            var groupIdToUse = questionModel.QuestionGroupId != Guid.Empty 
-                ? questionModel.QuestionGroupId 
-                : (groups?.FirstOrDefault()?.Id ?? Guid.Parse("11111111-1111-1111-1111-111111111111"));
-            
+            var groupIdToUse = questionModel.QuestionGroupId;
             Console.WriteLine($"Selected group for question: {groupIdToUse}");
             
             if (isEditMode && editQuestionId.HasValue)
@@ -823,8 +611,8 @@ else
     {
         isEditGroupMode = false;
         editGroupId = null;
-        groupModel = new GroupEditModel(); // Changed type to shared model
-        await ShowGroupModal(); // Fixed
+        groupModel = new GroupEditModel();
+        await ShowGroupModal(); 
     }
 
     private async Task OpenEditGroupModal(Guid groupId)
@@ -835,11 +623,11 @@ else
         var group = groups?.FirstOrDefault(g => g.Id == groupId);
         if (group is not null)
         {
-            groupModel = new GroupEditModel // Changed type to shared model
+            groupModel = new GroupEditModel
             {
                 Name = group.Name
             };
-            await ShowGroupModal(); // Fixed
+            await ShowGroupModal();
         }
     }
 
@@ -859,7 +647,7 @@ else
                 Console.WriteLine("Group created");
             }
 
-            await CloseGroupModal(); // Fixed
+            await CloseGroupModal();
 
             await RefreshGroups();
         }
@@ -908,23 +696,18 @@ else
         return options?.FirstOrDefault(o => o.Id == optionId)?.Text ?? "Unknown";
     }
 
-    // Fixed: Changed Guid? to Guid and removed null check
     private string GetGroupName(Guid? questionId) 
     {
         var group = groups?.FirstOrDefault(g => g.Questions.Any(qRef => qRef.QuestionId == questionId));
         return group?.Name ?? "No Group";
     }
 
-    // Fixed: Correct implementation using Responses.Count
     private int GetResponseCountForQuestion(Guid questionId)
     {
-        // If the currently selected detailed question matches the ID, return its response count.
         if (selectedQuestion?.QuestionId == questionId && selectedQuestion.Responses != null)
         {
-            return selectedQuestion.Responses.Count(); // Use Responses.Count()
+            return selectedQuestion.Responses.Count(); 
         }
-        // Otherwise, we don't have the detailed data readily available without another API call.
-        // Returning 0 for now, indicating no data available in the current view model.
         return 0; 
     }
 
@@ -967,11 +750,10 @@ else
 
     public async ValueTask DisposeAsync()
     {
-        if (hubConnection is not null)
-        {
-            await hubConnection.DisposeAsync();
-        }
+        // Unsubscribe from events
+        HubService.ActiveUsersChanged -= RefreshActiveUsers;
+        HubService.QuestionChanged -= OnQuestionChanged;
+        HubService.QuestionGroupChanged -= OnQuestionGroupChanged;
+        HubService.ResponseAdded -= OnResponseAdded;
     }
-
-    // Removed original nested classes as they are now in Models/QuestionEditModels.cs
 }

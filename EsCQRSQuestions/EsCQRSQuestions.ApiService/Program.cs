@@ -5,10 +5,12 @@ using EsCQRSQuestions.Domain;
 using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
+using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Commands;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Commands;
 using EsCQRSQuestions.Domain.Generated;
+using EsCQRSQuestions.Domain.Workflows;
 using Orleans.Storage;
 using ResultBoxes;
 using Scalar.AspNetCore;
@@ -237,7 +239,12 @@ apiRoute
         "/questions/create",
         async (
             [FromBody] CreateQuestionCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            // Workflowを作成して呼び出すシンプルな実装
+            var workflow = new QuestionGroupWorkflow(executor);
+            return await workflow.CreateQuestionAndAddToGroupEndAsync(command).UnwrapBox();
+        })
     .WithOpenApi()
     .WithName("CreateQuestion");
 
@@ -255,7 +262,12 @@ apiRoute
         "/questions/startDisplay",
         async (
             [FromBody] StartDisplayCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            // ワークフローを使って排他制御を実装
+            var workflow = new QuestionDisplayWorkflow(executor);
+            return await workflow.StartDisplayQuestionExclusivelyAsync(command.QuestionId).UnwrapBox();
+        })
     .WithOpenApi()
     .WithName("StartDisplayQuestion");
 
@@ -442,5 +454,27 @@ apiRoute
         })
     .WithName("CreateInitialQuestions")
     .WithOpenApi();
+
+// ワークフローを使用した新しいエンドポイント - グループと質問を一度に作成
+apiRoute
+    .MapPost(
+        "/questionGroups/createWithQuestions",
+        async (
+            [FromBody] QuestionGroupWorkflow.CreateGroupWithQuestionsCommand command,
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            // executorを使用してワークフローを作成
+            var workflow = new QuestionGroupWorkflow(executor);
+            var result = await workflow.CreateGroupWithQuestionsAsync(command);
+            return result.Match(
+                groupId => Results.Ok(new { GroupId = groupId }),
+                error => Results.Problem(error.Message)
+            );
+        })
+    .WithOpenApi()
+    .WithName("CreateQuestionGroupWithQuestions");
+
+// This endpoint is already implemented above with SekibanOrleansExecutor
+
 
 app.Run();

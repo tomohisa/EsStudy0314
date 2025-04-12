@@ -1,4 +1,5 @@
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
+using EsCQRSQuestions.Domain.Projections.Questions;
 using ResultBoxes;
 using Sekiban.Pure.Projectors;
 using Sekiban.Pure.Query;
@@ -14,6 +15,7 @@ public record QuestionListQuery(string TextContains = "")
         QuestionListQuery query, 
         IQueryContext context)
     {
+        // OrderはMultiProjectorから直接アクセスできないため、デフォルト値を使用
         return projection.Payload.Aggregates
             .Where(m => m.Value.GetPayload() is Question)
             .Select(m => ((Question)m.Value.GetPayload(), m.Value.PartitionKeys))
@@ -33,7 +35,12 @@ public record QuestionListQuery(string TextContains = "")
         QuestionListQuery query, 
         IQueryContext context)
     {
-        return filteredList.OrderByDescending(m => m.IsDisplayed).ThenBy(m => m.Text).AsEnumerable().ToResultBox();
+        return filteredList
+            .OrderByDescending(m => m.IsDisplayed)
+            .ThenBy(m => m.Order)        // Order順を優先
+            .ThenBy(m => m.Text)         // 次にテキストで並べ替え
+            .AsEnumerable()
+            .ToResultBox();
     }
 
     [GenerateSerializer]
@@ -42,6 +49,7 @@ public record QuestionListQuery(string TextContains = "")
         string Text,
         int OptionCount,
         bool IsDisplayed,
-        int ResponseCount
+        int ResponseCount,
+        int Order = 0 // 表示順序（デフォルト値は0）
     );
 }

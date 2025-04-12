@@ -1,0 +1,20 @@
+EsCQRSQuestions/EsCQRSQuestions.Domain/Projections/Questions/QuestionsMultiProjector.cs
+に QuestionInfo int Order を追加したい。QuestionGroup がQuestionごとのOrderを管理しているはずなので、そのイベントを使って管理できるはず
+
+QuestionInfo に Orderを追加することによりApiからもアクセスできるはず
+
+EsCQRSQuestions/EsCQRSQuestions.Domain/Projections/Questions/QuestionsQuery.cs
+にもOrderを追加して、並べ替えは基本Orderにして欲しい
+
+EsCQRSQuestions/EsCQRSQuestions.AdminWeb/Components/Planning/AllQuestionsList.razor
+での表示にも、Orderを表示して基本的な並べ替えはOrderにしてください。
+
+ただ、このタスクでは計画するだけです。
+このファイルの下部に計画をよく考えて追記で記入してください。必要なファイルの読み込みなど調査を行い、できるだけ具体的に計画してください。
+
+チャットではなく、以下の新しいファイル
+
+clinerules_bank/tasks/009_disp_order.design.md
+
+に現在の設計を書いてください。
+

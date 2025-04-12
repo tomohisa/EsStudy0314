@@ -27,7 +27,8 @@ public record QuestionsMultiProjector(
         bool IsDisplayed,
         List<QuestionResponse> Responses,
         Guid QuestionGroupId,
-        string QuestionGroupName // QuestionGroupの名前を含める
+        string QuestionGroupName, // QuestionGroupの名前を含める
+        int Order = 0             // 表示順序（デフォルト値は0）
     );
     
     // 初期ペイロード生成メソッド
@@ -120,11 +121,18 @@ public record QuestionsMultiProjector(
         Guid questionId,
         QuestionCreated e)
     {
-        // グループ名を取得（グループが存在する場合）
+        // グループ名とその質問の順序を取得（グループが存在する場合）
         string groupName = "";
+        int order = 0;
         if (payload.QuestionGroups.TryGetValue(e.QuestionGroupId, out var group))
         {
             groupName = group.Name;
+            // グループ内の質問リストから同じquestionIdを持つ質問の順序を探す
+            var questionRef = group.Questions.FirstOrDefault(q => q.QuestionId == questionId);
+            if (questionRef != null)
+            {
+                order = questionRef.Order;
+            }
         }
         
         // 質問を追加
@@ -137,7 +145,8 @@ public record QuestionsMultiProjector(
                 false, // デフォルトでは表示されていない
                 new List<QuestionResponse>(),
                 e.QuestionGroupId,
-                groupName));
+                groupName,
+                order)); // 順序情報を追加
         
         return payload with { Questions = updatedQuestions };
     }
@@ -175,19 +184,33 @@ public record QuestionsMultiProjector(
             return payload; // 質問が見つからない場合は変更なし
         }
         
-        // 新しいグループの名前を取得
+        // 新しいグループの名前と順序を取得
         string newGroupName = "";
+        int newOrder = 0;
         if (payload.QuestionGroups.TryGetValue(newGroupId, out var group))
         {
             newGroupName = group.Name;
+            
+            // 新しいグループ内での質問の順序を確認
+            var questionRef = group.Questions.FirstOrDefault(q => q.QuestionId == questionId);
+            if (questionRef != null)
+            {
+                newOrder = questionRef.Order;
+            }
+            else
+            {
+                // 新しいグループ内に質問がない場合、最後の順序番号を使用
+                newOrder = group.Questions.Count > 0 ? group.Questions.Max(q => q.Order) + 1 : 0;
+            }
         }
         
-        // 質問のグループIDとグループ名を更新
+        // 質問のグループIDとグループ名、順序を更新
         var updatedQuestions = payload.Questions.SetItem(
             questionId,
             question with { 
                 QuestionGroupId = newGroupId,
-                QuestionGroupName = newGroupName
+                QuestionGroupName = newGroupName,
+                Order = newOrder
             });
         
         return payload with { Questions = updatedQuestions };
@@ -280,7 +303,8 @@ public record QuestionsMultiProjector(
                 questionId,
                 question with { 
                     QuestionGroupId = groupId,
-                    QuestionGroupName = group.Name
+                    QuestionGroupName = group.Name,
+                    Order = nextOrder
                 });
         }
         
@@ -362,6 +386,19 @@ public record QuestionsMultiProjector(
             groupId,
             group with { Questions = updatedQuestions });
         
-        return payload with { QuestionGroups = updatedGroups };
+        // 質問の順序も更新
+        var updatedQuestionsDict = payload.Questions;
+        if (payload.Questions.TryGetValue(questionId, out var question))
+        {
+            // グループ内での新しい順序を反映
+            updatedQuestionsDict = updatedQuestionsDict.SetItem(
+                questionId,
+                question with { Order = newOrder });
+        }
+        
+        return payload with { 
+            QuestionGroups = updatedGroups,
+            Questions = updatedQuestionsDict
+        };
     }
 }
