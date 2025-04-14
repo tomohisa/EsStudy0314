@@ -351,6 +351,27 @@ apiRoute
             [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
     .WithOpenApi()
     .WithName("CreateQuestionGroup");
+    
+// 重複チェック機能を持つエンドポイント
+apiRoute
+    .MapPost(
+        "/questionGroups/createWithUniqueCode",
+        async (
+            [FromBody] CreateQuestionGroup command,
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            // ワークフローを使って重複チェックを実行
+            var workflow = new QuestionGroupWorkflow(executor);
+            var result = await workflow.CreateGroupWithUniqueCodeAsync(
+                command.Name, command.UniqueCode);
+                
+            return result.Match(
+                groupId => Results.Ok(new { GroupId = groupId }),
+                error => Results.Problem(error.Message)
+            );
+        })
+    .WithOpenApi()
+    .WithName("CreateQuestionGroupWithUniqueCode");
 
 apiRoute
     .MapPut(

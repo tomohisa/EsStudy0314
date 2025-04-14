@@ -53,7 +53,8 @@ else
         <GroupQuestionsList 
             QuestionsInGroup="questionsInGroup" 
             GroupId="selectedGroupId.Value" 
-            GroupName="@(groups.FirstOrDefault(g => g.Id == selectedGroupId)?.Name ?? "Selected Group")" 
+            GroupName="@(groups.FirstOrDefault(g => g.Id == selectedGroupId)?.Name ?? "Selected Group")"
+            UniqueCode="@(groups.FirstOrDefault(g => g.Id == selectedGroupId)?.UniqueCode ?? "")"
             GetResponseCount="GetResponseCountForQuestion" 
             GetQuestionOrderInGroup="GetQuestionOrderInGroup" 
             OnViewQuestion="ViewQuestionDetails" 

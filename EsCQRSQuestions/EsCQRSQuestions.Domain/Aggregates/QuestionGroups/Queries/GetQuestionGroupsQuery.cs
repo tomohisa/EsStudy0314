@@ -19,7 +19,8 @@ public record GetQuestionGroupsQuery() :
             .Select(m => ((QuestionGroup)m.Value.GetPayload(), m.Value.PartitionKeys))
             .Select(tuple => new ResultRecord(
                 tuple.PartitionKeys.AggregateId, 
-                tuple.Item1.Name, 
+                tuple.Item1.Name,
+                tuple.Item1.UniqueCode, // 新規：UniqueCodeを追加
                 tuple.Item1.Questions.Select(q => new QuestionReferenceRecord(q.QuestionId, q.Order)).ToList()))
             .ToResultBox();
     }
@@ -36,7 +37,8 @@ public record GetQuestionGroupsQuery() :
     [GenerateSerializer]
     public record ResultRecord(
         Guid Id, 
-        string Name, 
+        string Name,
+        string UniqueCode, // 新規：UniqueCodeを追加
         List<QuestionReferenceRecord> Questions
     );
 
