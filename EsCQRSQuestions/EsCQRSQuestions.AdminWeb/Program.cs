@@ -1,6 +1,7 @@
 using EsCQRSQuestions.AdminWeb;
 using EsCQRSQuestions.AdminWeb.Components;
-using EsCQRSQuestions.AdminWeb.Services; // Add this line
+using EsCQRSQuestions.AdminWeb.Services;
+using EsCQRSQuestions.AdminWeb.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,12 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddOutputCache();
+
+// Register ClientUrlOptions
+builder.Services.AddSingleton(services => new ClientUrlOptions 
+{ 
+    BaseUrl = builder.Configuration["ClientBaseUrl"] ?? "https://localhost:7201" 
+});
 
 builder.Services.AddHttpClient<QuestionApiClient>(client =>
     {

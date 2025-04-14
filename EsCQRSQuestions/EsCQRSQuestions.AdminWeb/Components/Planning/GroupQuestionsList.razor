@@ -1,11 +1,28 @@
 @using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries
 @using EsCQRSQuestions.Domain.Projections.Questions
+@using EsCQRSQuestions.AdminWeb.Models
+
+@inject ClientUrlOptions ClientUrls
+@inject IJSRuntime JsRuntime
 
 <div class="mb-4">
     <div class="d-flex justify-content-between align-items-center">
         <div>
             <h2>Questions in Group: @GroupName</h2>
-            <p class="text-muted">Unique Code: @UniqueCode</p>
+            <p class="text-muted">
+                Unique Code: @UniqueCode
+                @if(!string.IsNullOrEmpty(UniqueCode)) {
+                    <a href="@QuestionnaireUrl" target="_blank" class="ms-2 btn btn-sm btn-outline-primary">
+                        <i class="bi bi-link"></i> Open Link
+                    </a>
+                    <button class="btn btn-sm btn-outline-secondary ms-1" @onclick="CopyLinkToClipboard">
+                        <i class="bi bi-clipboard"></i> Copy
+                    </button>
+                    @if(isLinkCopied) {
+                        <span class="text-success ms-1"><i class="bi bi-check"></i> Copied!</span>
+                    }
+                }
+            </p>
         </div>
         <div>
             <button class="btn btn-outline-secondary me-2" @onclick="EditGroupClicked">
@@ -146,6 +163,10 @@ else
     [Parameter]
     public EventCallback<(Guid QuestionId, int NewOrder)> OnChangeQuestionOrder { get; set; }
     
+    private bool isLinkCopied = false;
+    
+    private string QuestionnaireUrl => $"{ClientUrls.BaseUrl}/questionair/{UniqueCode}";
+    
     private async Task ViewQuestionClicked(Guid questionId)
     {
         await OnViewQuestion.InvokeAsync(questionId);
@@ -189,5 +210,15 @@ else
     private async Task ChangeOrderClicked(Guid questionId, int newOrder)
     {
         await OnChangeQuestionOrder.InvokeAsync((questionId, newOrder));
+    }
+
+    private async Task CopyLinkToClipboard()
+    {
+        await JsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", QuestionnaireUrl);
+        isLinkCopied = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        isLinkCopied = false;
+        StateHasChanged();
     }
 }
