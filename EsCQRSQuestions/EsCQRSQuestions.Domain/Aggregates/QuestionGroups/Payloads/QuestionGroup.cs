@@ -14,9 +14,10 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads
     [GenerateSerializer, Immutable]
     public record QuestionGroup(
         string Name,
+        string UniqueCode,  // 新規追加：6桁の英数字
         List<QuestionReference> Questions) : IAggregatePayload
     {
-        public QuestionGroup() : this("", new List<QuestionReference>()) { }
+        public QuestionGroup() : this("", "", new List<QuestionReference>()) { }
 
         /// <summary>
         /// Adds a question to the group, ensuring no duplicates and assigning the next order.
@@ -91,6 +92,14 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads
         public QuestionGroup UpdateName(string newName)
         {
             return this with { Name = newName };
+        }
+
+        /// <summary>
+        /// Updates the unique code of the group.
+        /// </summary>
+        public QuestionGroup UpdateUniqueCode(string newUniqueCode)
+        {
+            return this with { UniqueCode = newUniqueCode };
         }
     }
 }

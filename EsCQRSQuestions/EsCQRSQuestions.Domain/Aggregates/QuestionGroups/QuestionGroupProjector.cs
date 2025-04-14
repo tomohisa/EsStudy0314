@@ -18,6 +18,7 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups
                 (EmptyAggregatePayload, QuestionGroupCreated e) =>
                     new QuestionGroup(
                         e.Name,
+                        e.UniqueCode, // 新規追加：UniqueCodeの適用
                         e.InitialQuestionIds?.Select((id, index) => new QuestionReference(id, index)).ToList() ?? new()
                     ),
 

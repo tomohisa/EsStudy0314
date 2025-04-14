@@ -168,4 +168,102 @@ public class QuestionGroupWorkflow
         // 上記のメソッドを使用
         return await CreateQuestionAndAddToGroupAsync(command, order);
     }
+
+    /// <summary>
+    /// 重複しないUniqueCodeを生成して検証するワークフロー
+    /// </summary>
+    public async Task<ResultBox<string>> GenerateUniqueCodeAsync()
+    {
+        // 6桁のランダムコードを生成
+        var uniqueCode = GenerateRandomCode();
+        
+        // 重複チェック
+        var isValid = await ValidateUniqueCodeAsync(uniqueCode);
+        
+        if (isValid)
+        {
+            return ResultBox.FromValue(uniqueCode);
+        }
+        
+        // 最大10回まで再試行
+        for (int i = 0; i < 10; i++)
+        {
+            uniqueCode = GenerateRandomCode();
+            isValid = await ValidateUniqueCodeAsync(uniqueCode);
+            
+            if (isValid)
+            {
+                return ResultBox.FromValue(uniqueCode);
+            }
+        }
+        
+        // 10回試行しても重複が解消しない場合はエラー
+        return ResultBox.FromException<string>(
+            new InvalidOperationException("Failed to generate a unique code after multiple attempts"));
+    }
+
+    /// <summary>
+    /// 生成されたUniqueCodeが既存のアクティブなQuestionGroupと重複しないことを確認
+    /// </summary>
+    private async Task<bool> ValidateUniqueCodeAsync(string uniqueCode)
+    {
+        // 全QuestionGroupを取得
+        var groupsResult = await _executor.QueryAsync(new GetQuestionGroupsQuery());
+        
+        if (!groupsResult.IsSuccess)
+        {
+            return false;
+        }
+        
+        var groups = groupsResult.GetValue();
+        
+        // 同じUniqueCodeを持つグループがないか確認
+        return !groups.Items.Any(g => g.UniqueCode == uniqueCode);
+    }
+
+    private static string GenerateRandomCode()
+    {
+        // 英数字からランダムに6文字を選択
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var random = new Random();
+        return new string(Enumerable.Repeat(chars, 6)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+
+    /// <summary>
+    /// UniqueCodeの重複をチェックして新しいQuestionGroupを作成する
+    /// </summary>
+    public async Task<ResultBox<Guid>> CreateGroupWithUniqueCodeAsync(
+        string groupName, 
+        string uniqueCode = "")
+    {
+        // UniqueCodeが指定されていない場合は生成
+        if (string.IsNullOrEmpty(uniqueCode))
+        {
+            var codeResult = await GenerateUniqueCodeAsync();
+            if (!codeResult.IsSuccess)
+            {
+                return codeResult.Exception;
+            }
+            uniqueCode = codeResult.GetValue();
+        }
+        else
+        {
+            // 指定されたUniqueCodeの重複チェック
+            var isValid = await ValidateUniqueCodeAsync(uniqueCode);
+            if (!isValid)
+            {
+                return ResultBox.FromException<Guid>(
+                    new InvalidOperationException($"UniqueCode '{uniqueCode}' is already in use"));
+            }
+        }
+        
+        // グループを作成
+        var groupCommandResult = await _executor.CommandAsync(
+            new CreateQuestionGroup(groupName, uniqueCode));
+        
+        // 結果を返す
+        return groupCommandResult.Conveyor(result => 
+            ResultBox.FromValue(result.PartitionKeys.AggregateId));
+    }
 }

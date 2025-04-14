@@ -9,6 +9,7 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events
     public record QuestionGroupCreated(
         Guid GroupId, // Aggregate ID
         string Name,
-        List<Guid> InitialQuestionIds // Optional: If created with initial questions
+        string UniqueCode = "", // 新規追加：6桁の英数字（デフォルト値を設定）
+        List<Guid>? InitialQuestionIds = null // Optional: If created with initial questions
         ) : IEventPayload;
 }
