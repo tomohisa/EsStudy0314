@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Run EsCQRSQuestions AppHost",
+        "type": "coreclr",
+        "request": "launch",
+        "program": "dotnet",
+        "args": ["run", "--project", "${workspaceFolder}/EsCQRSQuestions/EsCQRSQuestions.AppHost/EsCQRSQuestions.AppHost.csproj", "--launch-profile", "https"],
+        "cwd": "${workspaceFolder}/EsCQRSQuestions",
+        "stopAtEntry": false,
+        "console": "internalConsole"
+      }
+    ]
+  }
