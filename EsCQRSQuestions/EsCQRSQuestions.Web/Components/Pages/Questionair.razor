@@ -1,4 +1,5 @@
 @page "/questionair"
+@page "/questionair/{UniqueCode}"
 @attribute [StreamRendering(true)]
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
 @using Microsoft.AspNetCore.SignalR.Client
@@ -19,6 +20,26 @@
                     <h2 class="mb-0">Real-time Survey</h2>
                 </div>
                 <div class="card-body">
+                    @if (!string.IsNullOrEmpty(UniqueCode))
+                    {
+                        <div class="alert alert-info mb-3">
+                            <small>Survey Code: <strong>@UniqueCode</strong></small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label for="uniqueCode" class="form-label">Enter Survey Code</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="uniqueCode" 
+                                       @bind="inputUniqueCode" placeholder="Enter survey code" />
+                                <button class="btn btn-outline-primary" type="button" @onclick="NavigateToSurvey">
+                                    Go to Survey
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
                         <div class="alert alert-danger" role="alert">
@@ -153,6 +174,9 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? UniqueCode { get; set; }
+    
     private HubConnection hubConnection;
     private ActiveQuestionQuery.ActiveQuestionRecord? activeQuestion;
     private string participantName = "";
@@ -163,6 +187,7 @@
     private bool isSubmitting = false;
     private bool showResponses = false;
     private bool hasSubmitted = false;
+    private string inputUniqueCode = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -203,8 +228,17 @@
                         await hubConnection.InvokeAsync("SetParticipantName", participantName);
                     }
                     
-                    // Join as survey participant
-                    await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
+                    // Join as survey participant with unique code if available
+                    if (!string.IsNullOrEmpty(UniqueCode))
+                    {
+                        await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
+                        Console.WriteLine($"Reconnected to survey with unique code: {UniqueCode}");
+                    }
+                    else
+                    {
+                        await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
+                        Console.WriteLine("Reconnected to survey without unique code");
+                    }
                     
                     // Refresh active question
                     await RefreshActiveQuestion();
@@ -303,8 +337,17 @@
             
             Console.WriteLine($"SignalR connection established successfully. State: {hubConnection.State}");
             
-            // Join as survey participant
-            await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
+            // Join as survey participant with unique code if available
+            if (!string.IsNullOrEmpty(UniqueCode))
+            {
+                await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
+                Console.WriteLine($"Joined survey with unique code: {UniqueCode}");
+            }
+            else
+            {
+                await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
+                Console.WriteLine("Joined survey without unique code");
+            }
         }
         catch (Exception ex)
         {
@@ -341,6 +384,20 @@
         }
     }
 
+    private void NavigateToSurvey()
+    {
+        if (!string.IsNullOrWhiteSpace(inputUniqueCode))
+        {
+            // URLに含まれない文字を削除/置換
+            var sanitizedCode = Uri.EscapeDataString(inputUniqueCode.Trim());
+            NavigationManager.NavigateTo($"/questionair/{sanitizedCode}");
+        }
+        else
+        {
+            errorMessage = "Please enter a valid survey code";
+        }
+    }
+    
     private void ToggleResponses()
     {
         showResponses = !showResponses;
