@@ -97,8 +97,7 @@ builder.Services.AddTransient<InitialQuestionsCreator>();
 // Comment out or remove the hosted service registration
 // builder.Services.AddHostedService<InitialQuestionsService>();
 
-// Register QuestionGroupService
-builder.Services.AddTransient<EsCQRSQuestions.Domain.Services.IQuestionGroupService, EsCQRSQuestions.Domain.Services.QuestionGroupService>();
+// QuestionGroupServiceはDIに登録せず、使用時に生成する
 
 // Add SignalR
 builder.Services.AddSignalR();
@@ -218,9 +217,11 @@ apiRoute.MapGet("/questions/bygroup/{groupId}", async (Guid groupId, [FromServic
 
 apiRoute.MapGet("/questions/active", async (
         [FromServices] SekibanOrleansExecutor executor,
-        [FromServices] EsCQRSQuestions.Domain.Services.IQuestionGroupService groupService,
         [FromQuery] string? uniqueCode = null) =>
     {
+        // QuestionGroupServiceをその場で生成
+        var groupService = new EsCQRSQuestions.Domain.Services.QuestionGroupService(executor);
+        
         // UniqueCodeからグループIDを取得
         Guid? groupId = null;
         if (!string.IsNullOrWhiteSpace(uniqueCode))
