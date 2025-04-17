@@ -128,11 +128,16 @@ public class QuestionHub : Hub
         }
     }
     
-    // 参加者専用のメソッドを追加
-    public async Task JoinAsSurveyParticipant()
+    // 参加者専用のメソッドを追加（UniqueCode必須バージョンのみ残す）
+    public async Task JoinAsSurveyParticipant(string uniqueCode)
     {
         // 参加者としてActiveUsersに追加
         await TrackUserConnection();
+        if (!string.IsNullOrWhiteSpace(uniqueCode))
+        {
+            // UniqueCodeごとのSignalRグループに追加
+            await Groups.AddToGroupAsync(Context.ConnectionId, uniqueCode);
+        }
     }
     
     // Leave admin group

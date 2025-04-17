@@ -556,10 +556,10 @@ else
     {
         try
         {
-            Console.WriteLine($"Starting display for question {questionId}...");
-            await QuestionApi.StartDisplayQuestionAsync(questionId);
+            var uniqueCode = groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.UniqueCode ?? "";
+            Console.WriteLine($"Starting display for question {questionId} (UniqueCode: {uniqueCode})...");
+            await HubService.StartDisplayQuestionForGroup(questionId, uniqueCode);
             Console.WriteLine("Display started");
-            
             await RefreshQuestions();
         }
         catch (Exception ex)
@@ -572,10 +572,9 @@ else
     {
         try
         {
-            Console.WriteLine($"Stopping display for question {questionId}...");
+            var uniqueCode = groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.UniqueCode ?? "";
             await QuestionApi.StopDisplayQuestionAsync(questionId);
             Console.WriteLine("Display stopped");
-            
             await RefreshQuestions();
         }
         catch (Exception ex)
