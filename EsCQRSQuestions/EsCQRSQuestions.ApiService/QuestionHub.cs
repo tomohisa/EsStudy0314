@@ -1,4 +1,6 @@
 using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Commands;
+using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
+using EsCQRSQuestions.Domain.Workflows;
 using Microsoft.AspNetCore.SignalR;
 using Sekiban.Pure.Orleans.Parts;
 
@@ -205,21 +207,35 @@ public async Task StartDisplayQuestionForGroup(Guid questionId, string uniqueCod
     {
         try
         {
-            await _notificationService.NotifyUniqueCodeGroupAsync(
-                uniqueCode, 
-                "QuestionDisplayStarted", 
-                new { QuestionId = questionId });
+            // 1. まずワークフローを使ってコマンドを実行し、イベントを保存
+            var workflow = new QuestionDisplayWorkflow(_executor);
+            var result = await workflow.StartDisplayQuestionExclusivelyAsync(questionId);
             
-            _logger.LogInformation($"Notification sent to group {uniqueCode} for question {questionId}");
+            if (result.IsSuccess)
+            {
+                _logger.LogInformation($"StartDisplayCommand executed successfully for question {questionId}");
+                
+                // 2. 実行成功した場合のみ、通知を送信
+                await _notificationService.NotifyUniqueCodeGroupAsync(
+                    uniqueCode, 
+                    "QuestionDisplayStarted", 
+                    new { QuestionId = questionId });
+                
+                _logger.LogInformation($"Notification sent to group {uniqueCode} for question {questionId}");
+            }
+            else
+            {
+                _logger.LogError($"StartDisplayCommand failed: {result.GetException()?.Message}");
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error notifying group: {ex.Message}");
+            _logger.LogError($"Error in StartDisplayQuestionForGroup: {ex.Message}");
         }
     }
     else
     {
-        _logger.LogWarning($"UniqueCode is empty, notification not sent for question {questionId}");
+        _logger.LogWarning($"UniqueCode is empty, command not executed for question {questionId}");
     }
 }
 }
