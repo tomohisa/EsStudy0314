@@ -7,6 +7,8 @@ namespace EsCQRSQuestions.ApiService;
 public class QuestionHub : Hub
 {
     private readonly SekibanOrleansExecutor _executor;
+    private readonly IHubNotificationService _notificationService;
+    private readonly ILogger<QuestionHub> _logger;
     
     // Fixed aggregate ID for the ActiveUsers aggregate
     private static readonly Guid _activeUsersId = Guid.Parse("0195a6f7-dfff-75a7-b99f-36a0552a8eca");
@@ -17,9 +19,14 @@ public class QuestionHub : Hub
     private const string AdminGroup = "Admins";
     private const string ParticipantGroup = "Participants";
 
-    public QuestionHub(SekibanOrleansExecutor executor)
+    public QuestionHub(
+        SekibanOrleansExecutor executor, 
+        IHubNotificationService notificationService,
+        ILogger<QuestionHub> logger)
     {
         _executor = executor;
+        _notificationService = notificationService;
+        _logger = logger;
     }
     
     // Client connection
@@ -129,16 +136,34 @@ public class QuestionHub : Hub
     }
     
     // 参加者専用のメソッドを追加（UniqueCode必須バージョンのみ残す）
-    public async Task JoinAsSurveyParticipant(string uniqueCode)
+public async Task JoinAsSurveyParticipant(string uniqueCode)
+{
+    _logger.LogInformation($"JoinAsSurveyParticipant called: UniqueCode={uniqueCode}, ConnectionId={Context.ConnectionId}");
+    
+    // 参加者としてActiveUsersに追加
+    await TrackUserConnection();
+    
+    if (!string.IsNullOrWhiteSpace(uniqueCode))
     {
-        // 参加者としてActiveUsersに追加
-        await TrackUserConnection();
-        if (!string.IsNullOrWhiteSpace(uniqueCode))
+        try 
         {
             // UniqueCodeごとのSignalRグループに追加
             await Groups.AddToGroupAsync(Context.ConnectionId, uniqueCode);
+            _logger.LogInformation($"Added connection {Context.ConnectionId} to group {uniqueCode}");
+            
+            // 確認メッセージを参加者に送信
+            await Clients.Caller.SendAsync("JoinedGroup", new { UniqueCode = uniqueCode });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error adding connection to group: {ex.Message}");
         }
     }
+    else
+    {
+        _logger.LogWarning($"UniqueCode is empty, not adding to specific group. ConnectionId={Context.ConnectionId}");
+    }
+}
     
     // Leave admin group
     public async Task LeaveAdminGroup()
@@ -170,4 +195,31 @@ public class QuestionHub : Hub
         
         await Clients.Caller.SendAsync("NameSet", name);
     }
+
+// Adminからの表示依頼をUniqueCodeグループにだけ通知
+public async Task StartDisplayQuestionForGroup(Guid questionId, string uniqueCode)
+{
+    _logger.LogInformation($"StartDisplayQuestionForGroup called: QuestionId={questionId}, UniqueCode={uniqueCode}");
+    
+    if (!string.IsNullOrWhiteSpace(uniqueCode))
+    {
+        try
+        {
+            await _notificationService.NotifyUniqueCodeGroupAsync(
+                uniqueCode, 
+                "QuestionDisplayStarted", 
+                new { QuestionId = questionId });
+            
+            _logger.LogInformation($"Notification sent to group {uniqueCode} for question {questionId}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error notifying group: {ex.Message}");
+        }
+    }
+    else
+    {
+        _logger.LogWarning($"UniqueCode is empty, notification not sent for question {questionId}");
+    }
+}
 }

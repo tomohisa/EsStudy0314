@@ -278,8 +278,14 @@
         };
 
         // Handle events
-        hubConnection.On<object>("QuestionDisplayStarted", async _ =>
-        {
+        hubConnection.On<object>("JoinedGroup", group => {
+            Console.WriteLine($"Joined group with UniqueCode: {(group as dynamic).UniqueCode}");
+            errorMessage = "";
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<object>("QuestionDisplayStarted", async data => {
+            Console.WriteLine($"QuestionDisplayStarted event received: {System.Text.Json.JsonSerializer.Serialize(data)}");
             await RefreshActiveQuestion();
             hasSubmitted = false;
             selectedOptionId = "";
@@ -394,7 +400,7 @@
         }
         else
         {
-            errorMessage = "Please enter a valid survey code";
+            errorMessage = "アンケートコードを入力してください。アンケートに参加するにはコードが必要です。";
         }
     }
     
