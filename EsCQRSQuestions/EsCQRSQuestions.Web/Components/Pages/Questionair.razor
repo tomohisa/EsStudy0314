@@ -56,11 +56,23 @@
                     @if (activeQuestion == null)
                     {
                         <div class="text-center py-5">
-                            <h3>Welcome to the Survey!</h3>
-                            <p class="lead">Please wait for a question to be displayed.</p>
-                            <div class="spinner-border text-primary mt-3" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
+                            @if (string.IsNullOrEmpty(UniqueCode))
+                            {
+                                <h3>アンケートコードを入力してください</h3>
+                                <p class="lead">アンケートに参加するには、上部のフォームからコードを入力してください。</p>
+                                <div class="alert alert-info mt-3">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    アンケートコードはアンケート管理者から提供されます。
+                                </div>
+                            }
+                            else
+                            {
+                                <h3>アンケートへようこそ！</h3>
+                                <p class="lead">質問が表示されるまでお待ちください。</p>
+                                <div class="spinner-border text-primary mt-3" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            }
                         </div>
                     }
                     else
@@ -234,11 +246,6 @@
                         await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
                         Console.WriteLine($"Reconnected to survey with unique code: {UniqueCode}");
                     }
-                    else
-                    {
-                        await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
-                        Console.WriteLine("Reconnected to survey without unique code");
-                    }
                     
                     // Refresh active question
                     await RefreshActiveQuestion();
@@ -349,11 +356,6 @@
                 await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
                 Console.WriteLine($"Joined survey with unique code: {UniqueCode}");
             }
-            else
-            {
-                await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
-                Console.WriteLine("Joined survey without unique code");
-            }
         }
         catch (Exception ex)
         {
@@ -370,6 +372,14 @@
         try
         {
             Console.WriteLine($"Refreshing active question for UniqueCode: {UniqueCode ?? "none"}");
+            
+            // UniqueCodeが空の場合は質問を表示しない
+            if (string.IsNullOrEmpty(UniqueCode))
+            {
+                activeQuestion = null;
+                return;
+            }
+            
             activeQuestion = await QuestionApi.GetActiveQuestionAsync(UniqueCode);
             if (activeQuestion != null && activeQuestion.QuestionId != Guid.Empty)
             {

@@ -581,13 +581,23 @@ else
         try
         {
             var uniqueCode = groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.UniqueCode ?? "";
+            Console.WriteLine($"Stopping display for question {questionId} (UniqueCode: {uniqueCode})...");
+            
+            if (string.IsNullOrWhiteSpace(uniqueCode))
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "このグループにはUniqueCodeが設定されていません。グループを編集してUniqueCodeを自動生成してください。");
+                return;
+            }
+            
             await QuestionApi.StopDisplayQuestionAsync(questionId);
-            Console.WriteLine("Display stopped");
+            await HubService.StopDisplayQuestionForGroup(questionId, uniqueCode);
+            Console.WriteLine($"Display stopped for question {questionId} with UniqueCode: {uniqueCode}");
             await RefreshQuestions();
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error stopping display: {ex.Message}");
+            await JsRuntime.InvokeVoidAsync("alert", $"質問の表示停止に失敗しました: {ex.Message}");
         }
     }
 
