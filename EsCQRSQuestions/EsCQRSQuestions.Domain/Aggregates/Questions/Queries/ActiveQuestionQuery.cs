@@ -8,7 +8,7 @@ using Sekiban.Pure.Query;
 namespace EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
 
 [GenerateSerializer]
-public record ActiveQuestionQuery(string? UniqueCode = null)
+public record ActiveQuestionQuery(Guid QuestionGroupId)
     : IMultiProjectionQuery<AggregateListProjector<QuestionProjector>, ActiveQuestionQuery, ActiveQuestionQuery.ActiveQuestionRecord>
 {
     /// <summary>
@@ -22,9 +22,14 @@ public record ActiveQuestionQuery(string? UniqueCode = null)
     {
         // 質問のリストを取得
         var questionsWithGroup = projection.Payload.Aggregates
-            .Where(m => m.Value.GetPayload() is Question)
-            .Select(m => ((Question)m.Value.GetPayload(), m.Value.PartitionKeys))
-            .Where(tuple => tuple.Item1.IsDisplayed)
+            .Where(m => m.Value.Payload is Question)
+            .Select(m => new {
+                AggregateId = m.Key,
+                PartitionKeys = m.Value.PartitionKeys,
+                Payload = m.Value.Payload as Question ?? throw new InvalidCastException()
+            })
+            .Where(m => m.Payload.QuestionGroupId == query.QuestionGroupId)
+            .Where(tuple => tuple.Payload.IsDisplayed)
             .ToList();
             
         // 最終的に表示する質問
@@ -34,15 +39,15 @@ public record ActiveQuestionQuery(string? UniqueCode = null)
         var activeQuestion = questionsWithGroup
             .Select(tuple => new ActiveQuestionRecord(
                 tuple.PartitionKeys.AggregateId,
-                tuple.Item1.Text,
-                tuple.Item1.Options,
-                tuple.Item1.Responses.Select(r => new ResponseRecord(
+                tuple.Payload.Text,
+                tuple.Payload.Options,
+                tuple.Payload.Responses.Select(r => new ResponseRecord(
                     r.Id,
                     r.ParticipantName,
                     r.SelectedOptionId,
                     r.Comment,
                     r.Timestamp)).ToList(),
-                tuple.Item1.QuestionGroupId))  // グループIDも返す
+                tuple.Payload.QuestionGroupId))  // グループIDも返す
             .FirstOrDefault();
 
         return activeQuestion != null 

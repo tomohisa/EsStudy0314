@@ -246,11 +246,6 @@
                         await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
                         Console.WriteLine($"Reconnected to survey with unique code: {UniqueCode}");
                     }
-                    else
-                    {
-                        await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
-                        Console.WriteLine("Reconnected to survey without unique code");
-                    }
                     
                     // Refresh active question
                     await RefreshActiveQuestion();
@@ -360,11 +355,6 @@
             {
                 await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
                 Console.WriteLine($"Joined survey with unique code: {UniqueCode}");
-            }
-            else
-            {
-                await hubConnection.InvokeAsync("JoinAsSurveyParticipant");
-                Console.WriteLine("Joined survey without unique code");
             }
         }
         catch (Exception ex)
