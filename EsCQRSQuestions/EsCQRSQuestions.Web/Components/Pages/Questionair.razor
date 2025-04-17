@@ -369,9 +369,9 @@
     {
         try
         {
-            Console.WriteLine("Refreshing active question...");
-            activeQuestion = await QuestionApi.GetActiveQuestionAsync();
-            if (activeQuestion != null)
+            Console.WriteLine($"Refreshing active question for UniqueCode: {UniqueCode ?? "none"}");
+            activeQuestion = await QuestionApi.GetActiveQuestionAsync(UniqueCode);
+            if (activeQuestion != null && activeQuestion.QuestionId != Guid.Empty)
             {
                 Console.WriteLine($"Active question received: {activeQuestion.Text}");
                 // Reset submission status if question changed
@@ -381,6 +381,7 @@
             else
             {
                 Console.WriteLine("No active question at this time");
+                activeQuestion = null; // Ensure null if empty result returned
             }
         }
         catch (Exception ex)

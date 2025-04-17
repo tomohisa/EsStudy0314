@@ -97,6 +97,9 @@ builder.Services.AddTransient<InitialQuestionsCreator>();
 // Comment out or remove the hosted service registration
 // builder.Services.AddHostedService<InitialQuestionsService>();
 
+// Register QuestionGroupService
+builder.Services.AddTransient<EsCQRSQuestions.Domain.Services.IQuestionGroupService, EsCQRSQuestions.Domain.Services.QuestionGroupService>();
+
 // Add SignalR
 builder.Services.AddSignalR();
 
@@ -213,9 +216,36 @@ apiRoute.MapGet("/questions/bygroup/{groupId}", async (Guid groupId, [FromServic
     .WithOpenApi()
     .WithName("GetQuestionsByGroup");
 
-apiRoute.MapGet("/questions/active", async ([FromServices]SekibanOrleansExecutor executor) =>
+apiRoute.MapGet("/questions/active", async (
+        [FromServices] SekibanOrleansExecutor executor,
+        [FromServices] EsCQRSQuestions.Domain.Services.IQuestionGroupService groupService,
+        [FromQuery] string? uniqueCode = null) =>
     {
-        var activeQuestion = await executor.QueryAsync(new ActiveQuestionQuery()).UnwrapBox();
+        // UniqueCodeからグループIDを取得
+        Guid? groupId = null;
+        if (!string.IsNullOrWhiteSpace(uniqueCode))
+        {
+            groupId = await groupService.GetGroupIdByUniqueCodeAsync(uniqueCode);
+        }
+        
+        // アクティブな質問を取得
+        var activeQuestion = await executor.QueryAsync(new ActiveQuestionQuery(uniqueCode)).UnwrapBox();
+        
+        // UniqueCodeが指定され、かつグループIDが見つかった場合のみフィルタリング
+        if (!string.IsNullOrWhiteSpace(uniqueCode) && groupId.HasValue && activeQuestion.QuestionId != Guid.Empty)
+        {
+            // 質問が指定されたグループに属していない場合は空の結果を返す
+            if (activeQuestion.QuestionGroupId != groupId.Value)
+            {
+                return new ActiveQuestionQuery.ActiveQuestionRecord(
+                    Guid.Empty,
+                    string.Empty,
+                    new List<QuestionOption>(),
+                    new List<ActiveQuestionQuery.ResponseRecord>(),
+                    Guid.Empty);
+            }
+        }
+        
         return activeQuestion;
     })
     .WithOpenApi()

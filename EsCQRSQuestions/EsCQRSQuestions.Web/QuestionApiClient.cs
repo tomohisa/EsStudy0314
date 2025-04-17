@@ -25,9 +25,13 @@ public class QuestionApiClient(HttpClient httpClient)
     }
 
     // Get active question
-    public async Task<ActiveQuestionQuery.ActiveQuestionRecord?> GetActiveQuestionAsync(CancellationToken cancellationToken = default)
+    public async Task<ActiveQuestionQuery.ActiveQuestionRecord?> GetActiveQuestionAsync(string? uniqueCode = null, CancellationToken cancellationToken = default)
     {
-        return await httpClient.GetFromJsonAsync<ActiveQuestionQuery.ActiveQuestionRecord?>("/api/questions/active", cancellationToken);
+        string url = string.IsNullOrEmpty(uniqueCode) 
+            ? "/api/questions/active" 
+            : $"/api/questions/active?uniqueCode={Uri.EscapeDataString(uniqueCode)}";
+            
+        return await httpClient.GetFromJsonAsync<ActiveQuestionQuery.ActiveQuestionRecord?>(url, cancellationToken);
     }
 
     // Get question by ID
