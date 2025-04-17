@@ -128,14 +128,7 @@ public class QuestionHub : Hub
         }
     }
     
-    // 参加者専用のメソッドを追加
-    public async Task JoinAsSurveyParticipant()
-    {
-        // 参加者としてActiveUsersに追加
-        await TrackUserConnection();
-    }
-
-    // UniqueCode指定バージョン
+    // 参加者専用のメソッドを追加（UniqueCode必須バージョンのみ残す）
     public async Task JoinAsSurveyParticipant(string uniqueCode)
     {
         // 参加者としてActiveUsersに追加

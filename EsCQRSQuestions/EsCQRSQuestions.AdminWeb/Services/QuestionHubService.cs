@@ -89,6 +89,15 @@ namespace EsCQRSQuestions.AdminWeb.Services
             }
         }
 
+        // UniqueCodeを指定して表示依頼を送信
+        public async Task StartDisplayQuestionForGroup(Guid questionId, string uniqueCode)
+        {
+            if (IsConnected && !string.IsNullOrWhiteSpace(uniqueCode))
+            {
+                await _hubConnection!.InvokeAsync("StartDisplayQuestionForGroup", questionId, uniqueCode);
+            }
+        }
+
         private void RegisterHubEvents()
         {
             if (_hubConnection == null)
