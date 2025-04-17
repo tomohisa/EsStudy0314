@@ -83,6 +83,12 @@ namespace EsCQRSQuestions.Domain;
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Projections.Questions.QuestionsMultiProjector.QuestionInfo))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Projections.Questions.QuestionsQuery))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Projections.Questions.QuestionsQuery.QuestionDetailRecord))]
+    
+    // ActiveQuestionQuery
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Queries.ActiveQuestionQuery))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Queries.ActiveQuestionQuery.ActiveQuestionRecord))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Queries.ActiveQuestionQuery.ResponseRecord))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Services.QuestionGroupService))]
     public partial class EsCQRSQuestionsDomainEventsJsonContext : JsonSerializerContext
     {
     }

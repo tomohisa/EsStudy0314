@@ -558,13 +558,21 @@ else
         {
             var uniqueCode = groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.UniqueCode ?? "";
             Console.WriteLine($"Starting display for question {questionId} (UniqueCode: {uniqueCode})...");
+            
+            if (string.IsNullOrWhiteSpace(uniqueCode))
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "このグループにはUniqueCodeが設定されていません。グループを編集してUniqueCodeを自動生成してください。");
+                return;
+            }
+            
             await HubService.StartDisplayQuestionForGroup(questionId, uniqueCode);
-            Console.WriteLine("Display started");
+            Console.WriteLine($"Display started for question {questionId} with UniqueCode: {uniqueCode}");
             await RefreshQuestions();
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error starting display: {ex.Message}");
+            await JsRuntime.InvokeVoidAsync("alert", $"質問の表示に失敗しました: {ex.Message}");
         }
     }
 

@@ -278,8 +278,14 @@
         };
 
         // Handle events
-        hubConnection.On<object>("QuestionDisplayStarted", async _ =>
-        {
+        hubConnection.On<object>("JoinedGroup", group => {
+            Console.WriteLine($"Joined group with UniqueCode: {(group as dynamic).UniqueCode}");
+            errorMessage = "";
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<object>("QuestionDisplayStarted", async data => {
+            Console.WriteLine($"QuestionDisplayStarted event received: {System.Text.Json.JsonSerializer.Serialize(data)}");
             await RefreshActiveQuestion();
             hasSubmitted = false;
             selectedOptionId = "";
@@ -363,9 +369,9 @@
     {
         try
         {
-            Console.WriteLine("Refreshing active question...");
-            activeQuestion = await QuestionApi.GetActiveQuestionAsync();
-            if (activeQuestion != null)
+            Console.WriteLine($"Refreshing active question for UniqueCode: {UniqueCode ?? "none"}");
+            activeQuestion = await QuestionApi.GetActiveQuestionAsync(UniqueCode);
+            if (activeQuestion != null && activeQuestion.QuestionId != Guid.Empty)
             {
                 Console.WriteLine($"Active question received: {activeQuestion.Text}");
                 // Reset submission status if question changed
@@ -375,6 +381,7 @@
             else
             {
                 Console.WriteLine("No active question at this time");
+                activeQuestion = null; // Ensure null if empty result returned
             }
         }
         catch (Exception ex)
@@ -394,7 +401,7 @@
         }
         else
         {
-            errorMessage = "Please enter a valid survey code";
+            errorMessage = "アンケートコードを入力してください。アンケートに参加するにはコードが必要です。";
         }
     }
     

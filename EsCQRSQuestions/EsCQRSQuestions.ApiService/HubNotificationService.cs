@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 
 namespace EsCQRSQuestions.ApiService;
 
@@ -8,10 +9,14 @@ namespace EsCQRSQuestions.ApiService;
 public class HubNotificationService : IHubNotificationService
 {
     private readonly IHubContext<QuestionHub> _hubContext;
+    private readonly ILogger<HubNotificationService> _logger;
 
-    public HubNotificationService(IHubContext<QuestionHub> hubContext)
+    public HubNotificationService(
+        IHubContext<QuestionHub> hubContext,
+        ILogger<HubNotificationService> logger)
     {
         _hubContext = hubContext;
+        _logger = logger;
     }
 
     public async Task NotifyAllClientsAsync(string method, object data)
@@ -32,9 +37,23 @@ public class HubNotificationService : IHubNotificationService
     // UniqueCodeグループへの通知
     public async Task NotifyUniqueCodeGroupAsync(string uniqueCode, string method, object data)
     {
-        if (!string.IsNullOrWhiteSpace(uniqueCode))
+        try
         {
-            await _hubContext.Clients.Group(uniqueCode).SendAsync(method, data);
+            _logger.LogInformation($"NotifyUniqueCodeGroupAsync: UniqueCode={uniqueCode}, Method={method}");
+            
+            if (!string.IsNullOrWhiteSpace(uniqueCode))
+            {
+                await _hubContext.Clients.Group(uniqueCode).SendAsync(method, data);
+                _logger.LogInformation($"Notification sent to group {uniqueCode}");
+            }
+            else
+            {
+                _logger.LogWarning("UniqueCode is empty, notification not sent");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error in NotifyUniqueCodeGroupAsync: {ex.Message}");
         }
     }
 }
