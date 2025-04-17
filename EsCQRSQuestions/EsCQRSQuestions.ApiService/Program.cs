@@ -32,6 +32,9 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
 builder.AddKeyedAzureTableClient("OrleansSekibanClustering");
+
+
+
 builder.AddKeyedAzureBlobClient("OrleansSekibanGrainState");
 builder.AddKeyedAzureQueueClient("OrleansSekibanQueue");
 builder.UseOrleans(
