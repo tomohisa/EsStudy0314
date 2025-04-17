@@ -222,6 +222,17 @@ apiRoute.MapGet("/questions/active", async (
         [FromServices] SekibanOrleansExecutor executor,
         [FromQuery] string? uniqueCode = null) =>
     {
+        // UniqueCodeが指定されていない場合は空の結果を返す
+        if (string.IsNullOrWhiteSpace(uniqueCode))
+        {
+            return new ActiveQuestionQuery.ActiveQuestionRecord(
+                Guid.Empty,
+                string.Empty,
+                new List<QuestionOption>(),
+                new List<ActiveQuestionQuery.ResponseRecord>(),
+                Guid.Empty);
+        }
+        
         // QuestionGroupServiceをその場で生成
         var groupService = new EsCQRSQuestions.Domain.Services.QuestionGroupService(executor);
         

@@ -1,7 +1,7 @@
 # Basic
 Do exactly what I ask. You are assisting, do not break current feature without being asked.
 Just suggest if you think about better refactoring.
-Responde in Japanese, and always finish your sentence with some Emoji that relate with your feeling.
+Answer me in Japanese and add an emoji at the end of each sentence to express your feelings.
 
 # Project Structure
 - The project follows a clean architecture pattern with Event Sourcing as the core persistence mechanism.
