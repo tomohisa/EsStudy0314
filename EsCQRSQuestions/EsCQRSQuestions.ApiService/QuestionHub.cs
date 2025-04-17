@@ -134,6 +134,18 @@ public class QuestionHub : Hub
         // 参加者としてActiveUsersに追加
         await TrackUserConnection();
     }
+
+    // UniqueCode指定バージョン
+    public async Task JoinAsSurveyParticipant(string uniqueCode)
+    {
+        // 参加者としてActiveUsersに追加
+        await TrackUserConnection();
+        if (!string.IsNullOrWhiteSpace(uniqueCode))
+        {
+            // UniqueCodeごとのSignalRグループに追加
+            await Groups.AddToGroupAsync(Context.ConnectionId, uniqueCode);
+        }
+    }
     
     // Leave admin group
     public async Task LeaveAdminGroup()

@@ -28,4 +28,13 @@ public class HubNotificationService : IHubNotificationService
     {
         await _hubContext.Clients.Group("Participants").SendAsync(method, data);
     }
+
+    // UniqueCodeグループへの通知
+    public async Task NotifyUniqueCodeGroupAsync(string uniqueCode, string method, object data)
+    {
+        if (!string.IsNullOrWhiteSpace(uniqueCode))
+        {
+            await _hubContext.Clients.Group(uniqueCode).SendAsync(method, data);
+        }
+    }
 }

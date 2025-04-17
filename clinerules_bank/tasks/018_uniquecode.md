@@ -19,4 +19,4 @@ clinerules_bank/tasks/017_uniquecode.[hhmmss 編集を開始した時間、分�
 
 
 
-
+clinerules_bank/tasks/018_uniquecode.Changes.md
