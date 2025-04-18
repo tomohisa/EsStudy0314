@@ -353,9 +353,11 @@ apiRoute
                        ParticipantName = command.ParticipantName,
                        SelectedOptionId = command.SelectedOptionId,
                        Comment = command.Comment,
-                       Timestamp = (response.Events.First().GetPayload() as ResponseAdded)?.Timestamp
+                       Timestamp = (response.Events.First().GetPayload() as ResponseAdded)?.Timestamp,
+                       ClientId = command.ClientId // クライアントIDを通知に含める
                    });
                }).UnwrapBox();
+           return response;
         })
     .WithOpenApi()
     .WithName("AddResponse");

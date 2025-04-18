@@ -50,7 +50,9 @@ public record QuestionDetailQuery(Guid QuestionId)
                 r.ParticipantName,
                 r.SelectedOptionId,
                 r.Comment,
-                r.Timestamp)).ToList(),question.QuestionGroupId);
+                r.Timestamp,
+                r.ClientId)).ToList(),
+            question.QuestionGroupId);
     }
 
     [GenerateSerializer]
@@ -69,6 +71,7 @@ public record QuestionDetailQuery(Guid QuestionId)
         string? ParticipantName,
         string SelectedOptionId,
         string? Comment,
-        DateTime Timestamp
+        DateTime Timestamp,
+        string ClientId
     );
 }

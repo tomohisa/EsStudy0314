@@ -13,7 +13,8 @@ public record AddResponseCommand(
     Guid QuestionId,
     string? ParticipantName,
     string SelectedOptionId,
-    string? Comment
+    string? Comment,
+    string ClientId
 ) : ICommandWithHandler<AddResponseCommand, QuestionProjector, Question>
 {
     public PartitionKeys SpecifyPartitionKeys(AddResponseCommand command) => 
@@ -48,6 +49,7 @@ public record AddResponseCommand(
             command.ParticipantName,
             command.SelectedOptionId,
             command.Comment,
-            DateTime.UtcNow));
+            DateTime.UtcNow,
+            command.ClientId));
     }
 }

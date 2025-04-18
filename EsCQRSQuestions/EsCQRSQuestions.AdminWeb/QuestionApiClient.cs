@@ -120,9 +120,9 @@ public class QuestionApiClient(HttpClient httpClient)
     }
 
     // Add a response to a question
-    public async Task<object> AddResponseAsync(Guid questionId, string? participantName, string selectedOptionId, string? comment, CancellationToken cancellationToken = default)
+    public async Task<object> AddResponseAsync(Guid questionId, string? participantName, string selectedOptionId, string? comment, string clientId, CancellationToken cancellationToken = default)
     {
-        var command = new AddResponseCommand(questionId, participantName, selectedOptionId, comment);
+        var command = new AddResponseCommand(questionId, participantName, selectedOptionId, comment, clientId);
         var response = await httpClient.PostAsJsonAsync("/api/questions/addResponse", command, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<object>() ?? new {};
