@@ -46,7 +46,8 @@ public record ActiveQuestionQuery(Guid QuestionGroupId)
                     r.ParticipantName,
                     r.SelectedOptionId,
                     r.Comment,
-                    r.Timestamp)).ToList(),
+                    r.Timestamp,
+                    r.ClientId)).ToList(),
                 tuple.Payload.QuestionGroupId))  // グループIDも返す
             .FirstOrDefault();
 
@@ -75,6 +76,7 @@ public record ActiveQuestionQuery(Guid QuestionGroupId)
         string? ParticipantName,
         string SelectedOptionId,
         string? Comment,
-        DateTime Timestamp
+        DateTime Timestamp,
+        string ClientId
     );
 }

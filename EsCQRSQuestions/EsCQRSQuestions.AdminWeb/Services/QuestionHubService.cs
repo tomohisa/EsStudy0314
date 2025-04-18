@@ -239,7 +239,20 @@ namespace EsCQRSQuestions.AdminWeb.Services
         private Task OnQuestionGroupChanged()
         {
             _logger.LogInformation("Question group changed event received");
-            return QuestionGroupChanged?.Invoke() ?? Task.CompletedTask;
+            
+            // 追加: 詳細なデバッグログを出力
+            _logger.LogDebug("Notifying UI components that question group data changed");
+            
+            // 実行時にエラーが発生した場合を処理
+            try
+            {
+                return QuestionGroupChanged?.Invoke() ?? Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error in QuestionGroupChanged event handler: {ex.Message}");
+                return Task.CompletedTask;
+            }
         }
 
         private Task OnResponseAdded()

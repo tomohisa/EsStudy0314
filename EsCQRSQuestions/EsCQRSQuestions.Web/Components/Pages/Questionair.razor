@@ -200,9 +200,24 @@
     private bool showResponses = false;
     private bool hasSubmitted = false;
     private string inputUniqueCode = "";
+    
+    // クライアントIDを保持する変数
+    private string clientId = "";
+
+    // JSインタロップ用の関数
+    [JSInvokable]
+    public void SetClientId(string id)
+    {
+        clientId = id;
+        Console.WriteLine($"Client ID set: {clientId}");
+        StateHasChanged();
+    }
 
     protected override async Task OnInitializedAsync()
     {
+        // クライアントIDの取得または生成
+        await JsRuntime.InvokeVoidAsync("getOrCreateClientId");
+        
         // Set up SignalR connection with improved timeout and resilience settings
         hubConnection = new HubConnectionBuilder()
             .WithUrlWithClientFactory("https+http://apiservice/questionHub", HttpMessageHandlerFactory)
@@ -384,9 +399,15 @@
             if (activeQuestion != null && activeQuestion.QuestionId != Guid.Empty)
             {
                 Console.WriteLine($"Active question received: {activeQuestion.Text}");
-                // Reset submission status if question changed
-                var currentResponses = activeQuestion.Responses.Where(r => r.ParticipantName == participantName);
+                
+                // クライアントIDに基づいて重複チェック
+                var currentResponses = activeQuestion.Responses.Where(r => r.ClientId == clientId);
                 hasSubmitted = currentResponses.Any();
+                
+                if (hasSubmitted)
+                {
+                    Console.WriteLine($"User with client ID {clientId} has already submitted a response");
+                }
             }
             else
             {
@@ -444,6 +465,20 @@
             return;
         }
 
+        // クライアントIDが空の場合は再生成を試みる
+        if (string.IsNullOrEmpty(clientId))
+        {
+            await JsRuntime.InvokeVoidAsync("getOrCreateClientId");
+            await Task.Delay(500); // 少し待ってIDが設定されるのを待つ
+            
+            if (string.IsNullOrEmpty(clientId))
+            {
+                // それでも取得できない場合は一時的なIDを生成
+                clientId = Guid.NewGuid().ToString();
+                Console.WriteLine($"Generated temporary client ID: {clientId}");
+            }
+        }
+
         try
         {
             isSubmitting = true;
@@ -454,12 +489,13 @@
                 await hubConnection.InvokeAsync("SetParticipantName", participantName);
             }
             
-            // Submit response
+            // Submit response with client ID
             await QuestionApi.AddResponseAsync(
                 activeQuestion.QuestionId,
                 participantName,
                 selectedOptionId,
-                comment);
+                comment,
+                clientId);
             
             // Mark as submitted and show responses
             hasSubmitted = true;

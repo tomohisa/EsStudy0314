@@ -8,5 +8,6 @@ public record ResponseAdded(
     string? ParticipantName,
     string SelectedOptionId,
     string? Comment,
-    DateTime Timestamp
+    DateTime Timestamp,
+    string ClientId
 ) : IEventPayload;

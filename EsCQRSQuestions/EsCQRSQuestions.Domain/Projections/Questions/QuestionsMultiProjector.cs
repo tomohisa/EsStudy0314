@@ -254,7 +254,8 @@ public record QuestionsMultiProjector(
                 e.ParticipantName,
                 e.SelectedOptionId,
                 e.Comment,
-                e.Timestamp)
+                e.Timestamp,
+                e.ClientId)
         };
         
         // 質問を更新

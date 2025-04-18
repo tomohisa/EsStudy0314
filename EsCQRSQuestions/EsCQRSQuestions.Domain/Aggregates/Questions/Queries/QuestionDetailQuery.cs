@@ -26,7 +26,7 @@ public record QuestionDetailQuery(Guid QuestionId)
                 string.Empty,
                 new List<QuestionOption>(),
                 false,
-                new List<ResponseRecord>());
+                new List<ResponseRecord>(), Guid.Empty);
         }
 
         var question = aggregateResult.GetPayload() as Question;
@@ -37,7 +37,7 @@ public record QuestionDetailQuery(Guid QuestionId)
                 string.Empty,
                 new List<QuestionOption>(),
                 false,
-                new List<ResponseRecord>());
+                new List<ResponseRecord>(), Guid.Empty);
         }
 
         return new QuestionDetailRecord(
@@ -50,7 +50,9 @@ public record QuestionDetailQuery(Guid QuestionId)
                 r.ParticipantName,
                 r.SelectedOptionId,
                 r.Comment,
-                r.Timestamp)).ToList());
+                r.Timestamp,
+                r.ClientId)).ToList(),
+            question.QuestionGroupId);
     }
 
     [GenerateSerializer]
@@ -59,7 +61,8 @@ public record QuestionDetailQuery(Guid QuestionId)
         string Text,
         List<QuestionOption> Options,
         bool IsDisplayed,
-        List<ResponseRecord> Responses
+        List<ResponseRecord> Responses,
+        Guid QuestionGroupId
     );
 
     [GenerateSerializer]
@@ -68,6 +71,7 @@ public record QuestionDetailQuery(Guid QuestionId)
         string? ParticipantName,
         string SelectedOptionId,
         string? Comment,
-        DateTime Timestamp
+        DateTime Timestamp,
+        string ClientId
     );
 }

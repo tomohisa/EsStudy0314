@@ -281,13 +281,24 @@ else
         try
         {
             Console.WriteLine($"Viewing question details for {questionId}...");
+            // 既存のselectedQuestionをnullに設定し、UIを更新してから新しいデータを取得
+            selectedQuestion = null;
+            StateHasChanged(); // 一度UIを更新
+            
+            // データ取得を待機
+            await Task.Delay(50); // 少しの遅延を入れて、UIの更新が確実に行われるようにする
+            
+            // 新しいデータを取得
             selectedQuestion = await QuestionApi.GetQuestionByIdAsync(questionId);
             Console.WriteLine("Question details loaded");
-            await InvokeAsync(() => StateHasChanged());
+            
+            // UIを最終更新
+            StateHasChanged();
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error viewing question details: {ex.Message}");
+            Console.Error.WriteLine(ex.StackTrace);
         }
     }
 
@@ -304,28 +315,25 @@ else
     private async Task HideModal(string modalId)
     {
         try {
-            // モーダルを強制的に閉じるための直接的なJavaScriptコード
-            await JsRuntime.InvokeVoidAsync("eval", @"
+            // モーダルを強制的に閉じるためのJavaScriptコード
+            var jsCode = @"
                 (function() {
-                    console.log('Attempting to close modal: #" + modalId + @"');
+                    console.log('Closing modal: #" + modalId + @"');
                     
-                    // 方法1: Bootstrap 5のAPIを使用
+                    // Bootstrap APIを使用
                     try {
                         var modalElement = document.getElementById('" + modalId + @"');
-                        console.log('Modal element:', modalElement);
                         if (modalElement) {
                             var bsModal = bootstrap.Modal.getInstance(modalElement);
-                            console.log('Bootstrap modal instance:', bsModal);
                             if (bsModal) {
                                 bsModal.hide();
-                                console.log('Modal hidden via Bootstrap API');
                             }
                         }
                     } catch (e) {
-                        console.error('Error using Bootstrap API:', e);
+                        console.error(e);
                     }
 
-                    // 方法2: DOMから直接モーダル要素を非表示に
+                    // DOM操作でモーダルを非表示
                     try {
                         var modalEl = document.getElementById('" + modalId + @"');
                         if (modalEl) {
@@ -334,37 +342,33 @@ else
                             modalEl.setAttribute('aria-hidden', 'true');
                             modalEl.removeAttribute('aria-modal');
                             modalEl.removeAttribute('role');
-                            console.log('Modal hidden via direct DOM manipulation');
                         }
                     } catch (e) {
-                        console.error('Error manipulating modal element:', e);
+                        console.error(e);
                     }
 
-                    // 方法3: モーダル背景の削除
+                    // 背景要素の削除
                     try {
                         var backdrops = document.getElementsByClassName('modal-backdrop');
-                        console.log('Backdrop elements found:', backdrops.length);
                         while (backdrops.length > 0) {
                             backdrops[0].parentNode.removeChild(backdrops[0]);
                         }
-                        console.log('Backdrops removed');
                     } catch (e) {
-                        console.error('Error removing backdrops:', e);
+                        console.error(e);
                     }
 
-                    // 方法4: bodyからモーダル関連のクラスとスタイルを削除
+                    // bodyのスタイルをリセット
                     try {
                         document.body.classList.remove('modal-open');
                         document.body.style.overflow = '';
                         document.body.style.paddingRight = '';
-                        console.log('Body styles reset');
                     } catch (e) {
-                        console.error('Error resetting body styles:', e);
+                        console.error(e);
                     }
-
-                    console.log('All modal close operations attempted');
                 })();
-            ");
+            ";
+            
+            await JsRuntime.InvokeVoidAsync("eval", jsCode);
             
             // StateHasChangedを呼び出してUIを更新
             await InvokeAsync(() => StateHasChanged());
@@ -588,8 +592,6 @@ else
                 await JsRuntime.InvokeVoidAsync("alert", "このグループにはUniqueCodeが設定されていません。グループを編集してUniqueCodeを自動生成してください。");
                 return;
             }
-            
-            await QuestionApi.StopDisplayQuestionAsync(questionId);
             await HubService.StopDisplayQuestionForGroup(questionId, uniqueCode);
             Console.WriteLine($"Display stopped for question {questionId} with UniqueCode: {uniqueCode}");
             await RefreshQuestions();
@@ -682,20 +684,35 @@ else
             try
             {
                 Console.WriteLine($"Deleting group {groupId}...");
-                await QuestionGroupApi.DeleteGroupAsync(groupId);
-                Console.WriteLine("Group deleted");
+                var result = await QuestionGroupApi.DeleteGroupAsync(groupId);
+                Console.WriteLine($"Group deleted. Result: {result}");
 
+                // 削除したグループが選択中のグループだった場合、選択を解除
                 if (selectedGroupId == groupId)
                 {
                     selectedGroupId = null;
                     questionsInGroup = null;
+                    StateHasChanged(); // 即座にUI更新
                 }
 
+                // グループのキャッシュをクリア
+                groups = null;
                 await RefreshGroups();
+                
+                // 強制的にUIを更新
+                await InvokeAsync(StateHasChanged);
+                
+                // 少し待機後、もう一度更新（通知が遅れて届く可能性を考慮）
+                await Task.Delay(1000);
+                await RefreshGroups();
+                await InvokeAsync(StateHasChanged);
+                
+                Console.WriteLine($"Group deletion processing completed for group {groupId}");
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Error deleting group: {ex.Message}");
+                Console.Error.WriteLine(ex.StackTrace);
             }
         }
     }

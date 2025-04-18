@@ -37,20 +37,9 @@ public class OrleansStreamBackgroundService : BackgroundService
             case QuestionUpdated:
                 await _hubService.NotifyAdminsAsync("QuestionUpdated", new { AggregateId = aggregateId });
                 break;
-                
-            case QuestionDisplayStarted:
-                // Notify both admins and participants when a question is displayed
-                await _hubService.NotifyAllClientsAsync("QuestionDisplayStarted", new { AggregateId = aggregateId });
-                break;
-                
-            case QuestionDisplayStopped:
-                // Notify both admins and participants when a question is no longer displayed
-                await _hubService.NotifyAllClientsAsync("QuestionDisplayStopped", new { AggregateId = aggregateId });
-                break;
-                
             case ResponseAdded responseAdded:
                 // Notify both admins and participants when a response is added
-                await _hubService.NotifyAllClientsAsync("ResponseAdded", new 
+                await _hubService.NotifyAdminsAsync("ResponseAdded", new 
                 { 
                     AggregateId = aggregateId,
                     ResponseId = responseAdded.ResponseId,
@@ -109,7 +98,13 @@ public class OrleansStreamBackgroundService : BackgroundService
                 break;
 
             case QuestionGroupDeleted groupDeleted:
+                Console.WriteLine($"QuestionGroupDeleted event received for group ID: {aggregateId}");
                 await _hubService.NotifyAdminsAsync("QuestionGroupDeleted", new { AggregateId = aggregateId });
+                
+                // 削除通知を2回送信して確実にクライアントに到達するようにする
+                await Task.Delay(500); // 少し待機して最初の通知が処理される時間を確保
+                Console.WriteLine($"Sending second notification for QuestionGroupDeleted: {aggregateId}");
+                await _hubService.NotifyAdminsAsync("QuestionGroupDeleted", new { AggregateId = aggregateId, Timestamp = DateTime.UtcNow.Ticks });
                 break;
 
             case QuestionAddedToGroup questionAdded:

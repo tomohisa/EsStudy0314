@@ -46,7 +46,8 @@ public class QuestionProjector : IAggregateProjector
                     response.ParticipantName,
                     response.SelectedOptionId,
                     response.Comment,
-                    response.Timestamp)).ToList()
+                    response.Timestamp,
+                    response.ClientId)).ToList()
             },
             
             // Delete a question
