@@ -281,13 +281,24 @@ else
         try
         {
             Console.WriteLine($"Viewing question details for {questionId}...");
+            // 既存のselectedQuestionをnullに設定し、UIを更新してから新しいデータを取得
+            selectedQuestion = null;
+            StateHasChanged(); // 一度UIを更新
+            
+            // データ取得を待機
+            await Task.Delay(50); // 少しの遅延を入れて、UIの更新が確実に行われるようにする
+            
+            // 新しいデータを取得
             selectedQuestion = await QuestionApi.GetQuestionByIdAsync(questionId);
             Console.WriteLine("Question details loaded");
-            await InvokeAsync(() => StateHasChanged());
+            
+            // UIを最終更新
+            StateHasChanged();
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error viewing question details: {ex.Message}");
+            Console.Error.WriteLine(ex.StackTrace);
         }
     }
 
