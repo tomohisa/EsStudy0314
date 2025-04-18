@@ -15,6 +15,7 @@ public record GetQuestionGroupsQuery() :
         IQueryContext context)
     {
         return projection.Payload.Aggregates
+            // より明示的にEmptyAggregatePayloadを除外するフィルタリング
             .Where(m => m.Value.GetPayload() is QuestionGroup)
             .Select(m => ((QuestionGroup)m.Value.GetPayload(), m.Value.PartitionKeys))
             .Select(tuple => new ResultRecord(

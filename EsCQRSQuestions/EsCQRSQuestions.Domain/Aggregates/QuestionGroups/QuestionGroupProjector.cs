@@ -39,8 +39,8 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups
                     group.ChangeQuestionOrder(e.QuestionId, e.NewOrder), // Payload method handles reordering
 
                 // Deletion - Results in an Empty Payload to signify deletion
-                (QuestionGroup, QuestionGroupDeleted) =>
-                    new EmptyAggregatePayload(),
+                (QuestionGroup group, QuestionGroupDeleted) =>
+                    new DeletedQuestionGroup(group.Name,group.UniqueCode, group.Questions,ev.GetSortableUniqueId().GetTicks()), // 新規追加：UniqueCodeの適用
 
                 // Default: No change for unhandled events or states
                 _ => payload

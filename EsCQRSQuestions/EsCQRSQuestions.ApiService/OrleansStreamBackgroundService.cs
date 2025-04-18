@@ -98,7 +98,13 @@ public class OrleansStreamBackgroundService : BackgroundService
                 break;
 
             case QuestionGroupDeleted groupDeleted:
+                Console.WriteLine($"QuestionGroupDeleted event received for group ID: {aggregateId}");
                 await _hubService.NotifyAdminsAsync("QuestionGroupDeleted", new { AggregateId = aggregateId });
+                
+                // 削除通知を2回送信して確実にクライアントに到達するようにする
+                await Task.Delay(500); // 少し待機して最初の通知が処理される時間を確保
+                Console.WriteLine($"Sending second notification for QuestionGroupDeleted: {aggregateId}");
+                await _hubService.NotifyAdminsAsync("QuestionGroupDeleted", new { AggregateId = aggregateId, Timestamp = DateTime.UtcNow.Ticks });
                 break;
 
             case QuestionAddedToGroup questionAdded:

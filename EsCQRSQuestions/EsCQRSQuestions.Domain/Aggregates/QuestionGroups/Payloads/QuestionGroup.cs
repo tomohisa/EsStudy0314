@@ -102,4 +102,12 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads
             return this with { UniqueCode = newUniqueCode };
         }
     }
+
+    [GenerateSerializer, Immutable]
+    public record DeletedQuestionGroup(
+        string Name,
+        string UniqueCode, // 新規追加：6桁の英数字
+        List<QuestionReference> Questions,
+        DateTime DeletedAt) : IAggregatePayload;
+
 }
