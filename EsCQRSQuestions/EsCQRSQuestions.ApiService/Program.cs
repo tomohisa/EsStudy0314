@@ -8,6 +8,7 @@ using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Commands;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
+using EsCQRSQuestions.Domain.Aggregates.Questions.Events;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Commands;
 using EsCQRSQuestions.Domain.Generated;
 using EsCQRSQuestions.Domain.Workflows;
@@ -335,7 +336,27 @@ apiRoute
         "/questions/addResponse",
         async (
             [FromBody] AddResponseCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] SekibanOrleansExecutor executor,
+            [FromServices] IHubNotificationService notificationService) =>
+        {
+           var response = await executor.CommandAsync(command).UnwrapBox();
+           await executor.QueryAsync(new QuestionDetailQuery(command.QuestionId))
+               .Remap(response => response.QuestionGroupId)
+               .Conveyor(groupId => executor.QueryAsync(new GetQuestionGroupByGroupIdQuery(groupId)))
+               .Remap(group => group.Payload.UniqueCode)
+               .Do(uniquecode =>
+               {
+                   notificationService.NotifyUniqueCodeGroupAsync(uniquecode, "ResponseAdded", new
+                   {
+                       AggregateId = command.QuestionId,
+                       ResponseId = response.PartitionKeys.AggregateId,
+                       ParticipantName = command.ParticipantName,
+                       SelectedOptionId = command.SelectedOptionId,
+                       Comment = command.Comment,
+                       Timestamp = (response.Events.First().GetPayload() as ResponseAdded)?.Timestamp
+                   });
+               }).UnwrapBox();
+        })
     .WithOpenApi()
     .WithName("AddResponse");
 

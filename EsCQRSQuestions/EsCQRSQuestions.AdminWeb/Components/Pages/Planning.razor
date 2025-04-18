@@ -588,8 +588,6 @@ else
                 await JsRuntime.InvokeVoidAsync("alert", "このグループにはUniqueCodeが設定されていません。グループを編集してUniqueCodeを自動生成してください。");
                 return;
             }
-            
-            await QuestionApi.StopDisplayQuestionAsync(questionId);
             await HubService.StopDisplayQuestionForGroup(questionId, uniqueCode);
             Console.WriteLine($"Display stopped for question {questionId} with UniqueCode: {uniqueCode}");
             await RefreshQuestions();

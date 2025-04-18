@@ -37,45 +37,6 @@ public class QuestionApiClient(HttpClient httpClient)
         return await httpClient.GetFromJsonAsync<QuestionDetailQuery.QuestionDetailRecord?>($"/api/questions/{questionId}", cancellationToken);
     }
 
-    // Create question
-    public async Task<object> CreateQuestionAsync(string text, List<QuestionOption> options, CancellationToken cancellationToken = default)
-    {
-        // Use a default question group ID
-        var questionGroupId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        
-        var command = new CreateQuestionCommand(text, options, questionGroupId);
-        var response = await httpClient.PostAsJsonAsync("/api/questions/create", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
-    }
-
-    // Update question
-    public async Task<object> UpdateQuestionAsync(Guid questionId, string text, List<QuestionOption> options, CancellationToken cancellationToken = default)
-    {
-        var command = new UpdateQuestionCommand(questionId, text, options);
-        var response = await httpClient.PostAsJsonAsync("/api/questions/update", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
-    }
-
-    // Start displaying a question
-    public async Task<object> StartDisplayQuestionAsync(Guid questionId, CancellationToken cancellationToken = default)
-    {
-        var command = new StartDisplayCommand(questionId);
-        var response = await httpClient.PostAsJsonAsync("/api/questions/startDisplay", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
-    }
-
-    // Stop displaying a question
-    public async Task<object> StopDisplayQuestionAsync(Guid questionId, CancellationToken cancellationToken = default)
-    {
-        var command = new StopDisplayCommand(questionId);
-        var response = await httpClient.PostAsJsonAsync("/api/questions/stopDisplay", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
-    }
-
     // Add a response to a question
     public async Task<object> AddResponseAsync(Guid questionId, string? participantName, string selectedOptionId, string? comment, CancellationToken cancellationToken = default)
     {
