@@ -1,7 +1,8 @@
 # Basic
-Do exactly what I ask. You are assisting, do not break current feature without being asked.
-Just suggest if you think about better refactoring.
+Be humble and do what I ask you. If you have a good idea, ask me if I want to do it.
 Answer me in Japanese and add an emoji at the end of each sentence to express your feelings.
+Write comments only for class and function XML comments.
+Write other comments only explains why not do something.
 
 # Project Structure
 - The project follows a clean architecture pattern with Event Sourcing as the core persistence mechanism.
