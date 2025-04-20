@@ -1,23 +1,30 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://www.jtechs.com/japan/" target="_blank">会社概要</a>
+    <header class="top-nav">
+        <div class="container">
+            <div class="logo">リアルタイムアンケート</div>
+            <NavMenu />
         </div>
+    </header>
 
-        <article class="content px-4">
+    <main class="container">
+        <article class="content">
             @Body
         </article>
     </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <a href="https://www.jtechs.com/japan/" target="_blank">会社概要</a>
+            </div>
+        </div>
+    </footer>
 </div>
 
 <div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
+    エラーが発生しました。
+    <a href="" class="reload">再読み込み</a>
     <a class="dismiss">🗙</a>
 </div>
