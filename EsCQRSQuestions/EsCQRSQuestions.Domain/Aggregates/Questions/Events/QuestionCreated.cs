@@ -7,5 +7,6 @@ namespace EsCQRSQuestions.Domain.Aggregates.Questions.Events;
 public record QuestionCreated(
     string Text,
     List<QuestionOption> Options,
-    Guid QuestionGroupId
+    Guid QuestionGroupId,
+    bool AllowMultipleResponses = false // 追加：複数回答を許可するかどうか
 ) : IEventPayload;

@@ -1,8 +1,8 @@
 # Basic
 Be humble and do what I ask you. If you have a good idea, ask me if I want to do it.
 Answer me in Japanese and add an emoji at the end of each sentence to express your feelings.
-Write comments only for class and function XML comments.
-Write other comments only explains why not do something.
+Write comments only for class and function XML comments. DON'T Comment anything else!!!
+And If you find comment that is not XML Comments, you can delete it.
 
 # Project Structure
 - The project follows a clean architecture pattern with Event Sourcing as the core persistence mechanism.

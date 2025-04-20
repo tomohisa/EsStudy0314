@@ -10,31 +10,31 @@
 @inject IHttpMessageHandlerFactory HttpMessageHandlerFactory
 @inject NavigationManager NavigationManager
 
-<PageTitle>Survey</PageTitle>
+<PageTitle>アンケート</PageTitle>
 
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h2 class="mb-0">Real-time Survey</h2>
+                    <h2 class="mb-0">リアルタイムアンケート</h2>
                 </div>
                 <div class="card-body">
                     @if (!string.IsNullOrEmpty(UniqueCode))
                     {
                         <div class="alert alert-info mb-3">
-                            <small>Survey Code: <strong>@UniqueCode</strong></small>
+                            <small>アンケートコード: <strong>@UniqueCode</strong></small>
                         </div>
                     }
                     else
                     {
                         <div class="mb-3">
-                            <label for="uniqueCode" class="form-label">Enter Survey Code</label>
+                            <label for="uniqueCode" class="form-label">アンケートコードを入力</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="uniqueCode" 
-                                       @bind="inputUniqueCode" placeholder="Enter survey code" />
+                                       @bind="inputUniqueCode" placeholder="アンケートコードを入力してください" />
                                 <button class="btn btn-outline-primary" type="button" @onclick="NavigateToSurvey">
-                                    Go to Survey
+                                    アンケートに参加
                                 </button>
                             </div>
                         </div>
@@ -48,9 +48,9 @@
                     }
 
                     <div class="mb-3">
-                        <label for="participantName" class="form-label">Your Name (optional)</label>
+                        <label for="participantName" class="form-label">お名前（任意）</label>
                         <input type="text" class="form-control" id="participantName" 
-                               @bind="participantName" placeholder="Enter your name" />
+                               @bind="participantName" placeholder="お名前を入力してください" />
                     </div>
 
                     @if (activeQuestion == null)
@@ -70,7 +70,7 @@
                                 <h3>アンケートへようこそ！</h3>
                                 <p class="lead">質問が表示されるまでお待ちください。</p>
                                 <div class="spinner-border text-primary mt-3" role="status">
-                                    <span class="visually-hidden">Loading...</span>
+                                    <span class="visually-hidden">読み込み中...</span>
                                 </div>
                             }
                         </div>
@@ -81,18 +81,41 @@
                             <h3 class="mb-4">@activeQuestion.Text</h3>
                             
                             <div class="mb-4">
-                                @foreach (var option in activeQuestion.Options)
+                                @if (activeQuestion.AllowMultipleResponses)
                                 {
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="radio" name="questionOptions" 
-                                               id="option-@option.Id" value="@option.Id" 
-                                               checked="@(selectedOptionId == option.Id)"
-                                               @onchange="() => selectedOptionId = option.Id" />
-                                        <label class="form-check-label" for="option-@option.Id">
-                                            @option.Text
-                                        </label>
+                                    <div class="alert alert-info mb-3">
+                                        <i class="bi bi-info-circle me-2"></i>複数の選択肢を選ぶことができます
                                     </div>
+                                    
+                                    @foreach (var option in activeQuestion.Options)
+                                    {
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" name="questionOptions" 
+                                                   id="option-@option.Id" value="@option.Id" 
+                                                   checked="@(selectedOptionIds.Contains(option.Id))"
+                                                   @onchange="(e) => UpdateSelectedOptions(option.Id, (bool)e.Value)" />
+                                            <label class="form-check-label" for="option-@option.Id">
+                                                @option.Text
+                                            </label>
+                                        </div>
+                                    }
                                 }
+                                else
+                                {
+                                    @foreach (var option in activeQuestion.Options)
+                                    {
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="radio" name="questionOptions" 
+                                                   id="option-@option.Id" value="@option.Id" 
+                                                   checked="@(selectedOptionIds.Contains(option.Id))"
+                                                   @onchange="(e) => SelectSingleOption(option.Id)" />
+                                            <label class="form-check-label" for="option-@option.Id">
+                                                @option.Text
+                                            </label>
+                                        </div>
+                                    }
+                                }
+                                
                                 @if (!string.IsNullOrEmpty(optionError))
                                 {
                                     <div class="text-danger mt-2">@optionError</div>
@@ -100,16 +123,16 @@
                             </div>
                             
                             <div class="mb-4">
-                                @if (!string.IsNullOrEmpty(selectedOptionId))
+                                @if (selectedOptionIds.Any())
                                 {
-                                    <label for="comment" class="form-label">Comment (optional)</label>
+                                    <label for="comment" class="form-label">コメント（任意）</label>
                                     <textarea class="form-control" id="comment" rows="3" 
-                                              @bind="comment" placeholder="Add your comment here"></textarea>
+                                              @bind="comment" placeholder="コメントを入力してください"></textarea>
                                 }
                                 else
                                 {
                                     <div class="alert alert-info">
-                                        Waiting to show question
+                                        質問の表示を待っています
                                     </div>
                                 }
                             </div>
@@ -118,11 +141,11 @@
                                 @if (isSubmitting)
                                 {
                                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                    <span class="ms-2">Submitting...</span>
+                                    <span class="ms-2">送信中...</span>
                                 }
                                 else
                                 {
-                                    <span>Submit Response</span>
+                                    <span>回答を送信</span>
                                 }
                             </button>
                         </div>
@@ -130,13 +153,21 @@
                         @if (activeQuestion.Responses.Any())
                         {
                             <div class="mt-5">
-                                <h4>Response Statistics</h4>
+                                <h4>回答統計</h4>
                                 <div class="row">
                                     @foreach (var option in activeQuestion.Options)
                                     {
                                         var count = activeQuestion.Responses.Count(r => r.SelectedOptionId == option.Id);
-                                        var percentage = activeQuestion.Responses.Any() 
-                                            ? (count * 100.0 / activeQuestion.Responses.Count) 
+                                        
+                                        // ユニークな回答者数を取得（クライアントIDでグループ化）
+                                        var uniqueRespondents = activeQuestion.Responses
+                                            .Select(r => r.ClientId)
+                                            .Distinct()
+                                            .Count();
+                                        
+                                        // 安全なパーセンテージ計算（ゼロ除算対策）
+                                        var percentage = uniqueRespondents > 0 
+                                            ? (count * 100.0 / uniqueRespondents)
                                             : 0;
                                         
                                         <div class="col-md-6 mb-3">
@@ -152,7 +183,7 @@
                                 </div>
                                 
                                 <div class="mt-4">
-                                    <h5>Recent Comments</h5>
+                                    <h5>最近のコメント</h5>
                                     @if (activeQuestion.Responses.Any(r => !string.IsNullOrEmpty(r.Comment)))
                                     {
                                         <div class="list-group">
@@ -163,7 +194,7 @@
                                             {
                                                 <div class="list-group-item">
                                                     <div class="d-flex w-100 justify-content-between">
-                                                        <h6 class="mb-1">@(string.IsNullOrEmpty(response.ParticipantName) ? "Anonymous" : response.ParticipantName)</h6>
+                                                        <h6 class="mb-1">@(string.IsNullOrEmpty(response.ParticipantName) ? "匿名" : response.ParticipantName)</h6>
                                                         <small>@response.Timestamp.ToString("g")</small>
                                                     </div>
                                                     <p class="mb-1">@response.Comment</p>
@@ -173,7 +204,7 @@
                                     }
                                     else
                                     {
-                                        <p>No comments yet.</p>
+                                        <p>まだコメントはありません。</p>
                                     }
                                 </div>
                             </div>
@@ -192,7 +223,7 @@
     private HubConnection hubConnection;
     private ActiveQuestionQuery.ActiveQuestionRecord? activeQuestion;
     private string participantName = "";
-    private string selectedOptionId = "";
+    private List<string> selectedOptionIds = new List<string>(); // 変更：複数の選択肢を保持するリストに
     private string comment = "";
     private string errorMessage = "";
     private string optionError = "";
@@ -273,7 +304,7 @@
                     Console.Error.WriteLine($"Error during reconnection attempt {i+1}: {ex.Message}");
                     if (i == 4) // Last attempt
                     {
-                        errorMessage = "Connection lost. Please refresh the page to reconnect.";
+                        errorMessage = "接続が切断されました。再接続するにはページを更新してください。";
                         await InvokeAsync(StateHasChanged);
                     }
                 }
@@ -285,7 +316,7 @@
         {
             Console.WriteLine($"SignalR reconnecting... Error: {error?.Message}");
             Console.WriteLine($"Connection state: {hubConnection.State}");
-            errorMessage = "Connection unstable. Attempting to reconnect...";
+            errorMessage = "接続が不安定です。再接続を試みています...";
             InvokeAsync(StateHasChanged);
             return Task.CompletedTask;
         };
@@ -310,7 +341,7 @@
             Console.WriteLine($"QuestionDisplayStarted event received: {System.Text.Json.JsonSerializer.Serialize(data)}");
             await RefreshActiveQuestion();
             hasSubmitted = false;
-            selectedOptionId = "";
+            selectedOptionIds.Clear();
             comment = "";
             errorMessage = "";
             await InvokeAsync(StateHasChanged);
@@ -320,7 +351,7 @@
         {
             activeQuestion = null;
             hasSubmitted = false;
-            selectedOptionId = "";
+            selectedOptionIds.Clear();
             comment = "";
             await InvokeAsync(StateHasChanged);
         });
@@ -375,7 +406,7 @@
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error starting SignalR connection: {ex.Message}");
-            errorMessage = $"Connection error: {ex.Message}";
+            errorMessage = $"接続エラー: {ex.Message}";
         }
 
         // Get the active question
@@ -441,12 +472,33 @@
         showResponses = !showResponses;
     }
 
+    private void UpdateSelectedOptions(string optionId, bool isSelected)
+    {
+        if (isSelected)
+        {
+            if (!selectedOptionIds.Contains(optionId))
+            {
+                selectedOptionIds.Add(optionId);
+            }
+        }
+        else
+        {
+            selectedOptionIds.Remove(optionId);
+        }
+    }
+
+    private void SelectSingleOption(string optionId)
+    {
+        selectedOptionIds.Clear();
+        selectedOptionIds.Add(optionId);
+    }
+
     private async Task SubmitResponse()
     {
         // Validate input
-        if (string.IsNullOrWhiteSpace(selectedOptionId))
+        if (!selectedOptionIds.Any())
         {
-            optionError = "Please select an option";
+            optionError = "少なくとも1つの選択肢を選んでください";
         }
         else
         {
@@ -455,13 +507,13 @@
 
         if (activeQuestion == null)
         {
-            errorMessage = "No active question to respond to";
+            errorMessage = "回答する質問がありません";
             return;
         }
 
         if (hasSubmitted)
         {
-            errorMessage = "You have already submitted a response to this question";
+            errorMessage = "すでにこの質問に回答済みです";
             return;
         }
 
@@ -493,7 +545,7 @@
             await QuestionApi.AddResponseAsync(
                 activeQuestion.QuestionId,
                 participantName,
-                selectedOptionId,
+                selectedOptionIds,
                 comment,
                 clientId);
             
@@ -508,7 +560,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error submitting response: {ex.Message}";
+            errorMessage = $"回答の送信中にエラーが発生しました: {ex.Message}";
             Console.Error.WriteLine(errorMessage);
         }
         finally

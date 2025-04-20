@@ -31,6 +31,11 @@
                     </select>
                     <div class="invalid-feedback">Question group is required</div>
                 </div>
+
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="allowMultipleResponses" @bind="Model.AllowMultipleResponses" />
+                    <label class="form-check-label" for="allowMultipleResponses">Allow multiple responses from the same participant</label>
+                </div>
                 
                 <div class="mb-3">
                     <label class="form-label">Options</label>

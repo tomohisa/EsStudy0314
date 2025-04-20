@@ -42,12 +42,12 @@ builder.AddKeyedAzureQueueClient("OrleansSekibanQueue");
 builder.UseOrleans(
     config =>
     {
-        var endpoint = builder.Configuration.GetConnectionString("AZURE_COSMOS_DB_NOSQL_ENDPOINT") ?? throw new InvalidOperationException();
-        var credential = new DefaultAzureCredential();
-        config.UseCosmosClustering(options =>
-        {
-            options.ConfigureCosmosClient(endpoint, credential);
-        });
+        // var endpoint = builder.Configuration.GetConnectionString("AZURE_COSMOS_DB_NOSQL_ENDPOINT") ?? throw new InvalidOperationException();
+        // var credential = new DefaultAzureCredential();
+        // config.UseCosmosClustering(options =>
+        // {
+        //     options.ConfigureCosmosClient(endpoint, credential);
+        // });
         // Check for VNet IP Address from environment variable APP Service specific setting
         if (!string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_IP"]) &&
             !string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_PORTS"]))
@@ -89,7 +89,7 @@ builder.UseOrleans(
 builder.Services.AddSingleton(
     EsCQRSQuestionsDomainDomainTypes.Generate(EsCQRSQuestionsDomainEventsJsonContext.Default.Options));
 
-SekibanSerializationTypesChecker.CheckDomainSerializability(EsCQRSQuestionsDomainDomainTypes.Generate());
+SekibanSerializationTypesChecker.CheckDomainSerializability(EsCQRSQuestionsDomainDomainTypes.Generate(EsCQRSQuestionsDomainEventsJsonContext.Default.Options));
 
 builder.Services.AddTransient<ICommandMetadataProvider, CommandMetadataProvider>();
 builder.Services.AddTransient<IExecutingUserProvider, HttpExecutingUserProvider>();
@@ -311,7 +311,30 @@ apiRoute
         "/questions/update",
         async (
             [FromBody] UpdateQuestionCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            try
+            {
+                var result = await executor.CommandAsync(command);
+                if (result.IsSuccess)
+                {
+                    return Results.Ok(result.UnwrapBox());
+                }
+                else
+                {
+                    var exception = result.GetException();
+                    if (exception != null)
+                    {
+                        return Results.BadRequest(new { error = exception.Message });
+                    }
+                    return Results.BadRequest(new { error = "不明なエラーが発生しました" });
+                }
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
     .WithOpenApi()
     .WithName("UpdateQuestion");
 
@@ -458,10 +481,10 @@ apiRoute
         "/questionGroups/{id}",
         async (
             Guid id,
-            [FromBody] UpdateQuestionGroupName command,
+            [FromBody] UpdateQuestionGroupCommand command,
             [FromServices] SekibanOrleansExecutor executor) => 
         {
-            if (id != command.QuestionGroupId)
+            if (id != command.GroupId)
             {
                 return Results.BadRequest("ID in URL does not match ID in command");
             }

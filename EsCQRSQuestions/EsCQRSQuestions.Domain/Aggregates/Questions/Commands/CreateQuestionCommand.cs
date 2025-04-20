@@ -13,7 +13,8 @@ namespace EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 public record CreateQuestionCommand(
     string Text,
     List<QuestionOption> Options,
-    Guid QuestionGroupId
+    Guid QuestionGroupId,
+    bool AllowMultipleResponses = false // 追加：複数回答を許可するかどうか
 ) : ICommandWithHandler<CreateQuestionCommand, QuestionProjector>
 {
     public PartitionKeys SpecifyPartitionKeys(CreateQuestionCommand command) => 
@@ -46,6 +47,6 @@ public record CreateQuestionCommand(
         }
         
         // Create the event
-        return EventOrNone.Event(new QuestionCreated(command.Text, command.Options, command.QuestionGroupId));
+        return EventOrNone.Event(new QuestionCreated(command.Text, command.Options, command.QuestionGroupId, command.AllowMultipleResponses));
     }
 }

@@ -23,6 +23,7 @@
                     }
                 }
             </p>
+            <input type="text" id="urlToCopy" value="@QuestionnaireUrl" class="visually-hidden" />
         </div>
         <div>
             <button class="btn btn-outline-secondary me-2" @onclick="EditGroupClicked">
@@ -214,11 +215,29 @@ else
 
     private async Task CopyLinkToClipboard()
     {
-        await JsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", QuestionnaireUrl);
-        isLinkCopied = true;
-        StateHasChanged();
-        await Task.Delay(2000);
-        isLinkCopied = false;
-        StateHasChanged();
+        try
+        {
+            // clipboardUtilsを使用して、SafariとChromeの両方でコピーできるようにする
+            var result = await JsRuntime.InvokeAsync<bool>("clipboardUtils.copyToClipboard", QuestionnaireUrl);
+            
+            if (result)
+            {
+                isLinkCopied = true;
+                StateHasChanged();
+                await Task.Delay(2000);
+                isLinkCopied = false;
+                StateHasChanged();
+            }
+            else
+            {
+                // コピーに失敗した場合
+                await JsRuntime.InvokeVoidAsync("alert", "URLのコピーに失敗しました。手動でコピーしてください。");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"クリップボードへのコピーに失敗しました: {ex.Message}");
+            await JsRuntime.InvokeVoidAsync("alert", "URLのコピーに失敗しました。手動でコピーしてください。");
+        }
     }
 }

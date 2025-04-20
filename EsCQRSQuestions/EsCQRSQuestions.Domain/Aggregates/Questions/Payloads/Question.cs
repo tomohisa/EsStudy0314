@@ -8,7 +8,8 @@ public record Question(
     List<QuestionOption> Options,
     bool IsDisplayed,
     List<QuestionResponse> Responses,
-    Guid QuestionGroupId
+    Guid QuestionGroupId,
+    bool AllowMultipleResponses = false // 追加：複数回答を許可するかどうか
 ) : IAggregatePayload;
 
 [GenerateSerializer]
@@ -33,5 +34,6 @@ public record DeletedQuestion(
     List<QuestionOption> Options,
     bool IsDisplayed,
     List<QuestionResponse> Responses,
-    Guid QuestionGroupId
+    Guid QuestionGroupId,
+    bool AllowMultipleResponses = false // 追加：複数回答を許可するかどうか
 ) : IAggregatePayload;

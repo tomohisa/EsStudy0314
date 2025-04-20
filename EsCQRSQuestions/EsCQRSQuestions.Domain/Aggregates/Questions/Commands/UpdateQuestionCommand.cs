@@ -12,7 +12,8 @@ namespace EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 public record UpdateQuestionCommand(
     Guid QuestionId,
     string Text,
-    List<QuestionOption> Options
+    List<QuestionOption> Options,
+    bool AllowMultipleResponses = false // 追加：複数回答を許可するかどうか
 ) : ICommandWithHandler<UpdateQuestionCommand, QuestionProjector, Question>
 {
     public PartitionKeys SpecifyPartitionKeys(UpdateQuestionCommand command) => 
@@ -27,28 +28,28 @@ public record UpdateQuestionCommand(
         // Validate the command
         if (string.IsNullOrWhiteSpace(command.Text))
         {
-            return new ArgumentException("Question text cannot be empty");
+            return new ArgumentException("質問テキストは空にできません");
         }
         
         if (command.Options == null || command.Options.Count < 2)
         {
-            return new ArgumentException("Question must have at least two options");
+            return new ArgumentException("質問には少なくとも2つの選択肢が必要です");
         }
         
         // Check for duplicate option IDs
         var optionIds = command.Options.Select(o => o.Id).ToList();
         if (optionIds.Count != optionIds.Distinct().Count())
         {
-            return new ArgumentException("Option IDs must be unique");
+            return new ArgumentException("選択肢のIDは重複できません");
         }
         
         // Cannot update a question that is currently being displayed
         if (question.IsDisplayed)
         {
-            return new InvalidOperationException("Cannot update a question that is currently being displayed");
+            return new InvalidOperationException("表示中の質問は更新できません。表示を停止してから編集してください。");
         }
         
         // Create the event
-        return EventOrNone.Event(new QuestionUpdated(command.Text, command.Options));
+        return EventOrNone.Event(new QuestionUpdated(command.Text, command.Options, command.AllowMultipleResponses));
     }
 }

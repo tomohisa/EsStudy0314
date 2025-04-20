@@ -46,6 +46,33 @@ public class QuestionApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync<object>() ?? new {};
     }
 
+    // 複数回答対応版：Add a response to a question with multiple selected options
+    public async Task<object> AddResponseAsync(Guid questionId, string? participantName, List<string> selectedOptionIds, string? comment, string clientId, CancellationToken cancellationToken = default)
+    {
+        // 現状のAPIは複数回答に直接対応していないため、最初の選択肢を使用して送信
+        if (selectedOptionIds == null || !selectedOptionIds.Any())
+        {
+            throw new ArgumentException("少なくとも1つのオプションを選択してください");
+        }
+
+        // 複数の選択肢がある場合は、それぞれに対して個別のリクエストを送信
+        List<object> results = new List<object>();
+        
+        foreach (var optionId in selectedOptionIds)
+        {
+            var command = new AddResponseCommand(questionId, participantName, optionId, comment, clientId);
+            var response = await httpClient.PostAsJsonAsync("/api/questions/addResponse", command, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<object>() ?? new {};
+            results.Add(result);
+            
+            // 最初の回答以外はコメントを空にする（重複を避けるため）
+            comment = "";
+        }
+        
+        return results;
+    }
+
     // Delete a question
     public async Task<object> DeleteQuestionAsync(Guid questionId, CancellationToken cancellationToken = default)
     {

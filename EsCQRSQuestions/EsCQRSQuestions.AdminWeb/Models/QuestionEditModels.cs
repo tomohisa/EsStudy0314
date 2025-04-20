@@ -6,6 +6,7 @@ namespace EsCQRSQuestions.AdminWeb.Models
         public string Text { get; set; } = "";
         public List<QuestionOptionEditModel> Options { get; set; } = new();
         public Guid QuestionGroupId { get; set; } = Guid.Empty;
+        public bool AllowMultipleResponses { get; set; } = false; // 追加：複数回答を許可するかどうか
         public string? TextError { get; set; }
         public string? OptionsError { get; set; }
     }

@@ -84,21 +84,52 @@ public class QuestionApiClient(HttpClient httpClient)
     }
 
     // Create question with specific group ID
-    public async Task<object> CreateQuestionWithGroupAsync(string text, List<QuestionOption> options, Guid questionGroupId, CancellationToken cancellationToken = default)
+    public async Task<object> CreateQuestionWithGroupAsync(
+        string text, 
+        List<QuestionOption> options, 
+        Guid questionGroupId, 
+        bool allowMultipleResponses = false, // 追加：複数回答フラグ
+        CancellationToken cancellationToken = default)
     {
-        var command = new CreateQuestionCommand(text, options, questionGroupId);
+        var command = new CreateQuestionCommand(text, options, questionGroupId, allowMultipleResponses);
         var response = await httpClient.PostAsJsonAsync("/api/questions/create", command, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<object>() ?? new {};
     }
 
     // Update question
-    public async Task<object> UpdateQuestionAsync(Guid questionId, string text, List<QuestionOption> options, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 質問を更新します
+    /// </summary>
+    /// <returns>成功/失敗状態、エラーメッセージ、結果を含むタプル</returns>
+    public async Task<(bool Success, string? ErrorMessage, object? Result)> UpdateQuestionAsync(
+        Guid questionId, 
+        string text, 
+        List<QuestionOption> options, 
+        bool allowMultipleResponses = false,
+        CancellationToken cancellationToken = default)
     {
-        var command = new UpdateQuestionCommand(questionId, text, options);
-        var response = await httpClient.PostAsJsonAsync("/api/questions/update", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+        try
+        {
+            var command = new UpdateQuestionCommand(questionId, text, options, allowMultipleResponses);
+            var response = await httpClient.PostAsJsonAsync("/api/questions/update", command, cancellationToken);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<object>(cancellationToken) ?? new {};
+                return (true, null, result);
+            }
+            else
+            {
+                // エラー内容を詳細に取得
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                return (false, errorContent, null);
+            }
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message, null);
+        }
     }
 
     // Start displaying a question
