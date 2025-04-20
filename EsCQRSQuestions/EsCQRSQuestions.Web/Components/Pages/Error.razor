@@ -1,27 +1,27 @@
 ﻿@page "/Error"
 @using System.Diagnostics
 
-<PageTitle>Error</PageTitle>
+<PageTitle>エラー</PageTitle>
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
+<h1 class="text-danger">エラー</h1>
+<h2 class="text-danger">リクエストの処理中にエラーが発生しました。</h2>
 
 @if (ShowRequestId)
 {
     <p>
-        <strong>Request ID:</strong> <code>@requestId</code>
+        <strong>リクエストID:</strong> <code>@requestId</code>
     </p>
 }
 
-<h3>Development Mode</h3>
+<h3>開発モード</h3>
 <p>
-    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
+    <strong>開発</strong>環境に切り替えると、発生したエラーに関するより詳細な情報が表示されます。
 </p>
 <p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
+    <strong>開発環境は、デプロイされたアプリケーションでは有効にしないでください。</strong>
+    例外から機密情報がエンドユーザーに表示される可能性があります。
+    ローカルデバッグの場合は、<strong>ASPNETCORE_ENVIRONMENT</strong>環境変数を<strong>Development</strong>に設定し、
+    アプリを再起動することで<strong>開発</strong>環境を有効にしてください。
 </p>
 
 @code{
