@@ -108,7 +108,7 @@
                                             <input class="form-check-input" type="radio" name="questionOptions" 
                                                    id="option-@option.Id" value="@option.Id" 
                                                    checked="@(selectedOptionIds.Contains(option.Id))"
-                                                   @onchange="(e) => SelectSingleOption(option.Id, (bool)e.Value)" />
+                                                   @onchange="(e) => SelectSingleOption(option.Id)" />
                                             <label class="form-check-label" for="option-@option.Id">
                                                 @option.Text
                                             </label>
@@ -479,13 +479,10 @@
         }
     }
 
-    private void SelectSingleOption(string optionId, bool isSelected)
+    private void SelectSingleOption(string optionId)
     {
-        if (isSelected)
-        {
-            selectedOptionIds.Clear();
-            selectedOptionIds.Add(optionId);
-        }
+        selectedOptionIds.Clear();
+        selectedOptionIds.Add(optionId);
     }
 
     private async Task SubmitResponse()
