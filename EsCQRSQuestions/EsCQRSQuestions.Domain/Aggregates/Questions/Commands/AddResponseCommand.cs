@@ -43,6 +43,13 @@ public record AddResponseCommand(
             return new ArgumentException($"Option with ID '{command.SelectedOptionId}' does not exist");
         }
         
+        // 複数回答が許可されていない場合、同じクライアントからの回答がすでに存在するかチェック
+        if (!question.AllowMultipleResponses && 
+            question.Responses.Any(r => r.ClientId == command.ClientId))
+        {
+            return new InvalidOperationException("Multiple responses are not allowed for this question");
+        }
+        
         // Create the event
         return EventOrNone.Event(new ResponseAdded(
             Guid.NewGuid(),

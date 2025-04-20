@@ -39,7 +39,8 @@ public record QuestionsQuery(string TextContains = "", Guid? GroupId = null)
                 q.Responses.Count,
                 q.QuestionGroupId,
                 q.QuestionGroupName,
-                q.Order + 1)) // 表示用に+1して1,2,3...となるようにする
+                q.Order + 1, // 表示用に+1して1,2,3...となるようにする
+                q.AllowMultipleResponses)) // 複数回答フラグを設定
             .ToResultBox();
     }
 
@@ -66,6 +67,7 @@ public record QuestionsQuery(string TextContains = "", Guid? GroupId = null)
         int ResponseCount,
         Guid QuestionGroupId,
         string QuestionGroupName,
-        int Order
+        int Order,
+        bool AllowMultipleResponses = false // 追加：複数回答を許可するかどうか
     );
 }

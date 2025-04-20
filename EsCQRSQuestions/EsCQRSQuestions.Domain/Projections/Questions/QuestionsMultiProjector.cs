@@ -28,7 +28,8 @@ public record QuestionsMultiProjector(
         List<QuestionResponse> Responses,
         Guid QuestionGroupId,
         string QuestionGroupName, // QuestionGroupの名前を含める
-        int Order = 0             // 表示順序（デフォルト値は0）
+        int Order = 0,             // 表示順序（デフォルト値は0）
+        bool AllowMultipleResponses = false // 追加: 複数回答を許可するかどうか
     );
     
     // 初期ペイロード生成メソッド
@@ -146,7 +147,8 @@ public record QuestionsMultiProjector(
                 new List<QuestionResponse>(),
                 e.QuestionGroupId,
                 groupName,
-                order)); // 順序情報を追加
+                order,
+                e.AllowMultipleResponses)); // 複数回答フラグを追加
         
         return payload with { Questions = updatedQuestions };
     }
@@ -167,7 +169,8 @@ public record QuestionsMultiProjector(
             questionId,
             question with { 
                 Text = e.Text,
-                Options = e.Options
+                Options = e.Options,
+                AllowMultipleResponses = e.AllowMultipleResponses // 複数回答フラグを更新
             });
         
         return payload with { Questions = updatedQuestions };

@@ -12,7 +12,8 @@ namespace EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 public record UpdateQuestionCommand(
     Guid QuestionId,
     string Text,
-    List<QuestionOption> Options
+    List<QuestionOption> Options,
+    bool AllowMultipleResponses = false // 追加：複数回答を許可するかどうか
 ) : ICommandWithHandler<UpdateQuestionCommand, QuestionProjector, Question>
 {
     public PartitionKeys SpecifyPartitionKeys(UpdateQuestionCommand command) => 
@@ -49,6 +50,6 @@ public record UpdateQuestionCommand(
         }
         
         // Create the event
-        return EventOrNone.Event(new QuestionUpdated(command.Text, command.Options));
+        return EventOrNone.Event(new QuestionUpdated(command.Text, command.Options, command.AllowMultipleResponses));
     }
 }

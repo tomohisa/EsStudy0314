@@ -48,7 +48,8 @@ public record ActiveQuestionQuery(Guid QuestionGroupId)
                     r.Comment,
                     r.Timestamp,
                     r.ClientId)).ToList(),
-                tuple.Payload.QuestionGroupId))  // グループIDも返す
+                tuple.Payload.QuestionGroupId,
+                tuple.Payload.AllowMultipleResponses))  // 複数回答フラグを渡す
             .FirstOrDefault();
 
         return activeQuestion != null 
@@ -58,7 +59,8 @@ public record ActiveQuestionQuery(Guid QuestionGroupId)
                 string.Empty, 
                 new List<QuestionOption>(), 
                 new List<ResponseRecord>(),
-                Guid.Empty).ToResultBox();  // デフォルト値にもグループIDを含める
+                Guid.Empty,
+                false).ToResultBox();  // デフォルト値には複数回答フラグもfalseで含める
     }
 
     [GenerateSerializer]
@@ -67,7 +69,8 @@ public record ActiveQuestionQuery(Guid QuestionGroupId)
         string Text,
         List<QuestionOption> Options,
         List<ResponseRecord> Responses,
-        Guid QuestionGroupId  // 追加：グループID
+        Guid QuestionGroupId,  // グループID
+        bool AllowMultipleResponses = false  // 追加：複数回答を許可するかどうか
     );
 
     [GenerateSerializer]

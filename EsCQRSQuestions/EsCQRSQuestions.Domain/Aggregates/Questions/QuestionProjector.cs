@@ -17,13 +17,15 @@ public class QuestionProjector : IAggregateProjector
                 created.Options,
                 false,
                 new List<QuestionResponse>(),
-                created.QuestionGroupId),
+                created.QuestionGroupId,
+                created.AllowMultipleResponses),
             
             // Update an existing question
             (Question question, QuestionUpdated updated) => question with
             {
                 Text = updated.Text,
-                Options = updated.Options
+                Options = updated.Options,
+                AllowMultipleResponses = updated.AllowMultipleResponses
             },
             
             // Start displaying a question
@@ -56,7 +58,8 @@ public class QuestionProjector : IAggregateProjector
                 question.Options,
                 question.IsDisplayed,
                 question.Responses,
-                question.QuestionGroupId),
+                question.QuestionGroupId,
+                question.AllowMultipleResponses),
             
             // Update question group ID
             (Question question, QuestionGroupIdUpdated updated) => question with

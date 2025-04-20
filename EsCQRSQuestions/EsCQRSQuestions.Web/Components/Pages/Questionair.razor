@@ -81,18 +81,41 @@
                             <h3 class="mb-4">@activeQuestion.Text</h3>
                             
                             <div class="mb-4">
-                                @foreach (var option in activeQuestion.Options)
+                                @if (activeQuestion.AllowMultipleResponses)
                                 {
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="radio" name="questionOptions" 
-                                               id="option-@option.Id" value="@option.Id" 
-                                               checked="@(selectedOptionId == option.Id)"
-                                               @onchange="() => selectedOptionId = option.Id" />
-                                        <label class="form-check-label" for="option-@option.Id">
-                                            @option.Text
-                                        </label>
+                                    <div class="alert alert-info mb-3">
+                                        <i class="bi bi-info-circle me-2"></i>複数の選択肢を選ぶことができます
                                     </div>
+                                    
+                                    @foreach (var option in activeQuestion.Options)
+                                    {
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" name="questionOptions" 
+                                                   id="option-@option.Id" value="@option.Id" 
+                                                   checked="@(selectedOptionIds.Contains(option.Id))"
+                                                   @onchange="(e) => UpdateSelectedOptions(option.Id, (bool)e.Value)" />
+                                            <label class="form-check-label" for="option-@option.Id">
+                                                @option.Text
+                                            </label>
+                                        </div>
+                                    }
                                 }
+                                else
+                                {
+                                    @foreach (var option in activeQuestion.Options)
+                                    {
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="radio" name="questionOptions" 
+                                                   id="option-@option.Id" value="@option.Id" 
+                                                   checked="@(selectedOptionIds.Contains(option.Id))"
+                                                   @onchange="(e) => SelectSingleOption(option.Id, (bool)e.Value)" />
+                                            <label class="form-check-label" for="option-@option.Id">
+                                                @option.Text
+                                            </label>
+                                        </div>
+                                    }
+                                }
+                                
                                 @if (!string.IsNullOrEmpty(optionError))
                                 {
                                     <div class="text-danger mt-2">@optionError</div>
@@ -100,7 +123,7 @@
                             </div>
                             
                             <div class="mb-4">
-                                @if (!string.IsNullOrEmpty(selectedOptionId))
+                                @if (selectedOptionIds.Any())
                                 {
                                     <label for="comment" class="form-label">Comment (optional)</label>
                                     <textarea class="form-control" id="comment" rows="3" 
@@ -136,7 +159,7 @@
                                     {
                                         var count = activeQuestion.Responses.Count(r => r.SelectedOptionId == option.Id);
                                         var percentage = activeQuestion.Responses.Any() 
-                                            ? (count * 100.0 / activeQuestion.Responses.Count) 
+                                            ? (count * 100.0 / activeQuestion.Responses.Count(r => r.ClientId == r.ClientId.Split('-')[0])) 
                                             : 0;
                                         
                                         <div class="col-md-6 mb-3">
@@ -192,7 +215,7 @@
     private HubConnection hubConnection;
     private ActiveQuestionQuery.ActiveQuestionRecord? activeQuestion;
     private string participantName = "";
-    private string selectedOptionId = "";
+    private List<string> selectedOptionIds = new List<string>(); // 変更：複数の選択肢を保持するリストに
     private string comment = "";
     private string errorMessage = "";
     private string optionError = "";
@@ -310,7 +333,7 @@
             Console.WriteLine($"QuestionDisplayStarted event received: {System.Text.Json.JsonSerializer.Serialize(data)}");
             await RefreshActiveQuestion();
             hasSubmitted = false;
-            selectedOptionId = "";
+            selectedOptionIds.Clear();
             comment = "";
             errorMessage = "";
             await InvokeAsync(StateHasChanged);
@@ -320,7 +343,7 @@
         {
             activeQuestion = null;
             hasSubmitted = false;
-            selectedOptionId = "";
+            selectedOptionIds.Clear();
             comment = "";
             await InvokeAsync(StateHasChanged);
         });
@@ -441,12 +464,36 @@
         showResponses = !showResponses;
     }
 
+    private void UpdateSelectedOptions(string optionId, bool isSelected)
+    {
+        if (isSelected)
+        {
+            if (!selectedOptionIds.Contains(optionId))
+            {
+                selectedOptionIds.Add(optionId);
+            }
+        }
+        else
+        {
+            selectedOptionIds.Remove(optionId);
+        }
+    }
+
+    private void SelectSingleOption(string optionId, bool isSelected)
+    {
+        if (isSelected)
+        {
+            selectedOptionIds.Clear();
+            selectedOptionIds.Add(optionId);
+        }
+    }
+
     private async Task SubmitResponse()
     {
         // Validate input
-        if (string.IsNullOrWhiteSpace(selectedOptionId))
+        if (!selectedOptionIds.Any())
         {
-            optionError = "Please select an option";
+            optionError = "Please select at least one option";
         }
         else
         {
@@ -493,7 +540,7 @@
             await QuestionApi.AddResponseAsync(
                 activeQuestion.QuestionId,
                 participantName,
-                selectedOptionId,
+                selectedOptionIds,
                 comment,
                 clientId);
             

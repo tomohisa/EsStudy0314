@@ -452,11 +452,16 @@ else
                 }
             }
             
+            // 質問の詳細情報を取得
+            var questionDetails = questionsWithGroupInfo?.FirstOrDefault(q => q.QuestionId == questionId);
+            bool allowMultipleResponses = questionDetails?.AllowMultipleResponses ?? false;
+            
             questionModel = new QuestionEditModel
             {
                 Text = question.Text,
                 QuestionGroupId = questionGroupId, // グループIDを設定
-                Options = question.Options.Select(o => new QuestionOptionEditModel { Id = o.Id, Text = o.Text }).ToList()
+                Options = question.Options.Select(o => new QuestionOptionEditModel { Id = o.Id, Text = o.Text }).ToList(),
+                AllowMultipleResponses = allowMultipleResponses // 複数回答フラグを設定
             };
             
             Console.WriteLine($"Editing question {questionId} in group {questionGroupId}");
@@ -483,8 +488,8 @@ else
             
             if (isEditMode && editQuestionId.HasValue)
             {
-                // まず質問自体を更新
-                await QuestionApi.UpdateQuestionAsync(editQuestionId.Value, questionModel.Text, options);
+                // まず質問自体を更新（複数回答フラグも含める）
+                await QuestionApi.UpdateQuestionAsync(editQuestionId.Value, questionModel.Text, options, questionModel.AllowMultipleResponses);
                 Console.WriteLine("Question updated");
                 
                 // 次に質問のグループ所属を処理
@@ -533,8 +538,8 @@ else
             }
             else
             {
-                // 新規質問作成 - groupIdToUse変数を使用
-                await QuestionApi.CreateQuestionWithGroupAsync(questionModel.Text, options, groupIdToUse);
+                // 新規質問作成 - groupIdToUse変数を使用（複数回答フラグも含める）
+                await QuestionApi.CreateQuestionWithGroupAsync(questionModel.Text, options, groupIdToUse, questionModel.AllowMultipleResponses);
                 Console.WriteLine($"Question created in group {groupIdToUse}");
             }
             

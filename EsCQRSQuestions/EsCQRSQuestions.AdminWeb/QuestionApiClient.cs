@@ -84,18 +84,28 @@ public class QuestionApiClient(HttpClient httpClient)
     }
 
     // Create question with specific group ID
-    public async Task<object> CreateQuestionWithGroupAsync(string text, List<QuestionOption> options, Guid questionGroupId, CancellationToken cancellationToken = default)
+    public async Task<object> CreateQuestionWithGroupAsync(
+        string text, 
+        List<QuestionOption> options, 
+        Guid questionGroupId, 
+        bool allowMultipleResponses = false, // 追加：複数回答フラグ
+        CancellationToken cancellationToken = default)
     {
-        var command = new CreateQuestionCommand(text, options, questionGroupId);
+        var command = new CreateQuestionCommand(text, options, questionGroupId, allowMultipleResponses);
         var response = await httpClient.PostAsJsonAsync("/api/questions/create", command, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<object>() ?? new {};
     }
 
     // Update question
-    public async Task<object> UpdateQuestionAsync(Guid questionId, string text, List<QuestionOption> options, CancellationToken cancellationToken = default)
+    public async Task<object> UpdateQuestionAsync(
+        Guid questionId, 
+        string text, 
+        List<QuestionOption> options, 
+        bool allowMultipleResponses = false, // 追加：複数回答フラグ
+        CancellationToken cancellationToken = default)
     {
-        var command = new UpdateQuestionCommand(questionId, text, options);
+        var command = new UpdateQuestionCommand(questionId, text, options, allowMultipleResponses);
         var response = await httpClient.PostAsJsonAsync("/api/questions/update", command, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<object>() ?? new {};
