@@ -476,44 +476,67 @@ else
             // グループIDが空の場合はエラーとする
             if (questionModel.QuestionGroupId == Guid.Empty)
             {
-                await JsRuntime.InvokeVoidAsync("alert", "Question group is required. Please select a group.");
+                await JsRuntime.InvokeVoidAsync("alert", "質問グループを選択してください。");
                 return;
             }
             
-            Console.WriteLine("Saving question...");
+            Console.WriteLine("質問を保存中...");
             var options = questionModel.Options.Select(o => new QuestionOption(o.Id, o.Text)).ToList();
             
             var groupIdToUse = questionModel.QuestionGroupId;
-            Console.WriteLine($"Selected group for question: {groupIdToUse}");
+            Console.WriteLine($"選択されたグループ: {groupIdToUse}");
             
             if (isEditMode && editQuestionId.HasValue)
             {
                 // まず質問自体を更新（複数回答フラグも含める）
-                await QuestionApi.UpdateQuestionAsync(editQuestionId.Value, questionModel.Text, options, questionModel.AllowMultipleResponses);
-                Console.WriteLine("Question updated");
-                
-                // 次に質問のグループ所属を処理
-                // グループを特定
-                Guid currentGroupId = Guid.Empty;
-                bool foundInGroup = false;
-                
-                if (groups != null)
+                var updateResult = await QuestionApi.UpdateQuestionAsync(
+                    editQuestionId.Value, 
+                    questionModel.Text, 
+                    options, 
+                    questionModel.AllowMultipleResponses);
+                    
+                if (!updateResult.Success)
                 {
-                    foreach (var group in groups)
+                    // エラーメッセージをユーザーに表示
+                    string errorMsg = "質問の更新に失敗しました";
+                    if (updateResult.ErrorMessage?.Contains("being displayed") == true || 
+                        updateResult.ErrorMessage?.Contains("表示中の質問") == true)
                     {
-                        if (group.Questions.Any(q => q.QuestionId == editQuestionId.Value))
-                        {
-                            currentGroupId = group.Id;
-                            foundInGroup = true;
-                            break;
-                        }
+                        errorMsg = "表示中の質問は編集できません。表示を停止してから再試行してください。";
                     }
+                    else if (!string.IsNullOrEmpty(updateResult.ErrorMessage))
+                    {
+                        errorMsg += $": {updateResult.ErrorMessage}";
+                    }
+                    
+                    await JsRuntime.InvokeVoidAsync("alert", errorMsg);
+                    Console.Error.WriteLine($"更新エラー: {updateResult.ErrorMessage}");
+                    return; // エラー発生時は処理を中断
                 }
                 
+                Console.WriteLine("質問が更新されました");
+                
                 // グループが変更された場合は移動処理
-                if (selectedGroupId != currentGroupId)
+                if (selectedGroupId != groupIdToUse)
                 {
-                    Console.WriteLine($"Moving question from group {currentGroupId} to {selectedGroupId}");
+                    Console.WriteLine($"質問のグループを {groupIdToUse} から {selectedGroupId} に移動します");
+                    
+                    // 現在のグループを特定
+                    Guid currentGroupId = Guid.Empty;
+                    bool foundInGroup = false;
+                    
+                    if (groups != null)
+                    {
+                        foreach (var group in groups)
+                        {
+                            if (group.Questions.Any(q => q.QuestionId == editQuestionId.Value))
+                            {
+                                currentGroupId = group.Id;
+                                foundInGroup = true;
+                                break;
+                            }
+                        }
+                    }
                     
                     if (foundInGroup && currentGroupId != Guid.Empty)
                     {
@@ -522,11 +545,11 @@ else
                     }
                     
                     // 新しいグループに追加
-                    if (selectedGroupId != Guid.Empty)
+                    if (selectedGroupId.HasValue && selectedGroupId.Value != Guid.Empty)
                     {
                         // 新しいグループの質問数を取得して最後に追加
                         int order = 0;
-                        var groupQuestions = await QuestionGroupApi.GetQuestionsInGroupAsync(selectedGroupId ?? throw new ApplicationException("Group ID is null"));
+                        var groupQuestions = await QuestionGroupApi.GetQuestionsInGroupAsync(selectedGroupId.Value);
                         if (groupQuestions != null)
                         {
                             order = groupQuestions.Count;
@@ -539,8 +562,18 @@ else
             else
             {
                 // 新規質問作成 - groupIdToUse変数を使用（複数回答フラグも含める）
-                await QuestionApi.CreateQuestionWithGroupAsync(questionModel.Text, options, groupIdToUse, questionModel.AllowMultipleResponses);
-                Console.WriteLine($"Question created in group {groupIdToUse}");
+                try {
+                    await QuestionApi.CreateQuestionWithGroupAsync(
+                        questionModel.Text, 
+                        options, 
+                        groupIdToUse, 
+                        questionModel.AllowMultipleResponses);
+                    Console.WriteLine($"質問をグループ {groupIdToUse} に作成しました");
+                } catch (Exception ex) {
+                    await JsRuntime.InvokeVoidAsync("alert", $"質問の作成に失敗しました: {ex.Message}");
+                    Console.Error.WriteLine($"質問作成エラー: {ex.Message}");
+                    return;
+                }
             }
             
             // モーダルを閉じる
@@ -557,7 +590,8 @@ else
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error saving question: {ex.Message}");
+            Console.Error.WriteLine($"質問保存エラー: {ex.Message}");
+            await JsRuntime.InvokeVoidAsync("alert", $"質問の保存中にエラーが発生しました: {ex.Message}");
         }
     }
 

@@ -311,7 +311,30 @@ apiRoute
         "/questions/update",
         async (
             [FromBody] UpdateQuestionCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            try
+            {
+                var result = await executor.CommandAsync(command);
+                if (result.IsSuccess)
+                {
+                    return Results.Ok(result.UnwrapBox());
+                }
+                else
+                {
+                    var exception = result.GetException();
+                    if (exception != null)
+                    {
+                        return Results.BadRequest(new { error = exception.Message });
+                    }
+                    return Results.BadRequest(new { error = "不明なエラーが発生しました" });
+                }
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
     .WithOpenApi()
     .WithName("UpdateQuestion");
 
