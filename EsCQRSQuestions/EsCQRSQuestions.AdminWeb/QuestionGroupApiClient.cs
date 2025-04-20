@@ -64,7 +64,7 @@ public class QuestionGroupApiClient(HttpClient httpClient)
         string newName,
         CancellationToken cancellationToken = default)
     {
-        var command = new UpdateQuestionGroupName(groupId, newName);
+        var command = new UpdateQuestionGroupCommand(groupId, newName);
         var response = await httpClient.PutAsJsonAsync($"/api/questionGroups/{groupId}", command, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<object>() ?? new {};

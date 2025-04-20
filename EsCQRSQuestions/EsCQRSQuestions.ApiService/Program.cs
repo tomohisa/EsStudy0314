@@ -89,7 +89,7 @@ builder.UseOrleans(
 builder.Services.AddSingleton(
     EsCQRSQuestionsDomainDomainTypes.Generate(EsCQRSQuestionsDomainEventsJsonContext.Default.Options));
 
-SekibanSerializationTypesChecker.CheckDomainSerializability(EsCQRSQuestionsDomainDomainTypes.Generate());
+SekibanSerializationTypesChecker.CheckDomainSerializability(EsCQRSQuestionsDomainDomainTypes.Generate(EsCQRSQuestionsDomainEventsJsonContext.Default.Options));
 
 builder.Services.AddTransient<ICommandMetadataProvider, CommandMetadataProvider>();
 builder.Services.AddTransient<IExecutingUserProvider, HttpExecutingUserProvider>();
@@ -458,10 +458,10 @@ apiRoute
         "/questionGroups/{id}",
         async (
             Guid id,
-            [FromBody] UpdateQuestionGroupName command,
+            [FromBody] UpdateQuestionGroupCommand command,
             [FromServices] SekibanOrleansExecutor executor) => 
         {
-            if (id != command.QuestionGroupId)
+            if (id != command.GroupId)
             {
                 return Results.BadRequest("ID in URL does not match ID in command");
             }
