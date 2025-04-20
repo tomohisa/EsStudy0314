@@ -158,8 +158,16 @@
                                     @foreach (var option in activeQuestion.Options)
                                     {
                                         var count = activeQuestion.Responses.Count(r => r.SelectedOptionId == option.Id);
-                                        var percentage = activeQuestion.Responses.Any() 
-                                            ? (count * 100.0 / activeQuestion.Responses.Count(r => r.ClientId == r.ClientId.Split('-')[0])) 
+                                        
+                                        // ユニークな回答者数を取得（クライアントIDでグループ化）
+                                        var uniqueRespondents = activeQuestion.Responses
+                                            .Select(r => r.ClientId)
+                                            .Distinct()
+                                            .Count();
+                                        
+                                        // 安全なパーセンテージ計算（ゼロ除算対策）
+                                        var percentage = uniqueRespondents > 0 
+                                            ? (count * 100.0 / uniqueRespondents)
                                             : 0;
                                         
                                         <div class="col-md-6 mb-3">

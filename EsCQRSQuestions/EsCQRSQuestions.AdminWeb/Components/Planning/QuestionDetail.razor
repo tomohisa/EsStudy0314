@@ -56,11 +56,31 @@
                 <div class="mt-4">
                     <h5>Response Statistics</h5>
                     <div class="row">
+                        @{
+                            // ユニークな参加者（クライアントID）のセットを取得
+                            var uniqueClientIds = SelectedQuestion.Responses
+                                .Select(r => r.ClientId)
+                                .Distinct()
+                                .ToList();
+                            
+                            var totalUniqueClients = uniqueClientIds.Count;
+                        }
+                        
                         @foreach (var option in SelectedQuestion.Options)
                         {
-                            var count = SelectedQuestion.Responses.Count(r => r.SelectedOptionId == option.Id);
-                            var percentage = SelectedQuestion.Responses.Any() 
-                                ? (count * 100.0 / SelectedQuestion.Responses.Count) 
+                            // 従来の計算方法（選択数）
+                            var selectionCount = SelectedQuestion.Responses.Count(r => r.SelectedOptionId == option.Id);
+                            
+                            // 新しい計算方法（このオプションを選択したユニークなユーザー数）
+                            var uniqueClientsForOption = SelectedQuestion.Responses
+                                .Where(r => r.SelectedOptionId == option.Id)
+                                .Select(r => r.ClientId)
+                                .Distinct()
+                                .Count();
+                            
+                            // ユーザー数ベースのパーセンテージを計算
+                            var percentage = totalUniqueClients > 0 
+                                ? (uniqueClientsForOption * 100.0 / totalUniqueClients) 
                                 : 0;
                             
                             <div class="col-md-6 mb-3">
@@ -68,7 +88,7 @@
                                 <div class="progress">
                                     <div class="progress-bar" role="progressbar" style="width: @percentage%;" 
                                          aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">
-                                        @count (@percentage.ToString("0.0")%)
+                                        @selectionCount (@percentage.ToString("0.0")%)
                                     </div>
                                 </div>
                             </div>
