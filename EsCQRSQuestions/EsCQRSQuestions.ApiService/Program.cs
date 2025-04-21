@@ -197,6 +197,24 @@ apiRoute
 
 app.MapDefaultEndpoints();
 
+// コード検証エンドポイントを追加
+apiRoute.MapGet("/questions/validate/{uniqueCode}", async (
+    string uniqueCode, 
+    [FromServices] SekibanOrleansExecutor executor) =>
+{
+    // グループIDが存在するかどうかを確認するためのクエリを実行
+    var groupExists = await executor.QueryAsync(new QuestionGroupExistsQuery(uniqueCode));
+    
+    if (groupExists.IsSuccess && groupExists.GetValue())
+    {
+        return Results.Ok();
+    }
+    
+    return Results.NotFound();
+})
+.WithOpenApi()
+.WithName("ValidateUniqueCode");
+
 // Question API endpoints
 // Queries
 

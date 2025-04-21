@@ -31,6 +31,29 @@ public class QuestionApiClient(HttpClient httpClient)
         return await httpClient.GetFromJsonAsync<ActiveQuestionQuery.ActiveQuestionRecord?>(url, cancellationToken);
     }
 
+    /// <summary>
+    /// アンケートコードの有効性を検証します
+    /// </summary>
+    /// <param name="uniqueCode">検証するアンケートコード</param>
+    /// <param name="cancellationToken">キャンセレーショントークン</param>
+    /// <returns>コードが有効な場合はtrue、それ以外はfalse</returns>
+    public async Task<bool> ValidateUniqueCodeAsync(string uniqueCode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            string url = $"/api/questions/validate/{uniqueCode}";
+            var response = await httpClient.GetAsync(url, cancellationToken);
+            
+            // ステータスコードで判断（404の場合はコードが存在しない）
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception)
+        {
+            // 例外が発生した場合は無効と判断
+            return false;
+        }
+    }
+
     // Get question by ID
     public async Task<QuestionDetailQuery.QuestionDetailRecord?> GetQuestionByIdAsync(Guid questionId, CancellationToken cancellationToken = default)
     {

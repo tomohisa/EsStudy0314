@@ -34,8 +34,16 @@
                             <div class="input-group">
                                 <input type="text" class="form-control" id="uniqueCode" 
                                        @bind="inputUniqueCode" placeholder="アンケートコードを入力してください" />
-                                <button class="btn btn-outline-primary" type="button" @onclick="NavigateToSurvey">
-                                    アンケートに参加
+                                <button class="btn btn-outline-primary" type="button" @onclick="NavigateToSurvey" disabled="@isValidating">
+                                    @if (isValidating)
+                                    {
+                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        <span class="ms-2">検証中...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>アンケートに参加</span>
+                                    }
                                 </button>
                             </div>
                         </div>
@@ -232,6 +240,7 @@
     private bool showResponses = false;
     private bool hasSubmitted = false;
     private string inputUniqueCode = "";
+    private bool isValidating = false;
     
     // クライアントIDを保持する変数
     private string clientId = "";
@@ -466,17 +475,32 @@
                 {
                     Console.WriteLine($"User with client ID {clientId} has already submitted a response");
                 }
+                
+                // エラーメッセージをクリア（成功時）
+                errorMessage = "";
             }
             else
             {
                 Console.WriteLine("No active question at this time");
                 activeQuestion = null; // Ensure null if empty result returned
+                
+                // 既にコードの検証は済んでいるので、アクティブな質問がない場合はエラーではない
             }
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error refreshing active question: {ex.Message}");
-            // Don't update the error message here to avoid overriding connection errors
+            
+            // 接続エラーの場合のみエラーメッセージを更新
+            if (ex.Message.Contains("Connection") || ex.Message.Contains("connect"))
+            {
+                errorMessage = $"サーバーとの接続に問題があります: {ex.Message}";
+            }
+            // 404エラーの場合は存在しないコード
+            else if (ex is HttpRequestException httpEx && httpEx.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                errorMessage = "入力されたアンケートコードは存在しません。正しいコードを入力してください。";
+            }
         }
     }
 
@@ -490,26 +514,51 @@
             // URLに含まれない文字を削除/置換
             var sanitizedCode = Uri.EscapeDataString(inputUniqueCode.Trim());
             
-            // UniqueCodeを更新
-            UniqueCode = sanitizedCode;
+            // コードが有効かどうかを検証
+            isValidating = true;
+            errorMessage = ""; // エラーメッセージをクリア
             
-            // URLを更新（クライアントサイドルーティング）
-            NavigationManager.NavigateTo($"/questionair/{sanitizedCode}");
-            
-            // ナビゲーション後にSignalRグループに参加（パラメータの変更検出と組み合わせたアプローチ）
-            if (hubConnection.State == HubConnectionState.Connected)
+            try
             {
-                try
+                bool isValidCode = await QuestionApi.ValidateUniqueCodeAsync(sanitizedCode);
+                
+                if (!isValidCode)
                 {
-                    Console.WriteLine($"Joining survey with unique code: {sanitizedCode} after navigation");
-                    await hubConnection.InvokeAsync("JoinAsSurveyParticipant", sanitizedCode);
-                    await RefreshActiveQuestion();
+                    errorMessage = "入力されたアンケートコードは存在しません。正しいコードを入力してください。";
+                    isValidating = false;
+                    return;
                 }
-                catch (Exception ex)
+                
+                // UniqueCodeを更新
+                UniqueCode = sanitizedCode;
+                
+                // URLを更新（クライアントサイドルーティング）
+                NavigationManager.NavigateTo($"/questionair/{sanitizedCode}");
+                
+                // ナビゲーション後にSignalRグループに参加
+                if (hubConnection.State == HubConnectionState.Connected)
                 {
-                    Console.Error.WriteLine($"Error joining survey after navigation: {ex.Message}");
-                    errorMessage = "アンケートグループへの参加中にエラーが発生しました。ページを更新してください。";
+                    try
+                    {
+                        Console.WriteLine($"Joining survey with unique code: {sanitizedCode} after navigation");
+                        await hubConnection.InvokeAsync("JoinAsSurveyParticipant", sanitizedCode);
+                        await RefreshActiveQuestion();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"Error joining survey after navigation: {ex.Message}");
+                        errorMessage = "アンケートグループへの参加中にエラーが発生しました。ページを更新してください。";
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"アンケートコードの検証中にエラーが発生しました: {ex.Message}";
+                Console.Error.WriteLine(errorMessage);
+            }
+            finally
+            {
+                isValidating = false;
             }
         }
         else
