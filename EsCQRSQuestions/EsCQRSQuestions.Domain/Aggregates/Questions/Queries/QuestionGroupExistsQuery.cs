@@ -1,5 +1,9 @@
 using Orleans;
-using Sekiban.Core.Query.MultiProjections;
+using Sekiban.Pure.Query;
+using Sekiban.Pure.Projectors;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups;
+using ResultBoxes;
 
 namespace EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
 
@@ -8,7 +12,7 @@ namespace EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
 /// </summary>
 [GenerateSerializer]
 public record QuestionGroupExistsQuery(string UniqueCode)
-    : IMultiProjectionQuery<QuestionGroupListProjection, QuestionGroupExistsQuery, bool>
+    : IMultiProjectionQuery<AggregateListProjector<QuestionGroupProjector>, QuestionGroupExistsQuery, bool>
 {
     /// <summary>
     /// クエリ処理を実行します
@@ -17,15 +21,17 @@ public record QuestionGroupExistsQuery(string UniqueCode)
     /// <param name="query">クエリ</param>
     /// <param name="context">クエリコンテキスト</param>
     /// <returns>グループが存在するかどうかを示すブール値</returns>
-    public static ResultBoxes.ResultBox<bool> HandleQuery(
-        MultiProjectionState<QuestionGroupListProjection> projectionState,
+    public static ResultBox<bool> HandleQuery(
+        MultiProjectionState<AggregateListProjector<QuestionGroupProjector>> projectionState,
         QuestionGroupExistsQuery query,
         IQueryContext context)
     {
         // プロジェクションからUniqueCodeが一致するものを探す
-        var exists = projectionState.Payload.QuestionGroups
+        var exists = projectionState.Payload.Aggregates
+            .Where(m => m.Value.GetPayload() is QuestionGroup)
+            .Select(m => (QuestionGroup)m.Value.GetPayload())
             .Any(g => g.UniqueCode.Equals(query.UniqueCode, StringComparison.OrdinalIgnoreCase));
         
-        return ResultBoxes.ResultBox<bool>.Ok(exists);
+        return ResultBox<bool>.Ok(exists);
     }
 }
