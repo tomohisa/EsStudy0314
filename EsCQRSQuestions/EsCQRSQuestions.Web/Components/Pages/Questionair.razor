@@ -3,6 +3,7 @@
 @attribute [StreamRendering(true)]
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
 @using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.Extensions.Logging
 @implements IAsyncDisposable
 
 @inject QuestionApiClient QuestionApi
@@ -235,6 +236,9 @@
     // クライアントIDを保持する変数
     private string clientId = "";
 
+    // 前回のUniqueCodeを保存する変数
+    private string? previousUniqueCode;
+
     // JSインタロップ用の関数
     [JSInvokable]
     public void SetClientId(string id)
@@ -413,6 +417,29 @@
         await RefreshActiveQuestion();
     }
 
+    /// <summary>
+    /// パラメータが変更されたときに呼び出されるライフサイクルメソッド
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        // UniqueCodeが変更された場合のみ処理
+        if (UniqueCode != previousUniqueCode && !string.IsNullOrEmpty(UniqueCode))
+        {
+            Console.WriteLine($"UniqueCode changed from {previousUniqueCode} to {UniqueCode}");
+            previousUniqueCode = UniqueCode;
+            
+            // すでに接続済みの場合は再接続せずにSignalRグループに参加
+            if (hubConnection.State == HubConnectionState.Connected)
+            {
+                await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
+                await RefreshActiveQuestion();
+                Console.WriteLine($"Joined survey with unique code: {UniqueCode} in OnParametersSetAsync");
+            }
+        }
+        
+        await base.OnParametersSetAsync();
+    }
+
     private async Task RefreshActiveQuestion()
     {
         try
@@ -453,13 +480,37 @@
         }
     }
 
-    private void NavigateToSurvey()
+    /// <summary>
+    /// アンケートコードを入力してナビゲーションするメソッド
+    /// </summary>
+    private async Task NavigateToSurvey()
     {
         if (!string.IsNullOrWhiteSpace(inputUniqueCode))
         {
             // URLに含まれない文字を削除/置換
             var sanitizedCode = Uri.EscapeDataString(inputUniqueCode.Trim());
+            
+            // UniqueCodeを更新
+            UniqueCode = sanitizedCode;
+            
+            // URLを更新（クライアントサイドルーティング）
             NavigationManager.NavigateTo($"/questionair/{sanitizedCode}");
+            
+            // ナビゲーション後にSignalRグループに参加（パラメータの変更検出と組み合わせたアプローチ）
+            if (hubConnection.State == HubConnectionState.Connected)
+            {
+                try
+                {
+                    Console.WriteLine($"Joining survey with unique code: {sanitizedCode} after navigation");
+                    await hubConnection.InvokeAsync("JoinAsSurveyParticipant", sanitizedCode);
+                    await RefreshActiveQuestion();
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Error joining survey after navigation: {ex.Message}");
+                    errorMessage = "アンケートグループへの参加中にエラーが発生しました。ページを更新してください。";
+                }
+            }
         }
         else
         {
