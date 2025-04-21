@@ -1,4 +1,4 @@
-param appServiceName string = 'frontend-${resourceGroup().name}'
+param appServiceName string = resourceGroup().name
 param location string = resourceGroup().location
 param appServicePlanName string = 'asp-${appServiceName}'
 

@@ -1,4 +1,4 @@
-param appServiceName string = 'frontend-${resourceGroup().name}'
+param appServiceName string = resourceGroup().name
 @description('Name of the existing virtual network')
 param vnetName string = 'vn-${resourceGroup().name}'
 

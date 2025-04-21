@@ -11,12 +11,13 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2022-03-01' existing = {
 var appServicePlanId = appServicePlan.id
 
 // Create the basic App Service (Web App)
-resource webApp 'Microsoft.Web/sites@2022-09-01' = {
+resource webApp 'Microsoft.Web/sites@2024-04-01' = {
   name: appServiceName
   location: location
   properties: {
     serverFarmId: appServicePlanId
     httpsOnly: true
+    clientAffinityEnabled: true
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|9.0'
       netFrameworkVersion: 'v9.0'
