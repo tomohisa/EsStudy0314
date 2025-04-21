@@ -1,5 +1,6 @@
 param appServiceName string = 'adminweb-${resourceGroup().name}'
 param appServiceNameBackend string = 'backend-${resourceGroup().name}'
+param frontendAppServiceName string = resourceGroup().name
 
 param aspNetCoreEnvironment string = 'Production'
 
@@ -9,8 +10,11 @@ param applicationInsightsName string = 'ai-${resourceGroup().name}'
 resource webApp 'Microsoft.Web/sites@2022-09-01' existing = {
   name: appServiceName
 }
-resource webAppBackend 'Microsoft.Web/sites@2022-09-01' existing = {
+resource webAppBackend 'Microsoft.Web/sites@2024-04-01' existing = {
   name: appServiceNameBackend
+}
+resource frontendAppBackend 'Microsoft.Web/sites@2022-09-01' existing = {
+  name: frontendAppServiceName
 }
 
 // get existing Application Insights
@@ -32,5 +36,6 @@ resource appSettingsConfig 'Microsoft.Web/sites/config@2022-09-01' = {
     APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsightsConnectionString
     ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
     services__apiservice__https__0 : 'https://${webAppBackend.properties.defaultHostName}'
+    ClientBaseUrl: 'https://${frontendAppBackend.properties.defaultHostName}'
   }
 }

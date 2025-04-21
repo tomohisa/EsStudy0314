@@ -34,7 +34,7 @@ fi
 echo "Frontend path: $FRONTEND_PATH"
 
 # App Service name will follow the naming convention
-APP_SERVICE_NAME="frontend-${RESOURCE_GROUP}"
+APP_SERVICE_NAME="${RESOURCE_GROUP}"
 
 # Build and publish the application
 echo "Building and publishing .NET 9.0 application..."
