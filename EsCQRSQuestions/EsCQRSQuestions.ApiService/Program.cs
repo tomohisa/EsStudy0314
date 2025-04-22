@@ -79,7 +79,12 @@ builder.UseOrleans(
             options.Configure<IServiceProvider>((opt, sp) =>
             {
                 opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
+                
             });
+            
+            // options.GrainStorageSerializer は既定でこの Newtonsoft シリアライザーになる
+            options.Configure<IGrainStorageSerializer>(
+                (op, serializer) => op.GrainStorageSerializer = serializer);
         });
         // Orleans will automatically discover grains in the same assembly
         config.ConfigureServices(services =>

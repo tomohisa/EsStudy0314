@@ -4,6 +4,7 @@
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
 @using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.Extensions.Logging
+@using System.Threading
 @implements IAsyncDisposable
 
 @inject QuestionApiClient QuestionApi
@@ -12,6 +13,74 @@
 @inject NavigationManager NavigationManager
 
 <PageTitle>アンケート</PageTitle>
+
+<style>
+    /* ボタンの基本スタイル */
+    .submit-button {
+        position: relative;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        min-width: 150px;
+    }
+    
+    /* クリック効果 */
+    .submit-button:active:not(:disabled) {
+        transform: scale(0.95);
+    }
+    
+    /* 送信中のパルスアニメーション */
+    .submit-pulse {
+        animation: pulse 1.5s infinite;
+    }
+    
+    /* 成功時のフェードインアニメーション */
+    .submit-success {
+        animation: fadeInOut 3s;
+    }
+    
+    /* エラー時の振動アニメーション */
+    .submit-error {
+        animation: shake 0.5s, fadeInOut 5s;
+    }
+    
+    /* アニメーションの定義 */
+    @@keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+    }
+    
+    @@keyframes fadeInOut {
+        0% { opacity: 0.8; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { opacity: 0.8; }
+    }
+    
+    @@keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+        20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    
+    /* 送信中のプログレスバー風エフェクト */
+    .submit-progress::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.7);
+        width: 0;
+        animation: progress 2s infinite linear;
+    }
+    
+    @@keyframes progress {
+        0% { width: 0; }
+        50% { width: 100%; }
+        100% { width: 0; }
+    }
+</style>
 
 <div class="container">
     <div class="row justify-content-center">
@@ -146,16 +215,30 @@
                                 }
                             </div>
                             
-                            <button class="btn btn-primary" @onclick="SubmitResponse" disabled="@isSubmitting">
-                                @if (isSubmitting)
-                                {
-                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                    <span class="ms-2">送信中...</span>
-                                }
-                                else
-                                {
-                                    <span>回答を送信</span>
-                                }
+                            <button class="@GetButtonClass() submit-button @GetButtonAnimation()" 
+                                    @onclick="SubmitResponse" 
+                                    disabled="@(buttonState == SubmitButtonState.Submitting)"
+                                    aria-live="polite">
+                                <div class="d-flex align-items-center justify-content-center">
+                                    @switch (buttonState)
+                                    {
+                                        case SubmitButtonState.Ready:
+                                            <span>回答を送信</span>
+                                            break;
+                                        case SubmitButtonState.Submitting:
+                                            <div class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></div>
+                                            <span>送信中...</span>
+                                            break;
+                                        case SubmitButtonState.Success:
+                                            <i class="bi bi-check-circle-fill me-2"></i>
+                                            <span>送信完了！</span>
+                                            break;
+                                        case SubmitButtonState.Error:
+                                            <i class="bi bi-exclamation-circle-fill me-2"></i>
+                                            <span>エラー - 再試行</span>
+                                            break;
+                                    }
+                                </div>
                             </button>
                         </div>
 
@@ -247,6 +330,21 @@
 
     // 前回のUniqueCodeを保存する変数
     private string? previousUniqueCode;
+    
+    // ボタンの状態を管理する列挙型
+    private enum SubmitButtonState
+    {
+        Ready,      // 送信準備完了
+        Submitting, // 送信中
+        Success,    // 送信成功
+        Error       // 送信失敗
+    }
+    
+    // 現在のボタン状態
+    private SubmitButtonState buttonState = SubmitButtonState.Ready;
+    
+    // タイマー用変数（成功/エラー状態を一時的に表示した後、準備完了状態に戻すため）
+    private Timer? stateResetTimer;
 
     // JSインタロップ用の関数
     [JSInvokable]
@@ -595,10 +693,11 @@
 
     private async Task SubmitResponse()
     {
-        // Validate input
+        // 入力検証
         if (!selectedOptionIds.Any())
         {
             optionError = "少なくとも1つの選択肢を選んでください";
+            return;
         }
         else
         {
@@ -633,6 +732,8 @@
 
         try
         {
+            // 送信中状態に設定
+            buttonState = SubmitButtonState.Submitting;
             isSubmitting = true;
             
             // Update participant name if changed
@@ -649,6 +750,12 @@
                 comment,
                 clientId);
             
+            // 成功状態に設定
+            buttonState = SubmitButtonState.Success;
+            
+            // 3秒後に準備完了状態に戻す
+            SetupStateResetTimer();
+            
             // Mark as submitted and show responses
             hasSubmitted = true;
             showResponses = true;
@@ -660,6 +767,12 @@
         }
         catch (Exception ex)
         {
+            // エラー状態に設定
+            buttonState = SubmitButtonState.Error;
+            
+            // 5秒後に準備完了状態に戻す
+            SetupStateResetTimer(5000);
+            
             errorMessage = $"回答の送信中にエラーが発生しました: {ex.Message}";
             Console.Error.WriteLine(errorMessage);
         }
@@ -671,9 +784,58 @@
 
     public async ValueTask DisposeAsync()
     {
+        // タイマーの破棄
+        stateResetTimer?.Dispose();
+        
         if (hubConnection is not null)
         {
             await hubConnection.DisposeAsync();
         }
+    }
+    
+    /// <summary>
+    /// ボタンのスタイルクラスを取得するヘルパーメソッド
+    /// </summary>
+    private string GetButtonClass()
+    {
+        return buttonState switch
+        {
+            SubmitButtonState.Ready => "btn btn-primary",
+            SubmitButtonState.Submitting => "btn btn-warning",
+            SubmitButtonState.Success => "btn btn-success",
+            SubmitButtonState.Error => "btn btn-danger",
+            _ => "btn btn-primary"
+        };
+    }
+    
+    /// <summary>
+    /// ボタンのアニメーションクラスを取得するヘルパーメソッド
+    /// </summary>
+    private string GetButtonAnimation()
+    {
+        return buttonState switch
+        {
+            SubmitButtonState.Ready => "",
+            SubmitButtonState.Submitting => "submit-pulse submit-progress",
+            SubmitButtonState.Success => "submit-success",
+            SubmitButtonState.Error => "submit-error",
+            _ => ""
+        };
+    }
+    
+    /// <summary>
+    /// 状態リセットタイマーを設定するヘルパーメソッド
+    /// </summary>
+    private void SetupStateResetTimer(int milliseconds = 3000)
+    {
+        // 既存のタイマーをクリア
+        stateResetTimer?.Dispose();
+        
+        // 新しいタイマーをセットアップ
+        stateResetTimer = new Timer(_ => 
+        {
+            buttonState = SubmitButtonState.Ready;
+            InvokeAsync(StateHasChanged);
+        }, null, milliseconds, Timeout.Infinite);
     }
 }
