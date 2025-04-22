@@ -111,16 +111,17 @@ builder.Services.AddTransient<InitialQuestionsCreator>();
 // QuestionGroupServiceはDIに登録せず、使用時に生成する
 
 // Add SignalR
-// if (!string.IsNullOrEmpty(builder.Configuration["Azure:SignalR:ConnectionString"]))
-// {
-//     builder.Services.AddSignalR().AddAzureSignalR();
-// }
-// else
-// {
+if (!string.IsNullOrEmpty(builder.Configuration["Azure:SignalR:ConnectionString"]))
+{
+    builder.Services.AddSignalR().AddAzureSignalR();
+    Console.WriteLine("Local SignalR configured (no connection string found)");
+}
+else
+{
     // 従来のSignalRを使用する設定（開発環境向け）
     builder.Services.AddSignalR();
     Console.WriteLine("Local SignalR configured (no connection string found)");
-// }
+}
 if (builder.Configuration.GetSection("Sekiban").GetValue<string>("Database")?.ToLower() == "cosmos")
 {
     // Cosmos settings
@@ -131,16 +132,16 @@ if (builder.Configuration.GetSection("Sekiban").GetValue<string>("Database")?.To
     builder.AddSekibanPostgresDb();
 }
 // Add CORS services and configure a policy that allows specific origins with credentials
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins("https://localhost:7201", "https://localhost:5260")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
+// builder.Services.AddCors(options =>
+// {
+//     options.AddDefaultPolicy(policy =>
+//     {
+//         policy.WithOrigins("https://localhost:7201", "https://localhost:5260")
+//               .AllowAnyHeader()
+//               .AllowAnyMethod()
+//               .AllowCredentials();
+//     });
+// });
 
 var app = builder.Build();
 
@@ -160,7 +161,7 @@ if (app.Environment.IsDevelopment())
 // Use CORS middleware (must be called before other middleware that sends responses)
 // app.UseCors();
 
-app.UseRouting();
+// app.UseRouting();
 app.MapHub<QuestionHub>("/questionHub");
 
 string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];

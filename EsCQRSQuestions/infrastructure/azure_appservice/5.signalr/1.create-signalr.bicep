@@ -20,7 +20,13 @@ resource signalr 'Microsoft.SignalRService/signalR@2022-08-01-preview' = {
         '*' 
       ]
     }
-    // 必要に応じた追加設定…
+    // ServiceMode を明示的に Default に設定
+    features: [
+      {
+        flag: 'ServiceMode'
+        value: 'Default'
+      }
+    ]
   }
 }
 output signalrId string = signalr.id
