@@ -111,8 +111,16 @@ builder.Services.AddTransient<InitialQuestionsCreator>();
 // QuestionGroupServiceはDIに登録せず、使用時に生成する
 
 // Add SignalR
-builder.Services.AddSignalR();
-
+// if (!string.IsNullOrEmpty(builder.Configuration["Azure:SignalR:ConnectionString"]))
+// {
+//     builder.Services.AddSignalR().AddAzureSignalR();
+// }
+// else
+// {
+    // 従来のSignalRを使用する設定（開発環境向け）
+    builder.Services.AddSignalR();
+    Console.WriteLine("Local SignalR configured (no connection string found)");
+// }
 if (builder.Configuration.GetSection("Sekiban").GetValue<string>("Database")?.ToLower() == "cosmos")
 {
     // Cosmos settings
@@ -150,14 +158,10 @@ if (app.Environment.IsDevelopment())
 }
 
 // Use CORS middleware (must be called before other middleware that sends responses)
-app.UseCors();
+// app.UseCors();
 
-// Map SignalR hub with CORS
-app.MapHub<QuestionHub>("/questionHub").RequireCors(policy => policy
-    .WithOrigins("https://localhost:7201", "https://localhost:5260")
-    .AllowAnyHeader()
-    .AllowAnyMethod()
-    .AllowCredentials());
+app.UseRouting();
+app.MapHub<QuestionHub>("/questionHub");
 
 string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
 
