@@ -5,7 +5,7 @@ param signalrName string =  'signalr-${resourceGroup().name}'
 param keyVaultName string = 'kv-${resourceGroup().name}'
 
 // 既存のSignalRリソースへの参照
-resource signalr 'Microsoft.SignalR/signalR@2022-02-01' existing = {
+resource signalr 'Microsoft.SignalRService/signalR@2022-08-01-preview' existing = {
   name: signalrName
 }
 

@@ -17,7 +17,7 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
   properties: {
     serverFarmId: appServicePlanId
     httpsOnly: true
-    clientAffinityEnabled: true
+    // clientAffinityEnabled: true // Uncomment if needed
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|9.0'
       netFrameworkVersion: 'v9.0'
