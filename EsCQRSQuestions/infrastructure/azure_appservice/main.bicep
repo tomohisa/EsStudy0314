@@ -73,6 +73,19 @@ module logAnalyticsCreate '5.applicationinsights_and_log/2.log-analytics-workspa
   params: {}
 }
 
+module signalrCreate '5.signalr/1.create-signalr.bicep' = {
+  name: 'signalrCreateDeployment'
+  params: {}
+}
+module signalrSaveKeyVault '5.signalr/2.save-keyvault.bicep' = {
+  name: 'signalrSaveKeyVaultDeployment'
+  params: {}
+  dependsOn: [
+    keyVaultCreate
+    signalrCreate
+  ]
+}
+
 // 6. Backend App Service
 module backendPlan '6.backend/1.plan.bicep' = {
   name: 'backendPlanDeployment'

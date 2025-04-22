@@ -111,8 +111,17 @@ builder.Services.AddTransient<InitialQuestionsCreator>();
 // QuestionGroupServiceはDIに登録せず、使用時に生成する
 
 // Add SignalR
-builder.Services.AddSignalR();
-
+if (!string.IsNullOrEmpty(builder.Configuration["Azure:SignalR:ConnectionString"]))
+{
+    builder.Services.AddSignalR().AddAzureSignalR();
+    Console.WriteLine("Local SignalR configured (no connection string found)");
+}
+else
+{
+    // 従来のSignalRを使用する設定（開発環境向け）
+    builder.Services.AddSignalR();
+    Console.WriteLine("Local SignalR configured (no connection string found)");
+}
 if (builder.Configuration.GetSection("Sekiban").GetValue<string>("Database")?.ToLower() == "cosmos")
 {
     // Cosmos settings
@@ -123,16 +132,16 @@ if (builder.Configuration.GetSection("Sekiban").GetValue<string>("Database")?.To
     builder.AddSekibanPostgresDb();
 }
 // Add CORS services and configure a policy that allows specific origins with credentials
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins("https://localhost:7201", "https://localhost:5260")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
+// builder.Services.AddCors(options =>
+// {
+//     options.AddDefaultPolicy(policy =>
+//     {
+//         policy.WithOrigins("https://localhost:7201", "https://localhost:5260")
+//               .AllowAnyHeader()
+//               .AllowAnyMethod()
+//               .AllowCredentials();
+//     });
+// });
 
 var app = builder.Build();
 
@@ -150,14 +159,10 @@ if (app.Environment.IsDevelopment())
 }
 
 // Use CORS middleware (must be called before other middleware that sends responses)
-app.UseCors();
+// app.UseCors();
 
-// Map SignalR hub with CORS
-app.MapHub<QuestionHub>("/questionHub").RequireCors(policy => policy
-    .WithOrigins("https://localhost:7201", "https://localhost:5260")
-    .AllowAnyHeader()
-    .AllowAnyMethod()
-    .AllowCredentials());
+// app.UseRouting();
+app.MapHub<QuestionHub>("/questionHub");
 
 string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
 
@@ -196,6 +201,24 @@ apiRoute
     .WithOpenApi();
 
 app.MapDefaultEndpoints();
+
+// コード検証エンドポイントを追加
+apiRoute.MapGet("/questions/validate/{uniqueCode}", async (
+    string uniqueCode, 
+    [FromServices] SekibanOrleansExecutor executor) =>
+{
+    // グループIDが存在するかどうかを確認するためのクエリを実行
+    var groupExists = await executor.QueryAsync(new QuestionGroupExistsQuery(uniqueCode));
+    
+    if (groupExists.IsSuccess && groupExists.GetValue())
+    {
+        return Results.Ok();
+    }
+    
+    return Results.NotFound();
+})
+.WithOpenApi()
+.WithName("ValidateUniqueCode");
 
 // Question API endpoints
 // Queries

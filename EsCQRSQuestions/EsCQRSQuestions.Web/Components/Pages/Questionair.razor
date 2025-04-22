@@ -3,6 +3,7 @@
 @attribute [StreamRendering(true)]
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
 @using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.Extensions.Logging
 @implements IAsyncDisposable
 
 @inject QuestionApiClient QuestionApi
@@ -33,8 +34,16 @@
                             <div class="input-group">
                                 <input type="text" class="form-control" id="uniqueCode" 
                                        @bind="inputUniqueCode" placeholder="アンケートコードを入力してください" />
-                                <button class="btn btn-outline-primary" type="button" @onclick="NavigateToSurvey">
-                                    アンケートに参加
+                                <button class="btn btn-outline-primary" type="button" @onclick="NavigateToSurvey" disabled="@isValidating">
+                                    @if (isValidating)
+                                    {
+                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        <span class="ms-2">検証中...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>アンケートに参加</span>
+                                    }
                                 </button>
                             </div>
                         </div>
@@ -231,9 +240,13 @@
     private bool showResponses = false;
     private bool hasSubmitted = false;
     private string inputUniqueCode = "";
+    private bool isValidating = false;
     
     // クライアントIDを保持する変数
     private string clientId = "";
+
+    // 前回のUniqueCodeを保存する変数
+    private string? previousUniqueCode;
 
     // JSインタロップ用の関数
     [JSInvokable]
@@ -413,6 +426,29 @@
         await RefreshActiveQuestion();
     }
 
+    /// <summary>
+    /// パラメータが変更されたときに呼び出されるライフサイクルメソッド
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        // UniqueCodeが変更された場合のみ処理
+        if (UniqueCode != previousUniqueCode && !string.IsNullOrEmpty(UniqueCode))
+        {
+            Console.WriteLine($"UniqueCode changed from {previousUniqueCode} to {UniqueCode}");
+            previousUniqueCode = UniqueCode;
+            
+            // すでに接続済みの場合は再接続せずにSignalRグループに参加
+            if (hubConnection.State == HubConnectionState.Connected)
+            {
+                await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
+                await RefreshActiveQuestion();
+                Console.WriteLine($"Joined survey with unique code: {UniqueCode} in OnParametersSetAsync");
+            }
+        }
+        
+        await base.OnParametersSetAsync();
+    }
+
     private async Task RefreshActiveQuestion()
     {
         try
@@ -439,27 +475,91 @@
                 {
                     Console.WriteLine($"User with client ID {clientId} has already submitted a response");
                 }
+                
+                // エラーメッセージをクリア（成功時）
+                errorMessage = "";
             }
             else
             {
                 Console.WriteLine("No active question at this time");
                 activeQuestion = null; // Ensure null if empty result returned
+                
+                // 既にコードの検証は済んでいるので、アクティブな質問がない場合はエラーではない
             }
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error refreshing active question: {ex.Message}");
-            // Don't update the error message here to avoid overriding connection errors
+            
+            // 接続エラーの場合のみエラーメッセージを更新
+            if (ex.Message.Contains("Connection") || ex.Message.Contains("connect"))
+            {
+                errorMessage = $"サーバーとの接続に問題があります: {ex.Message}";
+            }
+            // 404エラーの場合は存在しないコード
+            else if (ex is HttpRequestException httpEx && httpEx.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                errorMessage = "入力されたアンケートコードは存在しません。正しいコードを入力してください。";
+            }
         }
     }
 
-    private void NavigateToSurvey()
+    /// <summary>
+    /// アンケートコードを入力してナビゲーションするメソッド
+    /// </summary>
+    private async Task NavigateToSurvey()
     {
         if (!string.IsNullOrWhiteSpace(inputUniqueCode))
         {
             // URLに含まれない文字を削除/置換
             var sanitizedCode = Uri.EscapeDataString(inputUniqueCode.Trim());
-            NavigationManager.NavigateTo($"/questionair/{sanitizedCode}");
+            
+            // コードが有効かどうかを検証
+            isValidating = true;
+            errorMessage = ""; // エラーメッセージをクリア
+            
+            try
+            {
+                bool isValidCode = await QuestionApi.ValidateUniqueCodeAsync(sanitizedCode);
+                
+                if (!isValidCode)
+                {
+                    errorMessage = "入力されたアンケートコードは存在しません。正しいコードを入力してください。";
+                    isValidating = false;
+                    return;
+                }
+                
+                // UniqueCodeを更新
+                UniqueCode = sanitizedCode;
+                
+                // URLを更新（クライアントサイドルーティング）
+                NavigationManager.NavigateTo($"/questionair/{sanitizedCode}");
+                
+                // ナビゲーション後にSignalRグループに参加
+                if (hubConnection.State == HubConnectionState.Connected)
+                {
+                    try
+                    {
+                        Console.WriteLine($"Joining survey with unique code: {sanitizedCode} after navigation");
+                        await hubConnection.InvokeAsync("JoinAsSurveyParticipant", sanitizedCode);
+                        await RefreshActiveQuestion();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"Error joining survey after navigation: {ex.Message}");
+                        errorMessage = "アンケートグループへの参加中にエラーが発生しました。ページを更新してください。";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"アンケートコードの検証中にエラーが発生しました: {ex.Message}";
+                Console.Error.WriteLine(errorMessage);
+            }
+            finally
+            {
+                isValidating = false;
+            }
         }
         else
         {

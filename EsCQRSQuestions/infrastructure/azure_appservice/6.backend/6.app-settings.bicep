@@ -7,6 +7,9 @@ param aspNetCoreEnvironment string = 'Production'
 
 param applicationInsightsName string = 'ai-${resourceGroup().name}'
 
+@description('The name of the Key Vault.')
+param keyVaultName string = 'kv-${resourceGroup().name}'
+
 // Orleans parameters
 param orleansClusterId string = 'orleans-cluster-${uniqueString('${resourceGroup().name}cluster')}'
 param orleansClusteringProviderType string = 'AzureTableStorage'
@@ -21,6 +24,8 @@ param orleansGrainStorageOrleansSekibanQueueServiceKey string = 'OrleansSekibanG
 param orleansServiceId string = 'orleans-service-${uniqueString('${resourceGroup().name}service')}'
 param orleansStreamingOrleansSekibanQueueProviderType string = 'AzureQueueStorage'
 param orleansStreamingOrleansSekibanQueueServiceKey string = 'OrleansSekibanQueue'
+
+param signalrConnectionStringSecretName string = 'SignalRConnectionString'
 
 // Reference to the existing App Service
 resource webApp 'Microsoft.Web/sites@2022-09-01' existing = {
@@ -59,5 +64,6 @@ resource appSettingsConfig 'Microsoft.Web/sites/config@2022-09-01' = {
     Orleans__ServiceId: orleansServiceId
     Orleans__Streaming__OrleansSekibanQueue__ProviderType: orleansStreamingOrleansSekibanQueueProviderType
     Orleans__Streaming__OrleansSekibanQueue__ServiceKey: orleansStreamingOrleansSekibanQueueServiceKey
+    Azure__SignalR__ConnectionString: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${signalrConnectionStringSecretName}/)'
   }
 }

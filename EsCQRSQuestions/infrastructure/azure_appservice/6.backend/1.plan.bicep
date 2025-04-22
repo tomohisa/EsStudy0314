@@ -1,9 +1,9 @@
 param appServiceName string = 'backend-${resourceGroup().name}'
 param location string = resourceGroup().location
 param appServicePlanSku object = {
-  name: 'B1'
+  name: 'B2'
   tier: 'Basic'
-  capacity: 2
+  capacity: 1
 }
 // Create App Service Plan only if it doesn't exist
 resource newAppServicePlan 'Microsoft.Web/serverfarms@2022-03-01' = {
