@@ -18,7 +18,7 @@ var databaseConnectionStringSecretName = databaseType == 'postgres'
 
 
 var orleansClusteringConnectionStringName = orleansClusterType == 'cosmos' 
-  ? 'AZURE_COSMOS_DB_NOSQL_ENDPOINT' 
+  ? 'OrleansCosmos' 
   : 'OrleansSekibanClustering'
 var orleansClusteringConnectionStringSecretName = orleansClusterType == 'cosmos' 
   ? 'SekibanCosmosDbConnectionString' 

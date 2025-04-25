@@ -44,7 +44,7 @@ builder.UseOrleans(
     {
         if ((builder.Configuration["ORLEANS_CLUSTERING_TYPE"] ?? "").ToLower() == "cosmos")
         {
-            var connectionString = builder.Configuration.GetConnectionString("AZURE_COSMOS_DB_NOSQL_ENDPOINT") ?? throw new InvalidOperationException();
+            var connectionString = builder.Configuration.GetConnectionString("OrleansCosmos") ?? throw new InvalidOperationException();
             config.UseCosmosClustering(options =>
             {
                 options.ConfigureCosmosClient(connectionString);
