@@ -42,12 +42,15 @@ builder.AddKeyedAzureQueueClient("OrleansSekibanQueue");
 builder.UseOrleans(
     config =>
     {
-        // var endpoint = builder.Configuration.GetConnectionString("AZURE_COSMOS_DB_NOSQL_ENDPOINT") ?? throw new InvalidOperationException();
-        // var credential = new DefaultAzureCredential();
-        // config.UseCosmosClustering(options =>
-        // {
-        //     options.ConfigureCosmosClient(endpoint, credential);
-        // });
+        if ((builder.Configuration["ORLEANS_CLUSTERING_TYPE"] ?? "").ToLower() == "cosmos")
+        {
+            var connectionString = builder.Configuration.GetConnectionString("AZURE_COSMOS_DB_NOSQL_ENDPOINT") ?? throw new InvalidOperationException();
+            config.UseCosmosClustering(options =>
+            {
+                options.ConfigureCosmosClient(connectionString);
+                options.IsResourceCreationEnabled = true;
+            });
+        }
         // Check for VNet IP Address from environment variable APP Service specific setting
         if (!string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_IP"]) &&
             !string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_PORTS"]))

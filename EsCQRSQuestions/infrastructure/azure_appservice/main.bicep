@@ -3,6 +3,10 @@
 
 targetScope = 'resourceGroup'
 
+@description('Orleansクラスターのタイプ指定（cosmos または 他の種類）')
+@allowed(['cosmos', 'azuretable'])
+param orleansClusterType string = 'cosmos'
+
 // 1. Key Vault
 module keyVaultCreate '1.keyvault/create.bicep' = {
   name: 'keyVaultDeployment'
@@ -46,7 +50,17 @@ module cosmosContainer '3.cosmos/3.container.bicep' = {
   ]
 }
 
-module cosmosSaveKeyVault '3.cosmos/4.save-keyvault.bicep' = {
+module cosmosOrleansContainer '3.cosmos/4.orleanscontainer.bicep' = {
+  name: 'cosmosOrleansContainerDeployment'
+  params: {
+    orleansClusterType: orleansClusterType
+  }
+  dependsOn: [
+    cosmosDatabase
+  ]
+}
+
+module cosmosSaveKeyVault '3.cosmos/5.save-keyvault.bicep' = {
   name: 'cosmosSaveKeyVaultDeployment'
   params: {}
   dependsOn: [
@@ -129,7 +143,9 @@ module backendDiagnosticSettings '6.backend/5.diagnostic-settings.bicep' = {
 
 module backendAppSettings '6.backend/6.app-settings.bicep' = {
   name: 'backendAppSettingsDeployment'
-  params: {}
+  params: {
+    orleansClusterType: orleansClusterType
+  }
   dependsOn: [
     keyVaultCreate
     storageCreate

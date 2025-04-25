@@ -25,6 +25,7 @@ var postgres = builder
 
 var orleans = builder.AddOrleans("default")
     .WithClustering(clusteringTable)
+    // .WithClustering()
     .WithGrainStorage("Default", grainStorage)
     .WithGrainStorage("OrleansSekibanQueue", grainStorage)
     .WithStreaming(queue);
