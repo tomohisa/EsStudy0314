@@ -60,6 +60,9 @@ resource appSettingsConfig 'Microsoft.Web/sites/config@2022-09-01' = {
       Orleans__Clustering__ProviderType: orleansClusteringProviderType
       Orleans__Clustering__ServiceKey: orleansClusteringServiceKey
     } : {})
+    ...(orleansClusterType == 'cosmos' ? {
+      ORLEANS_CLUSTERING_TYPE: 'cosmos'
+    } : {})
     Orleans__EnableDistributedTracing: string(orleansEnableDistributedTracing)
     Orleans__Endpoints__GatewayPort: string(orleansGatewayPort)
     Orleans__Endpoints__SiloPort: string(orleansSiloPort)

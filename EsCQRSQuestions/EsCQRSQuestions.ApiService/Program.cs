@@ -48,9 +48,21 @@ builder.UseOrleans(
             config.UseCosmosClustering(options =>
             {
                 options.ConfigureCosmosClient(connectionString);
-                options.IsResourceCreationEnabled = true;
+                // this can be enabled if you use Provisioning 
+                // options.IsResourceCreationEnabled = true;
             });
         }
+
+        // if ((builder.Configuration["ORLEANS_CLUSTERING_TYPE"] ?? "").ToLower() == "cosmos")
+        // {
+        //     config.AddCosmosGrainStorageAsDefault(options =>
+        //     {
+        //         var connectionString = builder.Configuration.GetConnectionString("OrleansCosmos") ?? throw new InvalidOperationException();
+        //         options.ConfigureCosmosClient(connectionString);
+        //         options.IsResourceCreationEnabled = true;
+        //     });
+        // }
+
         // Check for VNet IP Address from environment variable APP Service specific setting
         if (!string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_IP"]) &&
             !string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_PORTS"]))
