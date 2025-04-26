@@ -7,6 +7,7 @@ param keyVaultName string = 'kv-${resourceGroup().name}'
 param databaseType string = 'cosmos'
 
 param orleansClusterType string = 'cosmos'
+param orleansDefaultGrainType string = 'cosmos'
 
 // データベース接続文字列のパラメータ名（アプリケーション設定用）
 var databaseConnectionStringName = databaseType == 'postgres' 

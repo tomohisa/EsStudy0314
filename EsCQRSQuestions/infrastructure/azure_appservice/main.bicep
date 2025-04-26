@@ -6,6 +6,7 @@ targetScope = 'resourceGroup'
 @description('Orleansクラスターのタイプ指定（cosmos または 他の種類）')
 @allowed(['cosmos', 'azuretable'])
 param orleansClusterType string = 'cosmos'
+param orleansDefaultGrainType string = 'cosmos'
 
 // 1. Key Vault
 module keyVaultCreate '1.keyvault/create.bicep' = {
@@ -50,7 +51,7 @@ module cosmosContainer '3.cosmos/3.container.bicep' = {
   ]
 }
 
-module cosmosOrleansContainer '3.cosmos/4.orleanscontainer.bicep' = {
+module cosmosOrleansContainer '3.cosmos/4.orleans-cluster-container.bicep' = {
   name: 'cosmosOrleansContainerDeployment'
   params: {
     orleansClusterType: orleansClusterType
@@ -60,7 +61,18 @@ module cosmosOrleansContainer '3.cosmos/4.orleanscontainer.bicep' = {
   ]
 }
 
-module cosmosSaveKeyVault '3.cosmos/5.save-keyvault.bicep' = {
+module cosmosOrleansDefaultGrainContainer '3.cosmos/5.orleans-grain-container.bicep' = {
+  name: 'cosmosOrleansDefaultGrainDeployment'
+  params: {
+    orleansClusterType: orleansClusterType
+    orleansDefaultGrainType: orleansDefaultGrainType
+  }
+  dependsOn: [
+    cosmosDatabase
+  ]
+}
+
+module cosmosSaveKeyVault '3.cosmos/6.save-keyvault.bicep' = {
   name: 'cosmosSaveKeyVaultDeployment'
   params: {}
   dependsOn: [
@@ -87,11 +99,11 @@ module logAnalyticsCreate '5.applicationinsights_and_log/2.log-analytics-workspa
   params: {}
 }
 
-module signalrCreate '5.signalr/1.create-signalr.bicep' = {
+module signalrCreate '6.signalr/1.create-signalr.bicep' = {
   name: 'signalrCreateDeployment'
   params: {}
 }
-module signalrSaveKeyVault '5.signalr/2.save-keyvault.bicep' = {
+module signalrSaveKeyVault '6.signalr/2.save-keyvault.bicep' = {
   name: 'signalrSaveKeyVaultDeployment'
   params: {}
   dependsOn: [
@@ -101,12 +113,12 @@ module signalrSaveKeyVault '5.signalr/2.save-keyvault.bicep' = {
 }
 
 // 6. Backend App Service
-module backendPlan '6.backend/1.plan.bicep' = {
+module backendPlan '7.backend/1.plan.bicep' = {
   name: 'backendPlanDeployment'
   params: {}
 }
 
-module backendAppServiceCreate '6.backend/2.app-service-create.bicep' = {
+module backendAppServiceCreate '7.backend/2.app-service-create.bicep' = {
   name: 'backendAppServiceCreateDeployment'
   params: {}
   dependsOn: [
@@ -114,7 +126,7 @@ module backendAppServiceCreate '6.backend/2.app-service-create.bicep' = {
   ]
 }
 
-module backendKeyVaultAccess '6.backend/3.key-vault-access.bicep' = {
+module backendKeyVaultAccess '7.backend/3.key-vault-access.bicep' = {
   name: 'backendKeyVaultAccessDeployment'
   params: {}
   dependsOn: [
@@ -123,7 +135,7 @@ module backendKeyVaultAccess '6.backend/3.key-vault-access.bicep' = {
   ]
 }
 
-module backendConnectionStrings '6.backend/4.connection-strings.bicep' = {
+module backendConnectionStrings '7.backend/4.connection-strings.bicep' = {
   name: 'backendConnectionStringsDeployment'
   params: {}
   dependsOn: [
@@ -132,7 +144,7 @@ module backendConnectionStrings '6.backend/4.connection-strings.bicep' = {
   ]
 }
 
-module backendDiagnosticSettings '6.backend/5.diagnostic-settings.bicep' = {
+module backendDiagnosticSettings '7.backend/5.diagnostic-settings.bicep' = {
   name: 'backendDiagnosticSettingsDeployment'
   params: {}
   dependsOn: [
@@ -141,7 +153,7 @@ module backendDiagnosticSettings '6.backend/5.diagnostic-settings.bicep' = {
   ]
 }
 
-module backendAppSettings '6.backend/6.app-settings.bicep' = {
+module backendAppSettings '7.backend/6.app-settings.bicep' = {
   name: 'backendAppSettingsDeployment'
   params: {
     orleansClusterType: orleansClusterType
@@ -155,7 +167,7 @@ module backendAppSettings '6.backend/6.app-settings.bicep' = {
   ]
 }
 
-module backendVnetIntegration '6.backend/7.vnet-integration.bicep' = {
+module backendVnetIntegration '7.backend/7.vnet-integration.bicep' = {
   name: 'backendVnetIntegrationDeployment'
   params: {}
   dependsOn: [
@@ -164,7 +176,7 @@ module backendVnetIntegration '6.backend/7.vnet-integration.bicep' = {
   ]
 }
 
-module backendIpAccess '6.backend/8.ipaccess.bicep' = {
+module backendIpAccess '7.backend/8.ipaccess.bicep' = {
   name: 'backendIpAccessDeployment'
   params: {}
   dependsOn: [
@@ -173,12 +185,12 @@ module backendIpAccess '6.backend/8.ipaccess.bicep' = {
 }
 
 // 7. Blazor Frontend App Service
-module blazorPlan '7.blazor/1.plan.bicep' = {
+module blazorPlan '8.blazor/1.plan.bicep' = {
   name: 'blazorPlanDeployment'
   params: {}
 }
 
-module blazorAppService '7.blazor/2.app-service.bicep' = {
+module blazorAppService '8.blazor/2.app-service.bicep' = {
   name: 'blazorAppServiceDeployment'
   params: {}
   dependsOn: [
@@ -186,7 +198,7 @@ module blazorAppService '7.blazor/2.app-service.bicep' = {
   ]
 }
 
-module blazorDiagnosticSettings '7.blazor/3.diagnositic-settings.bicep' = {
+module blazorDiagnosticSettings '8.blazor/3.diagnositic-settings.bicep' = {
   name: 'blazorDiagnosticSettingsDeployment'
   params: {}
   dependsOn: [
@@ -195,7 +207,7 @@ module blazorDiagnosticSettings '7.blazor/3.diagnositic-settings.bicep' = {
   ]
 }
 
-module blazorAppSettings '7.blazor/4.app-settings.bicep' = {
+module blazorAppSettings '8.blazor/4.app-settings.bicep' = {
   name: 'blazorAppSettingsDeployment'
   params: {}
   dependsOn: [
@@ -205,7 +217,7 @@ module blazorAppSettings '7.blazor/4.app-settings.bicep' = {
   ]
 }
 
-module blazorVnetIntegration '7.blazor/5.vnet-integration.bicep' = {
+module blazorVnetIntegration '8.blazor/5.vnet-integration.bicep' = {
   name: 'blazorVnetIntegrationDeployment'
   params: {}
   dependsOn: [
@@ -215,12 +227,12 @@ module blazorVnetIntegration '7.blazor/5.vnet-integration.bicep' = {
 }
 
 // 8. Admin Web App Service
-module adminWebPlan '8.adminweb/1.plan.bicep' = {
+module adminWebPlan '9.adminweb/1.plan.bicep' = {
   name: 'adminWebPlanDeployment'
   params: {}
 }
 
-module adminWebAppService '8.adminweb/2.app-service.bicep' = {
+module adminWebAppService '9.adminweb/2.app-service.bicep' = {
   name: 'adminWebAppServiceDeployment'
   params: {}
   dependsOn: [
@@ -228,7 +240,7 @@ module adminWebAppService '8.adminweb/2.app-service.bicep' = {
   ]
 }
 
-module adminWebDiagnosticSettings '8.adminweb/3.diagnositic-settings.bicep' = {
+module adminWebDiagnosticSettings '9.adminweb/3.diagnositic-settings.bicep' = {
   name: 'adminWebDiagnosticSettingsDeployment'
   params: {}
   dependsOn: [
@@ -237,7 +249,7 @@ module adminWebDiagnosticSettings '8.adminweb/3.diagnositic-settings.bicep' = {
   ]
 }
 
-module adminWebAppSettings '8.adminweb/4.app-settings.bicep' = {
+module adminWebAppSettings '9.adminweb/4.app-settings.bicep' = {
   name: 'adminWebAppSettingsDeployment'
   params: {}
   dependsOn: [
@@ -247,7 +259,7 @@ module adminWebAppSettings '8.adminweb/4.app-settings.bicep' = {
   ]
 }
 
-module adminWebVnetIntegration '8.adminweb/5.vnet-integration.bicep' = {
+module adminWebVnetIntegration '9.adminweb/5.vnet-integration.bicep' = {
   name: 'adminWebVnetIntegrationDeployment'
   params: {}
   dependsOn: [

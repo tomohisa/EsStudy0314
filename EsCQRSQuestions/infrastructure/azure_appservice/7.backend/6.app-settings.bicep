@@ -4,6 +4,7 @@ param appServiceName string = 'backend-${resourceGroup().name}'
 param databaseType string = 'cosmos'
 
 param orleansClusterType string = 'cosmos'
+param orleansDefaultGrainType string = 'cosmos'
 
 param aspNetCoreEnvironment string = 'Production'
 
@@ -63,11 +64,16 @@ resource appSettingsConfig 'Microsoft.Web/sites/config@2022-09-01' = {
     ...(orleansClusterType == 'cosmos' ? {
       ORLEANS_CLUSTERING_TYPE: 'cosmos'
     } : {})
+    ...(orleansDefaultGrainType != 'cosmos' ? {
+      Orleans__GrainStorage__Default__ProviderType: orleansGrainStorageDefaultProviderType
+      Orleans__GrainStorage__Default__ServiceKey: orleansGrainStorageDefaultServiceKey
+    } : {})
+    ...(orleansDefaultGrainType == 'cosmos' ? {
+      ORLEANS_GRAIN_DEFAULT_TYPE: 'cosmos'
+    } : {})
     Orleans__EnableDistributedTracing: string(orleansEnableDistributedTracing)
     Orleans__Endpoints__GatewayPort: string(orleansGatewayPort)
     Orleans__Endpoints__SiloPort: string(orleansSiloPort)
-    Orleans__GrainStorage__Default__ProviderType: orleansGrainStorageDefaultProviderType
-    Orleans__GrainStorage__Default__ServiceKey: orleansGrainStorageDefaultServiceKey
     Orleans__GrainStorage__OrleansSekibanQueue__ProviderType: orleansGrainStorageOrleansSekibanQueueProviderType
     Orleans__GrainStorage__OrleansSekibanQueue__ServiceKey: orleansGrainStorageOrleansSekibanQueueServiceKey
     Orleans__ServiceId: orleansServiceId
