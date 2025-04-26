@@ -89,6 +89,9 @@ namespace EsCQRSQuestions.Domain;
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Queries.ActiveQuestionQuery.ActiveQuestionRecord))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Queries.ActiveQuestionQuery.ResponseRecord))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Services.QuestionGroupService))]
+    
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads.DeletedQuestionGroup))]
+    [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Events.DeletedWeatherForecast))]
     public partial class EsCQRSQuestionsDomainEventsJsonContext : JsonSerializerContext
     {
     }
