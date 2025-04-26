@@ -11,7 +11,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 var storage = builder.AddAzureStorage("azurestorage")
     .RunAsEmulator();
     // .RunAsEmulator(r => r.WithImage("azure-storage/azurite", "3.33.0")); // no need this line for new template
-var clusteringTable = storage.AddTables("OrleansSekibanClustering");
+    var clusteringTable = storage.AddTables("OrleansSekibanClustering");
+    var storageTable = storage.AddTables("OrleansPubSubGrainState");
 var grainStorage = storage.AddBlobs("OrleansSekibanGrainState");
 var queue = storage.AddQueues("OrleansSekibanQueue");
 
@@ -25,8 +26,10 @@ var postgres = builder
 
 var orleans = builder.AddOrleans("default")
     .WithClustering(clusteringTable)
+    // .WithClustering()
     .WithGrainStorage("Default", grainStorage)
     .WithGrainStorage("OrleansSekibanQueue", grainStorage)
+    .WithGrainStorage("PubSubStore", storageTable)
     .WithStreaming(queue);
 
 var apiService = builder.AddProject<EsCQRSQuestions_ApiService>("apiservice")
