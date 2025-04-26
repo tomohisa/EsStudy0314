@@ -27,6 +27,7 @@ var orleansClusteringConnectionStringSecretName = orleansClusterType == 'cosmos'
 
 var orleansGrainStateConnectionStringSecretName = 'OrleansGrainStateConnectionString'
 var orleansQueueConnectionStringSecretName = 'OrleansQueueConnectionString'
+var orleansPubSubGrainStateConnectionStringSecretName = 'OrleansClusteringConnectionString'
 // Reference to the existing App Service
 resource webApp 'Microsoft.Web/sites@2022-09-01' existing = {
   name: appServiceName
@@ -43,6 +44,10 @@ resource connectionStringsConfig 'Microsoft.Web/sites/config@2022-09-01' = {
     }
     '${orleansClusteringConnectionStringName}': {
       value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${orleansClusteringConnectionStringSecretName}/)'
+      type: 'Custom'
+    }
+    OrleansPubSubGrainState: {
+      value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${orleansPubSubGrainStateConnectionStringSecretName}/)'
       type: 'Custom'
     }
     OrleansSekibanGrainState: {

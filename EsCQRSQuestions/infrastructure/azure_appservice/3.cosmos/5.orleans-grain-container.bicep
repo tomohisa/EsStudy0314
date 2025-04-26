@@ -17,13 +17,13 @@ resource orleansDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@202
 // Orleans cluster container - conditionally create based on orleansDefaultGrainType
 resource orleansClusterContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = if (orleansDefaultGrainType == 'cosmos') {
 #disable-next-line use-parent-property
-  name: '${cosmosDbAccountName}/Orleans/OrleansCluster'
+  name: '${cosmosDbAccountName}/Orleans/OrleansStorage'
   properties: {
     resource: {
-      id: 'OrleansCluster'
+      id: 'OrleansStorage'
       partitionKey: {
         paths: [
-          '/ClusterId'
+          '/PartitionKey'
         ]
         kind: 'Hash'
       }

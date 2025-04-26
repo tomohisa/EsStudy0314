@@ -28,6 +28,10 @@ param orleansServiceId string = 'orleans-service-${uniqueString('${resourceGroup
 param orleansStreamingOrleansSekibanQueueProviderType string = 'AzureQueueStorage'
 param orleansStreamingOrleansSekibanQueueServiceKey string = 'OrleansSekibanQueue'
 
+param orleansGrainStoragePubSubStoreProviderType string = 'AzureTableStorage'
+param orleansGrainStoragePubSubStoreQueueServiceKey string = 'OrleansPubSubGrainState'
+
+
 param signalrConnectionStringSecretName string = 'SignalRConnectionString'
 
 // Reference to the existing App Service
@@ -79,6 +83,8 @@ resource appSettingsConfig 'Microsoft.Web/sites/config@2022-09-01' = {
     Orleans__ServiceId: orleansServiceId
     Orleans__Streaming__OrleansSekibanQueue__ProviderType: orleansStreamingOrleansSekibanQueueProviderType
     Orleans__Streaming__OrleansSekibanQueue__ServiceKey: orleansStreamingOrleansSekibanQueueServiceKey
+    Orleans__GrainStorage__PubSubStore__ProviderType: orleansGrainStoragePubSubStoreProviderType
+    Orleans__GrainStorage__PubSubStore__ServiceKey: orleansGrainStoragePubSubStoreQueueServiceKey
     Azure__SignalR__ConnectionString: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${signalrConnectionStringSecretName}/)'
   }
 }

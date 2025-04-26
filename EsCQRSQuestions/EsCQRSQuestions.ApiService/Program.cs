@@ -1,3 +1,4 @@
+using Azure.Data.Tables;
 using Azure.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Azure.Storage.Queues;
@@ -35,10 +36,11 @@ builder.Services.AddOpenApi();
 
 builder.AddKeyedAzureTableClient("OrleansSekibanClustering");
 
-
+builder.Services.AddSingleton<JsonGrainStorageSerializer>();
 
 builder.AddKeyedAzureBlobClient("OrleansSekibanGrainState");
 builder.AddKeyedAzureQueueClient("OrleansSekibanQueue");
+builder.AddKeyedAzureTableClient("OrleansPubSubGrainState");
 builder.UseOrleans(
     config =>
     {
@@ -87,6 +89,15 @@ builder.UseOrleans(
                 });
             });
         });
+
+        config.AddAzureTableGrainStorage("PubSubStore", options =>
+        {
+            options.Configure<IServiceProvider>((opt, sp) =>
+            {
+                opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
+                opt.GrainStorageSerializer = sp.GetRequiredService<JsonGrainStorageSerializer>();
+            });
+        });
         
         // Add grain storage for the stream provider
         config.AddAzureBlobGrainStorage("EventStreamProvider", options =>
@@ -116,6 +127,7 @@ builder.Services.AddTransient<IExecutingUserProvider, HttpExecutingUserProvider>
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddTransient<SekibanOrleansExecutor>();
+
 
 // Register hub notification service
 builder.Services.AddTransient<IHubNotificationService, HubNotificationService>();
