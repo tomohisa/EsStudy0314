@@ -96,10 +96,11 @@ builder.UseOrleans(
             {
                 opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
                 // opt.GrainStorageSerializer = sp.GetRequiredService<CustomJsonSerializer>();
+                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSerializer>();
             });
             // options.GrainStorageSerializer は既定でこの Newtonsoft シリアライザーになる
-            // options.Configure<IGrainStorageSerializer>(
-            //     (op, serializer) => op.GrainStorageSerializer = serializer);
+            options.Configure<IGrainStorageSerializer>(
+                (op, serializer) => op.GrainStorageSerializer = serializer);
         });
         
         // Add grain storage for the stream provider
@@ -110,10 +111,12 @@ builder.UseOrleans(
                 opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
                 // opt.GrainStorageSerializer = sp.GetRequiredService<IGrainStorageSerializer>();
                 // opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
+                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSerializer>();
+                // opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
             });
             // options.GrainStorageSerializer は既定でこの Newtonsoft シリアライザーになる
-            // options.Configure<IGrainStorageSerializer>(
-            //     (op, serializer) => op.GrainStorageSerializer = serializer);
+            options.Configure<IGrainStorageSerializer>(
+                (op, serializer) => op.GrainStorageSerializer = serializer);
         });
         // Orleans will automatically discover grains in the same assembly
         config.ConfigureServices(services =>
@@ -130,6 +133,8 @@ builder.Services.AddTransient<IExecutingUserProvider, HttpExecutingUserProvider>
 builder.Services.AddHttpContextAccessor();
 // builder.Services.AddTransient<IGrainStorageSerializer, CustomJsonSerializer>();
 // builder.Services.AddTransient<CustomJsonSerializer>();
+builder.Services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonSerializer>();
+builder.Services.AddTransient<NewtonsoftJsonSerializer>();
 builder.Services.AddTransient<SekibanOrleansExecutor>();
 
 
