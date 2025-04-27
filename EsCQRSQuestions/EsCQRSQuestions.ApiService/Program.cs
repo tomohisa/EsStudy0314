@@ -97,14 +97,19 @@ builder.UseOrleans(
                 opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
                 opt.GrainStorageSerializer = sp.GetRequiredService<JsonGrainStorageSerializer>();
             });
+            // options.GrainStorageSerializer は既定でこの Newtonsoft シリアライザーになる
+            options.Configure<IGrainStorageSerializer>(
+                (op, serializer) => op.GrainStorageSerializer = serializer);
         });
         
         // Add grain storage for the stream provider
-        config.AddAzureBlobGrainStorage("EventStreamProvider", options =>
+        config.AddAzureTableGrainStorage("EventStreamProvider", options =>
         {
             options.Configure<IServiceProvider>((opt, sp) =>
             {
-                opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
+                opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
+                opt.GrainStorageSerializer = sp.GetRequiredService<JsonGrainStorageSerializer>();
+                // opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
                 
             });
             
