@@ -14,6 +14,7 @@ using EsCQRSQuestions.Domain.Aggregates.Questions.Events;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Commands;
 using EsCQRSQuestions.Domain.Generated;
 using EsCQRSQuestions.Domain.Workflows;
+using Orleans.Configuration;
 using Orleans.Storage;
 using ResultBoxes;
 using Scalar.AspNetCore;
@@ -94,6 +95,9 @@ builder.UseOrleans(
                     queueOptions.MessageVisibilityTimeout  = TimeSpan.FromMinutes(2);
                 });
             });
+            configurator.Configure<HashRingStreamQueueMapperOptions>(ob =>
+                ob.Configure(o => o.TotalQueueCount = 3));   // 8 → 3 へ
+
             // --- Pulling Agent の頻度・バッチ ---
             configurator.ConfigurePullingAgent(ob =>
                 ob.Configure(opt =>
