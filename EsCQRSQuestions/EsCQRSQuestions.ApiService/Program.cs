@@ -108,6 +108,34 @@ builder.UseOrleans(
             // --- キャッシュ ---
             configurator.ConfigureCacheSize(8192);
         });
+        config.AddAzureQueueStreams("OrleansSekibanQueue", (SiloAzureQueueStreamConfigurator configurator) =>
+        {
+            configurator.ConfigureAzureQueue(options =>
+            {
+                options.Configure<IServiceProvider>((queueOptions, sp) =>
+                {
+                    queueOptions.QueueServiceClient = sp.GetKeyedService<QueueServiceClient>("OrleansSekibanQueue");
+                    queueOptions.QueueNames = [
+                        "orleans-service-gkelxzoes6qow-orleanssekibanqueue-0",
+                        "orleans-service-gkelxzoes6qow-orleanssekibanqueue-1",
+                        "orleans-service-gkelxzoes6qow-orleanssekibanqueue-2"];
+                    queueOptions.MessageVisibilityTimeout  = TimeSpan.FromMinutes(2);
+                });
+            });
+            configurator.Configure<HashRingStreamQueueMapperOptions>(ob =>
+                ob.Configure(o => o.TotalQueueCount = 3));   // 8 → 3 へ
+
+            // --- Pulling Agent の頻度・バッチ ---
+            configurator.ConfigurePullingAgent(ob =>
+                ob.Configure(opt =>
+                {
+                    opt.GetQueueMsgsTimerPeriod = TimeSpan.FromMilliseconds(1000);
+                    opt.BatchContainerBatchSize = 256;
+                    opt.StreamInactivityPeriod  = TimeSpan.FromMinutes(10);
+                }));
+            // --- キャッシュ ---
+            configurator.ConfigureCacheSize(8192);
+        });
 
         config.AddAzureTableGrainStorage("PubSubStore", options =>
         {
