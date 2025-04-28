@@ -99,6 +99,8 @@ builder.UseOrleans(
                 ob.Configure(opt =>
                 {
                     opt.GetQueueMsgsTimerPeriod = TimeSpan.FromMilliseconds(1000);
+                    opt.BatchContainerBatchSize = 256;
+                    opt.StreamInactivityPeriod  = TimeSpan.FromMinutes(10);
                 }));
             // --- キャッシュ ---
             configurator.ConfigureCacheSize(8192);
