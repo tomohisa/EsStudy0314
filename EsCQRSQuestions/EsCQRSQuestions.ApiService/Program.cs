@@ -86,8 +86,17 @@ builder.UseOrleans(
                 options.Configure<IServiceProvider>((queueOptions, sp) =>
                 {
                     queueOptions.QueueServiceClient = sp.GetKeyedService<QueueServiceClient>("OrleansSekibanQueue");
+                    queueOptions.MessageVisibilityTimeout  = TimeSpan.FromMinutes(2);
                 });
             });
+            // --- Pulling Agent の頻度・バッチ ---
+            configurator.ConfigurePullingAgent(ob =>
+                ob.Configure(opt =>
+                {
+                    opt.GetQueueMsgsTimerPeriod = TimeSpan.FromMilliseconds(1000);
+                }));
+            // --- キャッシュ ---
+            configurator.ConfigureCacheSize(8192);
         });
 
         config.AddAzureTableGrainStorage("PubSubStore", options =>
