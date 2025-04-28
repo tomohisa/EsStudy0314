@@ -86,6 +86,11 @@ builder.UseOrleans(
                 options.Configure<IServiceProvider>((queueOptions, sp) =>
                 {
                     queueOptions.QueueServiceClient = sp.GetKeyedService<QueueServiceClient>("OrleansSekibanQueue");
+                    queueOptions.QueueNames = [
+                        "orleans-service-gkelxzoes6qow-orleanssekibanqueue-0",
+                        "orleans-service-gkelxzoes6qow-orleanssekibanqueue-1", 
+                        "orleans-service-gkelxzoes6qow-orleanssekibanqueue-2"
+                    ];
                     queueOptions.MessageVisibilityTimeout  = TimeSpan.FromMinutes(2);
                 });
             });
@@ -94,6 +99,8 @@ builder.UseOrleans(
                 ob.Configure(opt =>
                 {
                     opt.GetQueueMsgsTimerPeriod = TimeSpan.FromMilliseconds(1000);
+                    opt.BatchContainerBatchSize = 256;
+                    opt.StreamInactivityPeriod  = TimeSpan.FromMinutes(10);
                 }));
             // --- キャッシュ ---
             configurator.ConfigureCacheSize(8192);
