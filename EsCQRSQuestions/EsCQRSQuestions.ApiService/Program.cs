@@ -87,6 +87,10 @@ builder.UseOrleans(
                 options.Configure<IServiceProvider>((queueOptions, sp) =>
                 {
                     queueOptions.QueueServiceClient = sp.GetKeyedService<QueueServiceClient>("OrleansSekibanQueue");
+                    queueOptions.QueueNames = [
+                        "orleans-service-gkelxzoes6qow-eventstreamprovider-0",
+                        "orleans-service-gkelxzoes6qow-eventstreamprovider-1",
+                        "orleans-service-gkelxzoes6qow-eventstreamprovider-2"];
                     queueOptions.MessageVisibilityTimeout  = TimeSpan.FromMinutes(2);
                 });
             });
