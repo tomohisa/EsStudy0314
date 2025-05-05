@@ -6,6 +6,12 @@ param databaseType string = 'cosmos'
 param orleansClusterType string = 'cosmos'
 param orleansDefaultGrainType string = 'cosmos'
 
+@description('Orleans用のキュータイプ')
+param orleansQueueType string = 'eventhub'
+
+@description('Event Hub インスタンス名')
+param eventHubName string =  'eventhub-${resourceGroup().name}'
+
 param aspNetCoreEnvironment string = 'Production'
 
 param applicationInsightsName string = 'ai-${resourceGroup().name}'
@@ -83,8 +89,16 @@ resource appSettingsConfig 'Microsoft.Web/sites/config@2022-09-01' = {
     Orleans__ServiceId: orleansServiceId
     Orleans__Streaming__OrleansSekibanQueue__ProviderType: orleansStreamingOrleansSekibanQueueProviderType
     Orleans__Streaming__OrleansSekibanQueue__ServiceKey: orleansStreamingOrleansSekibanQueueServiceKey
-    Orleans__GrainStorage__PubSubStore__ProviderType: orleansGrainStoragePubSubStoreProviderType
-    Orleans__GrainStorage__PubSubStore__ServiceKey: orleansGrainStoragePubSubStoreQueueServiceKey
+    // PubSubStore settings - only added if orleansQueueType is not 'eventhub'
+    ...(orleansQueueType != 'eventhub' ? {
+      Orleans__GrainStorage__PubSubStore__ProviderType: orleansGrainStoragePubSubStoreProviderType
+      Orleans__GrainStorage__PubSubStore__ServiceKey: orleansGrainStoragePubSubStoreQueueServiceKey
+    } : {})
+    // EventHub settings - only added if orleansQueueType is 'eventhub'
+    ...(orleansQueueType == 'eventhub' ? {
+      ORLEANS_QUEUE_TYPE: 'eventhub'
+      ORLEANS_QUEUE_EVENTHUB_NAME: eventHubName
+    } : {})
     Azure__SignalR__ConnectionString: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${signalrConnectionStringSecretName}/)'
   }
 }
