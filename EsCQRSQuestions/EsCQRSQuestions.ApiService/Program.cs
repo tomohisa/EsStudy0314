@@ -80,63 +80,118 @@ builder.UseOrleans(
         }
 
         // config.UseDashboard(options => { });
-        config.AddAzureQueueStreams("EventStreamProvider", (SiloAzureQueueStreamConfigurator configurator) =>
+
+        if ((builder.Configuration["ORLEANS_QUEUE_TYPE"] ?? "").ToLower() == "eventhub")
         {
-            configurator.ConfigureAzureQueue(options =>
-            {
-                options.Configure<IServiceProvider>((queueOptions, sp) =>
+            config.AddEventHubStreams(
+                "EventStreamProvider",
+                configurator =>
                 {
-                    queueOptions.QueueServiceClient = sp.GetKeyedService<QueueServiceClient>("OrleansSekibanQueue");
-                    queueOptions.QueueNames = [
-                        "orleans-service-gkelxzoes6qow-eventstreamprovider-0",
-                        "orleans-service-gkelxzoes6qow-eventstreamprovider-1",
-                        "orleans-service-gkelxzoes6qow-eventstreamprovider-2"];
-                    queueOptions.MessageVisibilityTimeout  = TimeSpan.FromMinutes(2);
-                });
-            });
-            configurator.Configure<HashRingStreamQueueMapperOptions>(ob =>
-                ob.Configure(o => o.TotalQueueCount = 3));   // 8 → 3 へ
+                    // Existing Event Hub connection settings
+                    configurator.ConfigureEventHub(ob => ob.Configure(options =>
+                    {
+                        options.ConfigureEventHubConnection(
+                            builder.Configuration.GetConnectionString("OrleansEventHub"),
+                            builder.Configuration["ORLEANS_QUEUE_EVENTHUB_NAMESPACE_NAME"],
+                            "orleans-service-gkelxzoes6qow-eventstreamprovider");
+                    }));
 
-            // --- Pulling Agent の頻度・バッチ ---
-            configurator.ConfigurePullingAgent(ob =>
-                ob.Configure(opt =>
+                    // 🔑 NEW –‑ tell Orleans where to persist checkpoints
+                    configurator.UseAzureTableCheckpointer(ob => ob.Configure(cp =>
+                    {
+                        cp.TableName = "EventHubCheckpointsEventStreamsProvider";          // any table name you like
+                        cp.PersistInterval = TimeSpan.FromSeconds(10); // write frequency
+                        cp.ConfigureTableServiceClient(
+                            builder.Configuration.GetConnectionString("OrleansSekibanClustering"));
+                    }));
+
+                    // …your cache, queue‑mapper, pulling‑agent settings remain unchanged …
+                });
+            config.AddEventHubStreams(
+                "OrleansSekibanQueue",
+                configurator =>
                 {
-                    opt.GetQueueMsgsTimerPeriod = TimeSpan.FromMilliseconds(1000);
-                    opt.BatchContainerBatchSize = 256;
-                    opt.StreamInactivityPeriod  = TimeSpan.FromMinutes(10);
-                }));
-            // --- キャッシュ ---
-            configurator.ConfigureCacheSize(8192);
-        });
-        config.AddAzureQueueStreams("OrleansSekibanQueue", (SiloAzureQueueStreamConfigurator configurator) =>
+                    // Existing Event Hub connection settings
+                    configurator.ConfigureEventHub(ob => ob.Configure(options =>
+                    {
+                        options.ConfigureEventHubConnection(
+                            builder.Configuration.GetConnectionString("OrleansEventHub"),
+                            builder.Configuration["ORLEANS_QUEUE_EVENTHUB_NAMESPACE_NAME"],
+                            "orleans-service-gkelxzoes6qow-orleanssekibanqueue");
+                    }));
+
+                    // 🔑 NEW –‑ tell Orleans where to persist checkpoints
+                    configurator.UseAzureTableCheckpointer(ob => ob.Configure(cp =>
+                    {
+                        cp.TableName = "EventHubCheckpointsOrleansSekibanQueue";          // any table name you like
+                        cp.PersistInterval = TimeSpan.FromSeconds(10); // write frequency
+                        cp.ConfigureTableServiceClient(
+                            builder.Configuration.GetConnectionString("OrleansSekibanClustering"));
+                    }));
+
+                    // …your cache, queue‑mapper, pulling‑agent settings remain unchanged …
+                });
+        }
+        else
         {
-            configurator.ConfigureAzureQueue(options =>
+            config.AddAzureQueueStreams("EventStreamProvider", (SiloAzureQueueStreamConfigurator configurator) =>
             {
-                options.Configure<IServiceProvider>((queueOptions, sp) =>
+                configurator.ConfigureAzureQueue(options =>
                 {
-                    queueOptions.QueueServiceClient = sp.GetKeyedService<QueueServiceClient>("OrleansSekibanQueue");
-                    queueOptions.QueueNames = [
-                        "orleans-service-gkelxzoes6qow-orleanssekibanqueue-0",
-                        "orleans-service-gkelxzoes6qow-orleanssekibanqueue-1",
-                        "orleans-service-gkelxzoes6qow-orleanssekibanqueue-2"];
-                    queueOptions.MessageVisibilityTimeout  = TimeSpan.FromMinutes(2);
+                    options.Configure<IServiceProvider>((queueOptions, sp) =>
+                    {
+                        queueOptions.QueueServiceClient = sp.GetKeyedService<QueueServiceClient>("OrleansSekibanQueue");
+                        queueOptions.QueueNames = [
+                            "orleans-service-gkelxzoes6qow-eventstreamprovider-0",
+                            "orleans-service-gkelxzoes6qow-eventstreamprovider-1",
+                            "orleans-service-gkelxzoes6qow-eventstreamprovider-2"];
+                        queueOptions.MessageVisibilityTimeout  = TimeSpan.FromMinutes(2);
+                    });
                 });
+                configurator.Configure<HashRingStreamQueueMapperOptions>(ob =>
+                    ob.Configure(o => o.TotalQueueCount = 3));   // 8 → 3 へ
+
+                // --- Pulling Agent の頻度・バッチ ---
+                configurator.ConfigurePullingAgent(ob =>
+                    ob.Configure(opt =>
+                    {
+                        opt.GetQueueMsgsTimerPeriod = TimeSpan.FromMilliseconds(1000);
+                        opt.BatchContainerBatchSize = 256;
+                        opt.StreamInactivityPeriod  = TimeSpan.FromMinutes(10);
+                    }));
+                // --- キャッシュ ---
+                configurator.ConfigureCacheSize(8192);
             });
-            configurator.Configure<HashRingStreamQueueMapperOptions>(ob =>
-                ob.Configure(o => o.TotalQueueCount = 3));   // 8 → 3 へ
-
-            // --- Pulling Agent の頻度・バッチ ---
-            configurator.ConfigurePullingAgent(ob =>
-                ob.Configure(opt =>
+            config.AddAzureQueueStreams("OrleansSekibanQueue", (SiloAzureQueueStreamConfigurator configurator) =>
+            {
+                configurator.ConfigureAzureQueue(options =>
                 {
-                    opt.GetQueueMsgsTimerPeriod = TimeSpan.FromMilliseconds(1000);
-                    opt.BatchContainerBatchSize = 256;
-                    opt.StreamInactivityPeriod  = TimeSpan.FromMinutes(10);
-                }));
-            // --- キャッシュ ---
-            configurator.ConfigureCacheSize(8192);
-        });
+                    options.Configure<IServiceProvider>((queueOptions, sp) =>
+                    {
+                        queueOptions.QueueServiceClient = sp.GetKeyedService<QueueServiceClient>("OrleansSekibanQueue");
+                        queueOptions.QueueNames = [
+                            "orleans-service-gkelxzoes6qow-orleanssekibanqueue-0",
+                            "orleans-service-gkelxzoes6qow-orleanssekibanqueue-1",
+                            "orleans-service-gkelxzoes6qow-orleanssekibanqueue-2"];
+                        queueOptions.MessageVisibilityTimeout  = TimeSpan.FromMinutes(2);
+                    });
+                });
+                configurator.Configure<HashRingStreamQueueMapperOptions>(ob =>
+                    ob.Configure(o => o.TotalQueueCount = 3));   // 8 → 3 へ
 
+                // --- Pulling Agent の頻度・バッチ ---
+                configurator.ConfigurePullingAgent(ob =>
+                    ob.Configure(opt =>
+                    {
+                        opt.GetQueueMsgsTimerPeriod = TimeSpan.FromMilliseconds(1000);
+                        opt.BatchContainerBatchSize = 256;
+                        opt.StreamInactivityPeriod  = TimeSpan.FromMinutes(10);
+                    }));
+                // --- キャッシュ ---
+                configurator.ConfigureCacheSize(8192);
+            });
+        }
+        
         config.AddAzureTableGrainStorage("PubSubStore", options =>
         {
             options.Configure<IServiceProvider>((opt, sp) =>
