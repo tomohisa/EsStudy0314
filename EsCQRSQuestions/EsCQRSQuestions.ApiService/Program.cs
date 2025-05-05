@@ -192,37 +192,58 @@ builder.UseOrleans(
             });
         }
         
-        config.AddAzureTableGrainStorage("PubSubStore", options =>
+        if ((builder.Configuration["ORLEANS_GRAIN_DEFAULT_TYPE"] ?? "").ToLower() == "cosmos")
         {
-            options.Configure<IServiceProvider>((opt, sp) =>
+            config.AddCosmosGrainStorage("PubSubStore",options =>
             {
-                opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
-                // opt.GrainStorageSerializer = sp.GetRequiredService<CustomJsonSerializer>();
-                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSerializer>();
+                var connectionString = builder.Configuration.GetConnectionString("OrleansCosmos") ?? throw new InvalidOperationException();
+                options.ConfigureCosmosClient(connectionString);
+                options.IsResourceCreationEnabled = true;
             });
-            // options.GrainStorageSerializer は既定でこの Newtonsoft シリアライザーになる
-            options.Configure<IGrainStorageSerializer>(
-                (op, serializer) => op.GrainStorageSerializer = serializer);
-        });
+            config.AddCosmosGrainStorage("EventStreamProvider",options =>
+            {
+                var connectionString = builder.Configuration.GetConnectionString("OrleansCosmos") ?? throw new InvalidOperationException();
+                options.ConfigureCosmosClient(connectionString);
+                options.IsResourceCreationEnabled = true;
+            });
+        }
+        else
+        {
+            config.AddAzureTableGrainStorage("PubSubStore", options =>
+            {
+                options.Configure<IServiceProvider>((opt, sp) =>
+                {
+                    opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
+                    // opt.GrainStorageSerializer = sp.GetRequiredService<CustomJsonSerializer>();
+                    opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSerializer>();
+                });
+                // options.GrainStorageSerializer は既定でこの Newtonsoft シリアライザーになる
+                options.Configure<IGrainStorageSerializer>(
+                    (op, serializer) => op.GrainStorageSerializer = serializer);
+            });
         
-        // Add grain storage for the stream provider
-        config.AddAzureTableGrainStorage("EventStreamProvider", options =>
-        {
-            options.Configure<IServiceProvider>((opt, sp) =>
+            // Add grain storage for the stream provider
+            config.AddAzureTableGrainStorage("EventStreamProvider", options =>
             {
-                opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
-                // opt.GrainStorageSerializer = sp.GetRequiredService<IGrainStorageSerializer>();
-                // opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
-                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSerializer>();
-                // opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
+                options.Configure<IServiceProvider>((opt, sp) =>
+                {
+                    opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
+                    // opt.GrainStorageSerializer = sp.GetRequiredService<IGrainStorageSerializer>();
+                    // opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
+                    opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSerializer>();
+                    // opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
+                });
+                // options.GrainStorageSerializer は既定でこの Newtonsoft シリアライザーになる
+                options.Configure<IGrainStorageSerializer>(
+                    (op, serializer) => op.GrainStorageSerializer = serializer);
             });
-            // options.GrainStorageSerializer は既定でこの Newtonsoft シリアライザーになる
-            options.Configure<IGrainStorageSerializer>(
-                (op, serializer) => op.GrainStorageSerializer = serializer);
-        });
-        // Orleans will automatically discover grains in the same assembly
-        config.ConfigureServices(services =>
-            services.AddTransient<IGrainStorageSerializer, CustomJsonSerializer>());
+            // Orleans will automatically discover grains in the same assembly
+            config.ConfigureServices(services =>
+                services.AddTransient<IGrainStorageSerializer, CustomJsonSerializer>());
+
+        }
+
+        
     });
 
 builder.Services.AddSingleton(
