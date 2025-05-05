@@ -12,6 +12,7 @@ var storage = builder.AddAzureStorage("azurestorage")
     .RunAsEmulator();
     // .RunAsEmulator(r => r.WithImage("azure-storage/azurite", "3.33.0")); // no need this line for new template
     var clusteringTable = storage.AddTables("OrleansSekibanClustering");
+    var queueCheckpointTable = storage.AddTables("OrleansSekibanTable");
     var storageTable = storage.AddTables("OrleansPubSubGrainState");
 var grainStorage = storage.AddBlobs("OrleansSekibanGrainState");
 var queue = storage.AddQueues("OrleansSekibanQueue");
@@ -36,6 +37,7 @@ var apiService = builder.AddProject<EsCQRSQuestions_ApiService>("apiservice")
     // .WithEndpoint("https", annotation => annotation.IsProxied = false)
     .WithReference(postgres)
     .WithReference(orleans)
+    .WithReference(queueCheckpointTable)
     // .WithReplicas(2); // Uncomment to run with 2 replicas
     ; // Use our custom extension method
 

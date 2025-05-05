@@ -9,6 +9,10 @@ param databaseType string = 'cosmos'
 param orleansClusterType string = 'cosmos'
 param orleansDefaultGrainType string = 'cosmos'
 
+@description('Orleans用のキュータイプ')
+param orleansQueueType string = 'eventhub'
+
+
 // データベース接続文字列のパラメータ名（アプリケーション設定用）
 var databaseConnectionStringName = databaseType == 'postgres' 
   ? 'SekibanPostgres' 
@@ -26,7 +30,12 @@ var orleansClusteringConnectionStringSecretName = orleansClusterType == 'cosmos'
   : 'OrleansClusteringConnectionString'
 
 var orleansGrainStateConnectionStringSecretName = 'OrleansGrainStateConnectionString'
-var orleansQueueConnectionStringSecretName = 'OrleansQueueConnectionString'
+var orleansQueueConnectionStringSecretName = orleansQueueType == 'eventhub'
+  ? 'EventHubConnectionString'
+  : 'OrleansQueueConnectionString'
+var orleansQueueConnectionStringName = orleansQueueType == 'eventhub'
+  ? 'OrleansEventHub'
+  : 'OrleansSekibanQueue'
 var orleansPubSubGrainStateConnectionStringSecretName = 'OrleansClusteringConnectionString'
 // Reference to the existing App Service
 resource webApp 'Microsoft.Web/sites@2022-09-01' existing = {
@@ -54,9 +63,16 @@ resource connectionStringsConfig 'Microsoft.Web/sites/config@2022-09-01' = {
       value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${orleansGrainStateConnectionStringSecretName}/)'
       type: 'Custom'
     }
-    OrleansSekibanQueue: {
+    '${orleansQueueConnectionStringName}': {
       value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${orleansQueueConnectionStringSecretName}/)'
       type: 'Custom'
     }
+    // スプレッド演算子を使って条件付きでプロパティを追加
+    ...(orleansQueueType == 'eventhub' ? {
+      OrleansSekibanTable: {
+        value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/OrleansClusteringConnectionString/)'
+        type: 'Custom'
+      }
+    } : {})
   }
 }

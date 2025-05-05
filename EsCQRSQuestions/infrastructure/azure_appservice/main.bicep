@@ -8,6 +8,11 @@ targetScope = 'resourceGroup'
 param orleansClusterType string = 'cosmos'
 param orleansDefaultGrainType string = 'cosmos'
 
+
+@description('Orleans用のキュータイプ')
+param orleansQueueType string = 'eventhub'
+
+
 // 1. Key Vault
 module keyVaultCreate '1.keyvault/create.bicep' = {
   name: 'keyVaultDeployment'
@@ -112,6 +117,25 @@ module signalrSaveKeyVault '6.signalr/2.save-keyvault.bicep' = {
   ]
 }
 
+// 6.5. EventHub
+module eventHubCreate '6.eventhub/1.create.bicep' = {
+  name: 'eventHubCreateDeployment'
+  params: {
+    orleansQueueType: orleansQueueType
+  }
+}
+
+module eventHubSaveKeyVault '6.eventhub/2.save-keyvalult.bicep' = {
+  name: 'eventHubSaveKeyVaultDeployment'
+  params: {
+    orleansQueueType: orleansQueueType
+  }
+  dependsOn: [
+    keyVaultCreate
+    eventHubCreate
+  ]
+}
+
 // 6. Backend App Service
 module backendPlan '7.backend/1.plan.bicep' = {
   name: 'backendPlanDeployment'
@@ -137,7 +161,9 @@ module backendKeyVaultAccess '7.backend/3.key-vault-access.bicep' = {
 
 module backendConnectionStrings '7.backend/4.connection-strings.bicep' = {
   name: 'backendConnectionStringsDeployment'
-  params: {}
+  params: {
+    orleansQueueType: orleansQueueType
+  }
   dependsOn: [
     keyVaultCreate // Needs Key Vault URI
     backendAppServiceCreate
@@ -157,6 +183,8 @@ module backendAppSettings '7.backend/6.app-settings.bicep' = {
   name: 'backendAppSettingsDeployment'
   params: {
     orleansClusterType: orleansClusterType
+    orleansDefaultGrainType: orleansDefaultGrainType
+    orleansQueueType: orleansQueueType
   }
   dependsOn: [
     keyVaultCreate
@@ -164,6 +192,7 @@ module backendAppSettings '7.backend/6.app-settings.bicep' = {
     cosmosCreate
     appInsightsCreate
     backendAppServiceCreate
+    eventHubCreate
   ]
 }
 

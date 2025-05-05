@@ -92,8 +92,8 @@ builder.UseOrleans(
                     {
                         options.ConfigureEventHubConnection(
                             builder.Configuration.GetConnectionString("OrleansEventHub"),
-                            builder.Configuration["ORLEANS_QUEUE_EVENTHUB_NAMESPACE_NAME"],
-                            "orleans-service-gkelxzoes6qow-eventstreamprovider");
+                            builder.Configuration["ORLEANS_QUEUE_EVENTHUB_NAME"],
+                            "$Default");
                     }));
 
                     // 🔑 NEW –‑ tell Orleans where to persist checkpoints
@@ -102,7 +102,7 @@ builder.UseOrleans(
                         cp.TableName = "EventHubCheckpointsEventStreamsProvider";          // any table name you like
                         cp.PersistInterval = TimeSpan.FromSeconds(10); // write frequency
                         cp.ConfigureTableServiceClient(
-                            builder.Configuration.GetConnectionString("OrleansSekibanClustering"));
+                            builder.Configuration.GetConnectionString("OrleansSekibanTable"));
                     }));
 
                     // …your cache, queue‑mapper, pulling‑agent settings remain unchanged …
@@ -116,8 +116,8 @@ builder.UseOrleans(
                     {
                         options.ConfigureEventHubConnection(
                             builder.Configuration.GetConnectionString("OrleansEventHub"),
-                            builder.Configuration["ORLEANS_QUEUE_EVENTHUB_NAMESPACE_NAME"],
-                            "orleans-service-gkelxzoes6qow-orleanssekibanqueue");
+                            builder.Configuration["ORLEANS_QUEUE_EVENTHUB_NAME"],
+                            "$Default");
                     }));
 
                     // 🔑 NEW –‑ tell Orleans where to persist checkpoints
@@ -126,7 +126,7 @@ builder.UseOrleans(
                         cp.TableName = "EventHubCheckpointsOrleansSekibanQueue";          // any table name you like
                         cp.PersistInterval = TimeSpan.FromSeconds(10); // write frequency
                         cp.ConfigureTableServiceClient(
-                            builder.Configuration.GetConnectionString("OrleansSekibanClustering"));
+                            builder.Configuration.GetConnectionString("OrleansSekibanTable"));
                     }));
 
                     // …your cache, queue‑mapper, pulling‑agent settings remain unchanged …
