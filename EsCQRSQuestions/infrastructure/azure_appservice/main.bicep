@@ -104,11 +104,11 @@ module logAnalyticsCreate '5.applicationinsights_and_log/2.log-analytics-workspa
   params: {}
 }
 
-module signalrCreate '6.signalr/1.create-signalr.bicep' = {
+module signalrCreate '7.signalr/1.create-signalr.bicep' = {
   name: 'signalrCreateDeployment'
   params: {}
 }
-module signalrSaveKeyVault '6.signalr/2.save-keyvault.bicep' = {
+module signalrSaveKeyVault '7.signalr/2.save-keyvault.bicep' = {
   name: 'signalrSaveKeyVaultDeployment'
   params: {}
   dependsOn: [
@@ -137,12 +137,12 @@ module eventHubSaveKeyVault '6.eventhub/2.save-keyvalult.bicep' = {
 }
 
 // 6. Backend App Service
-module backendPlan '7.backend/1.plan.bicep' = {
+module backendPlan '8.backend/1.plan.bicep' = {
   name: 'backendPlanDeployment'
   params: {}
 }
 
-module backendAppServiceCreate '7.backend/2.app-service-create.bicep' = {
+module backendAppServiceCreate '8.backend/2.app-service-create.bicep' = {
   name: 'backendAppServiceCreateDeployment'
   params: {}
   dependsOn: [
@@ -150,7 +150,7 @@ module backendAppServiceCreate '7.backend/2.app-service-create.bicep' = {
   ]
 }
 
-module backendKeyVaultAccess '7.backend/3.key-vault-access.bicep' = {
+module backendKeyVaultAccess '8.backend/3.key-vault-access.bicep' = {
   name: 'backendKeyVaultAccessDeployment'
   params: {}
   dependsOn: [
@@ -159,7 +159,7 @@ module backendKeyVaultAccess '7.backend/3.key-vault-access.bicep' = {
   ]
 }
 
-module backendConnectionStrings '7.backend/4.connection-strings.bicep' = {
+module backendConnectionStrings '8.backend/4.connection-strings.bicep' = {
   name: 'backendConnectionStringsDeployment'
   params: {
     orleansQueueType: orleansQueueType
@@ -170,7 +170,7 @@ module backendConnectionStrings '7.backend/4.connection-strings.bicep' = {
   ]
 }
 
-module backendDiagnosticSettings '7.backend/5.diagnostic-settings.bicep' = {
+module backendDiagnosticSettings '8.backend/5.diagnostic-settings.bicep' = {
   name: 'backendDiagnosticSettingsDeployment'
   params: {}
   dependsOn: [
@@ -179,7 +179,7 @@ module backendDiagnosticSettings '7.backend/5.diagnostic-settings.bicep' = {
   ]
 }
 
-module backendAppSettings '7.backend/6.app-settings.bicep' = {
+module backendAppSettings '8.backend/6.app-settings.bicep' = {
   name: 'backendAppSettingsDeployment'
   params: {
     orleansClusterType: orleansClusterType
@@ -196,7 +196,7 @@ module backendAppSettings '7.backend/6.app-settings.bicep' = {
   ]
 }
 
-module backendVnetIntegration '7.backend/7.vnet-integration.bicep' = {
+module backendVnetIntegration '8.backend/7.vnet-integration.bicep' = {
   name: 'backendVnetIntegrationDeployment'
   params: {}
   dependsOn: [
@@ -205,7 +205,7 @@ module backendVnetIntegration '7.backend/7.vnet-integration.bicep' = {
   ]
 }
 
-module backendIpAccess '7.backend/8.ipaccess.bicep' = {
+module backendIpAccess '8.backend/8.ipaccess.bicep' = {
   name: 'backendIpAccessDeployment'
   params: {}
   dependsOn: [
@@ -214,12 +214,12 @@ module backendIpAccess '7.backend/8.ipaccess.bicep' = {
 }
 
 // 7. Blazor Frontend App Service
-module blazorPlan '8.blazor/1.plan.bicep' = {
+module blazorPlan '10.blazor/1.plan.bicep' = {
   name: 'blazorPlanDeployment'
   params: {}
 }
 
-module blazorAppService '8.blazor/2.app-service.bicep' = {
+module blazorAppService '10.blazor/2.app-service.bicep' = {
   name: 'blazorAppServiceDeployment'
   params: {}
   dependsOn: [
@@ -227,7 +227,7 @@ module blazorAppService '8.blazor/2.app-service.bicep' = {
   ]
 }
 
-module blazorDiagnosticSettings '8.blazor/3.diagnositic-settings.bicep' = {
+module blazorDiagnosticSettings '10.blazor/3.diagnositic-settings.bicep' = {
   name: 'blazorDiagnosticSettingsDeployment'
   params: {}
   dependsOn: [
@@ -236,7 +236,7 @@ module blazorDiagnosticSettings '8.blazor/3.diagnositic-settings.bicep' = {
   ]
 }
 
-module blazorAppSettings '8.blazor/4.app-settings.bicep' = {
+module blazorAppSettings '10.blazor/4.app-settings.bicep' = {
   name: 'blazorAppSettingsDeployment'
   params: {}
   dependsOn: [
@@ -246,7 +246,7 @@ module blazorAppSettings '8.blazor/4.app-settings.bicep' = {
   ]
 }
 
-module blazorVnetIntegration '8.blazor/5.vnet-integration.bicep' = {
+module blazorVnetIntegration '10.blazor/5.vnet-integration.bicep' = {
   name: 'blazorVnetIntegrationDeployment'
   params: {}
   dependsOn: [
