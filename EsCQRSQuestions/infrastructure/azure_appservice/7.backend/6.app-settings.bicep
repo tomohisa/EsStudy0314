@@ -87,12 +87,12 @@ resource appSettingsConfig 'Microsoft.Web/sites/config@2022-09-01' = {
     Orleans__GrainStorage__OrleansSekibanQueue__ProviderType: orleansGrainStorageOrleansSekibanQueueProviderType
     Orleans__GrainStorage__OrleansSekibanQueue__ServiceKey: orleansGrainStorageOrleansSekibanQueueServiceKey
     Orleans__ServiceId: orleansServiceId
-    Orleans__Streaming__OrleansSekibanQueue__ProviderType: orleansStreamingOrleansSekibanQueueProviderType
-    Orleans__Streaming__OrleansSekibanQueue__ServiceKey: orleansStreamingOrleansSekibanQueueServiceKey
-    // PubSubStore settings - only added if orleansQueueType is not 'eventhub'
+    Orleans__GrainStorage__PubSubStore__ProviderType: orleansGrainStoragePubSubStoreProviderType
+    Orleans__GrainStorage__PubSubStore__ServiceKey: orleansGrainStoragePubSubStoreQueueServiceKey
+  // PubSubStore settings - only added if orleansQueueType is not 'eventhub'
     ...(orleansQueueType != 'eventhub' ? {
-      Orleans__GrainStorage__PubSubStore__ProviderType: orleansGrainStoragePubSubStoreProviderType
-      Orleans__GrainStorage__PubSubStore__ServiceKey: orleansGrainStoragePubSubStoreQueueServiceKey
+      Orleans__Streaming__OrleansSekibanQueue__ProviderType: orleansStreamingOrleansSekibanQueueProviderType
+      Orleans__Streaming__OrleansSekibanQueue__ServiceKey: orleansStreamingOrleansSekibanQueueServiceKey
     } : {})
     // EventHub settings - only added if orleansQueueType is 'eventhub'
     ...(orleansQueueType == 'eventhub' ? {

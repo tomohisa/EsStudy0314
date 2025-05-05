@@ -67,5 +67,12 @@ resource connectionStringsConfig 'Microsoft.Web/sites/config@2022-09-01' = {
       value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${orleansQueueConnectionStringSecretName}/)'
       type: 'Custom'
     }
+    // スプレッド演算子を使って条件付きでプロパティを追加
+    ...(orleansQueueType == 'eventhub' ? {
+      OrleansSekibanTable: {
+        value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/OrleansClusteringConnectionString/)'
+        type: 'Custom'
+      }
+    } : {})
   }
 }
