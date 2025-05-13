@@ -7,15 +7,8 @@ using ResultBoxes;
 
 namespace EsCQRSQuestions.Domain.Workflows;
 
-public class QuestionGroupWorkflow
+public class QuestionGroupWorkflow(ISekibanExecutor executor)
 {
-    private readonly ISekibanExecutor _executor;
-
-    public QuestionGroupWorkflow(ISekibanExecutor executor)
-    {
-        _executor = executor;
-    }
-
     /// <summary>
     /// Command for creating a question group with initial questions
     /// </summary>
@@ -42,7 +35,7 @@ public class QuestionGroupWorkflow
     public async Task<ResultBox<Guid>> CreateGroupWithQuestionsAsync(CreateGroupWithQuestionsCommand command)
     {
         // 1. Create the question group first
-        var groupCommandResult = await _executor.CommandAsync(new CreateQuestionGroup(command.GroupName));
+        var groupCommandResult = await executor.CommandAsync(new CreateQuestionGroup(command.GroupName));
         
         // Use Conveyor to process the command result only if it was successful
         return await groupCommandResult.Conveyor(async groupResult => {
@@ -76,7 +69,7 @@ public class QuestionGroupWorkflow
         int order)
     {
         // 1. Create the question
-        var createQuestionResult = await _executor.CommandAsync(new CreateQuestionCommand(
+        var createQuestionResult = await executor.CommandAsync(new CreateQuestionCommand(
             text,
             options,
             groupId
@@ -87,7 +80,7 @@ public class QuestionGroupWorkflow
             var questionId = questionResult.PartitionKeys.AggregateId;
             
             // 2. Add the question to the group with proper order
-            await _executor.CommandAsync(new AddQuestionToGroup(
+            await executor.CommandAsync(new AddQuestionToGroup(
                 groupId, 
                 questionId, 
                 order
@@ -103,7 +96,7 @@ public class QuestionGroupWorkflow
     public async Task<ResultBox<bool>> MoveQuestionBetweenGroupsAsync(MoveQuestionBetweenGroupsCommand command)
     {
         // 1. Remove from source group
-        var removeResult = await _executor.CommandAsync(new RemoveQuestionFromGroup(
+        var removeResult = await executor.CommandAsync(new RemoveQuestionFromGroup(
             command.SourceGroupId, 
             command.QuestionId
         ));
@@ -111,14 +104,14 @@ public class QuestionGroupWorkflow
         // Use Conveyor to process the command result only if it was successful
         return await removeResult.Conveyor(async _ => {
             // 2. Add to target group with new order
-            await _executor.CommandAsync(new AddQuestionToGroup(
+            await executor.CommandAsync(new AddQuestionToGroup(
                 command.TargetGroupId,
                 command.QuestionId,
                 command.NewOrder
             ));
             
             // 3. Update the question's group ID
-            await _executor.CommandAsync(new UpdateQuestionGroupIdCommand(
+            await executor.CommandAsync(new UpdateQuestionGroupIdCommand(
                 command.QuestionId,
                 command.TargetGroupId
             ));
@@ -135,14 +128,14 @@ public class QuestionGroupWorkflow
         int order)
     {
         // 1. Create the question
-        var createQuestionResult = await _executor.CommandAsync(command);
+        var createQuestionResult = await executor.CommandAsync(command);
         
         // Use Conveyor to process the command result only if it was successful
         return await createQuestionResult.Conveyor(async questionResult => {
             var questionId = questionResult.PartitionKeys.AggregateId;
             
             // 2. Add the question to the group with proper order
-            await _executor.CommandAsync(new AddQuestionToGroup(
+            await executor.CommandAsync(new AddQuestionToGroup(
                 command.QuestionGroupId, 
                 questionId, 
                 order
@@ -159,7 +152,7 @@ public class QuestionGroupWorkflow
         CreateQuestionCommand command)
     {
         // グループ内の質問数を取得して、新しい質問を最後に追加
-        var questionsInGroup = await _executor.QueryAsync(
+        var questionsInGroup = await executor.QueryAsync(
             new GetQuestionsByGroupIdQuery(command.QuestionGroupId));
         
         int order = questionsInGroup.IsSuccess ? 
@@ -208,7 +201,7 @@ public class QuestionGroupWorkflow
     private async Task<bool> ValidateUniqueCodeAsync(string uniqueCode)
     {
         // 全QuestionGroupを取得
-        var groupsResult = await _executor.QueryAsync(new GetQuestionGroupsQuery());
+        var groupsResult = await executor.QueryAsync(new GetQuestionGroupsQuery());
         
         if (!groupsResult.IsSuccess)
         {
@@ -259,7 +252,7 @@ public class QuestionGroupWorkflow
         }
         
         // グループを作成
-        var groupCommandResult = await _executor.CommandAsync(
+        var groupCommandResult = await executor.CommandAsync(
             new CreateQuestionGroup(groupName, uniqueCode));
         
         // 結果を返す
