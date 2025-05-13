@@ -590,9 +590,13 @@ apiRoute
     .WithName("DeleteQuestion");
 
 // ActiveUsers API endpoints
-apiRoute.MapGet("/activeusers/{id}", async (Guid id, [FromServices]SekibanOrleansExecutor executor) =>
+apiRoute.MapGet("/activeusers/{id}", async (Guid id, [FromQuery] string? waitForSortableUniqueId, [FromServices]SekibanOrleansExecutor executor) =>
     {
-        var activeUsers = await executor.QueryAsync(new ActiveUsersQuery(id)).UnwrapBox();
+        var query = new ActiveUsersQuery(id)
+        {
+            WaitForSortableUniqueId = waitForSortableUniqueId
+        };
+        var activeUsers = await executor.QueryAsync(query).UnwrapBox();
         if (activeUsers == null)
         {
             return Results.NotFound();
@@ -604,17 +608,25 @@ apiRoute.MapGet("/activeusers/{id}", async (Guid id, [FromServices]SekibanOrlean
 
 // QuestionGroups API endpoints
 // Queries
-apiRoute.MapGet("/questionGroups", async ([FromServices]SekibanOrleansExecutor executor) =>
+apiRoute.MapGet("/questionGroups", async ([FromQuery] string? waitForSortableUniqueId, [FromServices]SekibanOrleansExecutor executor) =>
     {
-        var list = await executor.QueryAsync(new GetQuestionGroupsQuery()).UnwrapBox();
+        var query = new GetQuestionGroupsQuery
+        {
+            WaitForSortableUniqueId = waitForSortableUniqueId
+        };
+        var list = await executor.QueryAsync(query).UnwrapBox();
         return list.Items;
     })
     .WithOpenApi()
     .WithName("GetQuestionGroups");
 
-apiRoute.MapGet("/questionGroups/{id}", async (Guid id, [FromServices]SekibanOrleansExecutor executor) =>
+apiRoute.MapGet("/questionGroups/{id}", async (Guid id, [FromQuery] string? waitForSortableUniqueId, [FromServices]SekibanOrleansExecutor executor) =>
     {
-        var groups = await executor.QueryAsync(new GetQuestionGroupsQuery()).UnwrapBox();
+        var query = new GetQuestionGroupsQuery
+        {
+            WaitForSortableUniqueId = waitForSortableUniqueId
+        };
+        var groups = await executor.QueryAsync(query).UnwrapBox();
         var group = groups.Items.FirstOrDefault(g => g.Id == id);
         if (group == null)
         {
@@ -625,9 +637,13 @@ apiRoute.MapGet("/questionGroups/{id}", async (Guid id, [FromServices]SekibanOrl
     .WithOpenApi()
     .WithName("GetQuestionGroupById");
 
-apiRoute.MapGet("/questionGroups/{id}/questions", async (Guid id, [FromServices]SekibanOrleansExecutor executor) =>
+apiRoute.MapGet("/questionGroups/{id}/questions", async (Guid id, [FromQuery] string? waitForSortableUniqueId, [FromServices]SekibanOrleansExecutor executor) =>
     {
-        var questions = await executor.QueryAsync(new GetQuestionsByGroupIdQuery(id)).UnwrapBox();
+        var query = new GetQuestionsByGroupIdQuery(id)
+        {
+            WaitForSortableUniqueId = waitForSortableUniqueId
+        };
+        var questions = await executor.QueryAsync(query).UnwrapBox();
         return questions.Items;
     })
     .WithOpenApi()
