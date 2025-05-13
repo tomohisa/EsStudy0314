@@ -12,6 +12,7 @@ using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Commands;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Events;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Commands;
+using EsCQRSQuestions.Domain.Extensions;
 using EsCQRSQuestions.Domain.Generated;
 using EsCQRSQuestions.Domain.Workflows;
 using Orleans.Configuration;
@@ -24,6 +25,7 @@ using Sekiban.Pure.CosmosDb;
 using Sekiban.Pure.Orleans;
 using Sekiban.Pure.Orleans.Parts;
 using Sekiban.Pure.Postgres;
+using Sekiban.Pure.Command;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -489,7 +491,9 @@ apiRoute
         {
             // Workflowを作成して呼び出すシンプルな実装
             var workflow = new QuestionGroupWorkflow(executor);
-            return await workflow.CreateQuestionAndAddToGroupEndAsync(command).UnwrapBox();
+            // ToSimpleCommandResponseを使用してLastSortableUniqueIdを含むレスポンスに変換
+            var result = await workflow.CreateQuestionAndAddToGroupEndAsync(command);
+            return result.ToSimpleCommandResponse().UnwrapBox();
         })
     .WithOpenApi()
     .WithName("CreateQuestion");
@@ -506,7 +510,8 @@ apiRoute
                 var result = await executor.CommandAsync(command);
                 if (result.IsSuccess)
                 {
-                    return Results.Ok(result.UnwrapBox());
+                    // ToSimpleCommandResponseを使用してLastSortableUniqueIdを含むレスポンスに変換
+                    return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
                 }
                 else
                 {
@@ -545,7 +550,11 @@ apiRoute
         "/questions/stopDisplay",
         async (
             [FromBody] StopDisplayCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] SekibanOrleansExecutor executor) => 
+        {
+            var result = await executor.CommandAsync(command);
+            return result.ToSimpleCommandResponse().UnwrapBox();
+        })
     .WithOpenApi()
     .WithName("StopDisplayQuestion");
 
@@ -557,7 +566,8 @@ apiRoute
             [FromServices] SekibanOrleansExecutor executor,
             [FromServices] IHubNotificationService notificationService) =>
         {
-           var response = await executor.CommandAsync(command).UnwrapBox();
+           var commandResult = await executor.CommandAsync(command);
+           var response = commandResult.UnwrapBox();
            await executor.QueryAsync(new QuestionDetailQuery(command.QuestionId))
                .Remap(response => response.QuestionGroupId)
                .Conveyor(groupId => executor.QueryAsync(new GetQuestionGroupByGroupIdQuery(groupId)))
@@ -575,7 +585,9 @@ apiRoute
                        ClientId = command.ClientId // クライアントIDを通知に含める
                    });
                }).UnwrapBox();
-           return response;
+           
+           // ToSimpleCommandResponseを使用してLastSortableUniqueIdを含むレスポンスに変換
+           return commandResult.ToSimpleCommandResponse().UnwrapBox();
         })
     .WithOpenApi()
     .WithName("AddResponse");
@@ -585,7 +597,11 @@ apiRoute
         "/questions/delete",
         async (
             [FromBody] DeleteQuestionCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] SekibanOrleansExecutor executor) =>
+        {
+            var result = await executor.CommandAsync(command);
+            return result.ToSimpleCommandResponse().UnwrapBox();
+        })
     .WithOpenApi()
     .WithName("DeleteQuestion");
 
@@ -655,7 +671,11 @@ apiRoute
         "/questionGroups",
         async (
             [FromBody] CreateQuestionGroup command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] SekibanOrleansExecutor executor) =>
+        {
+            var result = await executor.CommandAsync(command);
+            return result.ToSimpleCommandResponse().UnwrapBox();
+        })
     .WithOpenApi()
     .WithName("CreateQuestionGroup");
     
@@ -672,10 +692,15 @@ apiRoute
             var result = await workflow.CreateGroupWithUniqueCodeAsync(
                 command.Name, command.UniqueCode);
                 
-            return result.Match(
-                groupId => Results.Ok(new { GroupId = groupId }),
-                error => Results.Problem(error.Message)
-            );
+            if (result.IsSuccess)
+            {
+                // ToSimpleCommandResponseを使用してLastSortableUniqueIdを含むレスポンスに変換
+                return Results.Ok(CommandExtensions.CreateSimple(result.GetValue(), ""));
+            }
+            else
+            {
+                return Results.Problem(result.GetException()?.Message ?? "不明なエラーが発生しました");
+            }
         })
     .WithOpenApi()
     .WithName("CreateQuestionGroupWithUniqueCode");
@@ -692,7 +717,8 @@ apiRoute
             {
                 return Results.BadRequest("ID in URL does not match ID in command");
             }
-            return Results.Ok(await executor.CommandAsync(command).UnwrapBox());
+            var result = await executor.CommandAsync(command);
+            return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithOpenApi()
     .WithName("UpdateQuestionGroup");
@@ -705,7 +731,8 @@ apiRoute
             [FromServices] SekibanOrleansExecutor executor) => 
         {
             var command = new DeleteQuestionGroup(id);
-            return Results.Ok(await executor.CommandAsync(command).UnwrapBox());
+            var result = await executor.CommandAsync(command);
+            return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithOpenApi()
     .WithName("DeleteQuestionGroup");
@@ -722,7 +749,8 @@ apiRoute
             {
                 return Results.BadRequest("Group ID in URL does not match ID in command");
             }
-            return Results.Ok(await executor.CommandAsync(command).UnwrapBox());
+            var result = await executor.CommandAsync(command);
+            return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithOpenApi()
     .WithName("AddQuestionToGroup");
@@ -737,7 +765,8 @@ apiRoute
             [FromServices] SekibanOrleansExecutor executor) => 
         {
             var command = new ChangeQuestionOrder(groupId, questionId, newOrder);
-            return Results.Ok(await executor.CommandAsync(command).UnwrapBox());
+            var result = await executor.CommandAsync(command);
+            return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithOpenApi()
     .WithName("ChangeQuestionOrder");
@@ -751,7 +780,8 @@ apiRoute
             [FromServices] SekibanOrleansExecutor executor) => 
         {
             var command = new RemoveQuestionFromGroup(groupId, questionId);
-            return Results.Ok(await executor.CommandAsync(command).UnwrapBox());
+            var result = await executor.CommandAsync(command);
+            return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithOpenApi()
     .WithName("RemoveQuestionFromGroup");
@@ -794,10 +824,15 @@ apiRoute
             // executorを使用してワークフローを作成
             var workflow = new QuestionGroupWorkflow(executor);
             var result = await workflow.CreateGroupWithQuestionsAsync(command);
-            return result.Match(
-                groupId => Results.Ok(new { GroupId = groupId }),
-                error => Results.Problem(error.Message)
-            );
+            if (result.IsSuccess)
+            {
+                // ToSimpleCommandResponseを使用してLastSortableUniqueIdを含むレスポンスに変換
+                return Results.Ok(CommandExtensions.CreateSimple(result.GetValue(), ""));
+            }
+            else
+            {
+                return Results.Problem(result.GetException()?.Message ?? "不明なエラーが発生しました");
+            }
         })
     .WithOpenApi()
     .WithName("CreateQuestionGroupWithQuestions");
