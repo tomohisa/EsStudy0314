@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Commands;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
+using EsCQRSQuestions.Domain.Extensions; // CommandResponseSimpleを含む名前空間を追加
 using EsCQRSQuestions.Domain.Workflows;
 using EsCQRSQuestions.Domain.Projections.Questions;
 
@@ -16,10 +17,15 @@ public class QuestionGroupApiClient(HttpClient httpClient)
 {
     // Get all question groups
     public async Task<List<GetQuestionGroupsQuery.ResultRecord>> GetGroupsAsync(
+        string? waitForSortableUniqueId = null,
         CancellationToken cancellationToken = default)
     {
+        var requestUri = string.IsNullOrEmpty(waitForSortableUniqueId)
+            ? "/api/questionGroups"
+            : $"/api/questionGroups?waitForSortableUniqueId={Uri.EscapeDataString(waitForSortableUniqueId)}";
+            
         var groups = await httpClient.GetFromJsonAsync<List<GetQuestionGroupsQuery.ResultRecord>>(
-            "/api/questionGroups", 
+            requestUri, 
             cancellationToken);
         
         return groups ?? new List<GetQuestionGroupsQuery.ResultRecord>();
@@ -28,38 +34,49 @@ public class QuestionGroupApiClient(HttpClient httpClient)
     // Get a specific question group
     public async Task<GetQuestionGroupsQuery.ResultRecord?> GetGroupAsync(
         Guid groupId,
+        string? waitForSortableUniqueId = null,
         CancellationToken cancellationToken = default)
     {
+        var requestUri = string.IsNullOrEmpty(waitForSortableUniqueId)
+            ? $"/api/questionGroups/{groupId}"
+            : $"/api/questionGroups/{groupId}?waitForSortableUniqueId={Uri.EscapeDataString(waitForSortableUniqueId)}";
+            
         return await httpClient.GetFromJsonAsync<GetQuestionGroupsQuery.ResultRecord?>(
-            $"/api/questionGroups/{groupId}", 
+            requestUri, 
             cancellationToken);
     }
     
     // Get questions in a group
     public async Task<List<QuestionsQuery.QuestionDetailRecord>> GetQuestionsInGroupAsync(
         Guid groupId,
+        string? waitForSortableUniqueId = null,
         CancellationToken cancellationToken = default)
     {
+        var requestUri = string.IsNullOrEmpty(waitForSortableUniqueId)
+            ? $"/api/questionGroups/{groupId}/questions"
+            : $"/api/questionGroups/{groupId}/questions?waitForSortableUniqueId={Uri.EscapeDataString(waitForSortableUniqueId)}";
+            
         var questions = await httpClient.GetFromJsonAsync<List<QuestionsQuery.QuestionDetailRecord>>(
-            $"/api/questions/bygroup/{groupId}", 
+            requestUri, 
             cancellationToken);
         
         return questions ?? new List<QuestionsQuery.QuestionDetailRecord>();
     }
     
     // Create a new question group
-    public async Task<object> CreateGroupAsync(
+    public async Task<CommandResponseSimple> CreateGroupAsync(
         string name,
         CancellationToken cancellationToken = default)
     {
         var command = new CreateQuestionGroup(name);
         var response = await httpClient.PostAsJsonAsync("/api/questionGroups", command, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
     
     // Update a question group's name
-    public async Task<object> UpdateGroupAsync(
+    public async Task<CommandResponseSimple> UpdateGroupAsync(
         Guid groupId,
         string newName,
         CancellationToken cancellationToken = default)
@@ -67,21 +84,23 @@ public class QuestionGroupApiClient(HttpClient httpClient)
         var command = new UpdateQuestionGroupCommand(groupId, newName);
         var response = await httpClient.PutAsJsonAsync($"/api/questionGroups/{groupId}", command, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
     
     // Delete a question group
-    public async Task<object> DeleteGroupAsync(
+    public async Task<CommandResponseSimple> DeleteGroupAsync(
         Guid groupId,
         CancellationToken cancellationToken = default)
     {
         var response = await httpClient.DeleteAsync($"/api/questionGroups/{groupId}", cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
     
     // Add a question to a group
-    public async Task<object> AddQuestionToGroupAsync(
+    public async Task<CommandResponseSimple> AddQuestionToGroupAsync(
         Guid groupId,
         Guid questionId,
         int order,
@@ -90,11 +109,12 @@ public class QuestionGroupApiClient(HttpClient httpClient)
         var command = new AddQuestionToGroup(groupId, questionId, order);
         var response = await httpClient.PostAsJsonAsync($"/api/questionGroups/{groupId}/questions", command, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
     
     // Change a question's order within a group
-    public async Task<object> ChangeQuestionOrderAsync(
+    public async Task<CommandResponseSimple> ChangeQuestionOrderAsync(
         Guid groupId,
         Guid questionId,
         int newOrder,
@@ -105,11 +125,12 @@ public class QuestionGroupApiClient(HttpClient httpClient)
             newOrder, 
             cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
     
     // Remove a question from a group
-    public async Task<object> RemoveQuestionFromGroupAsync(
+    public async Task<CommandResponseSimple> RemoveQuestionFromGroupAsync(
         Guid groupId,
         Guid questionId,
         CancellationToken cancellationToken = default)
@@ -118,11 +139,12 @@ public class QuestionGroupApiClient(HttpClient httpClient)
             $"/api/questionGroups/{groupId}/questions/{questionId}", 
             cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
     
     // Move a question between groups
-    public async Task<object> MoveQuestionBetweenGroupsAsync(
+    public async Task<CommandResponseSimple> MoveQuestionBetweenGroupsAsync(
         QuestionGroupWorkflow.MoveQuestionBetweenGroupsCommand command,
         CancellationToken cancellationToken = default)
     {
@@ -131,11 +153,12 @@ public class QuestionGroupApiClient(HttpClient httpClient)
             command, 
             cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<object>() ?? new {};
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
     
     // Create a group with questions
-    public async Task<Guid> CreateGroupWithQuestionsAsync(
+    public async Task<CommandResponseSimple> CreateGroupWithQuestionsAsync(
         string groupName,
         List<(string Text, List<QuestionOption> Options)> questions,
         CancellationToken cancellationToken = default)
@@ -143,7 +166,7 @@ public class QuestionGroupApiClient(HttpClient httpClient)
         var command = new QuestionGroupWorkflow.CreateGroupWithQuestionsCommand(groupName, questions);
         var response = await httpClient.PostAsJsonAsync("/api/questionGroups/createWithQuestions", command, cancellationToken);
         response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<dynamic>(cancellationToken);
-        return result?.GroupId;
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
 }
