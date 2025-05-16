@@ -1,6 +1,6 @@
 using EsCQRSQuestions.Domain;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Commands;
-using EsCQRSQuestions.Domain.Extensions; // CommandResponseSimpleを含む名前空間を追加
+using Sekiban.Pure.Command.Executor;
 
 namespace EsCQRSQuestions.Web;
 

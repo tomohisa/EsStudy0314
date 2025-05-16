@@ -2,8 +2,8 @@ using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
 using EsCQRSQuestions.Domain.Projections.Questions;
-using EsCQRSQuestions.Domain.Extensions; // CommandResponseSimpleを含む名前空間を追加
 using Microsoft.AspNetCore.SignalR.Client;
+using Sekiban.Pure.Command.Executor;
 
 namespace EsCQRSQuestions.AdminWeb;
 

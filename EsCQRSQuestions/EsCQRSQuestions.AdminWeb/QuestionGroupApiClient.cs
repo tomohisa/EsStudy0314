@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Commands;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
-using EsCQRSQuestions.Domain.Extensions; // CommandResponseSimpleを含む名前空間を追加
 using EsCQRSQuestions.Domain.Workflows;
 using EsCQRSQuestions.Domain.Projections.Questions;
+using Sekiban.Pure.Command.Executor;
 
 namespace EsCQRSQuestions.AdminWeb;
 
@@ -152,19 +152,6 @@ public class QuestionGroupApiClient(HttpClient httpClient)
             "/workflows/questionGroups/moveQuestion", 
             command, 
             cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
-              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
-    }
-    
-    // Create a group with questions
-    public async Task<CommandResponseSimple> CreateGroupWithQuestionsAsync(
-        string groupName,
-        List<(string Text, List<QuestionOption> Options)> questions,
-        CancellationToken cancellationToken = default)
-    {
-        var command = new QuestionGroupWorkflow.CreateGroupWithQuestionsCommand(groupName, questions);
-        var response = await httpClient.PostAsJsonAsync("/api/questionGroups/createWithQuestions", command, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
               ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");

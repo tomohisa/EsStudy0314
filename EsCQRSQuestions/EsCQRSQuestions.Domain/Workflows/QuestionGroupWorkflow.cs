@@ -4,6 +4,7 @@ using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using ResultBoxes;
+using Sekiban.Pure.Command.Executor;
 
 namespace EsCQRSQuestions.Domain.Workflows;
 
@@ -30,100 +31,9 @@ public class QuestionGroupWorkflow(ISekibanExecutor executor)
     );
 
     /// <summary>
-    /// Creates a group and adds multiple questions at once
-    /// </summary>
-    public async Task<ResultBox<Guid>> CreateGroupWithQuestionsAsync(CreateGroupWithQuestionsCommand command)
-    {
-        // 1. Create the question group first
-        var groupCommandResult = await executor.CommandAsync(new CreateQuestionGroup(command.GroupName));
-        
-        // Use Conveyor to process the command result only if it was successful
-        return await groupCommandResult.Conveyor(async groupResult => {
-            var groupId = groupResult.PartitionKeys.AggregateId;
-            
-            // 2. Create each question with the group ID
-            var questionTasks = new List<Task<ResultBox<bool>>>();
-            int order = 0;
-            
-            foreach (var (text, options) in command.Questions)
-            {
-                var task = CreateQuestionAndAddToGroupAsync(text, options, groupId, order++);
-                questionTasks.Add(task);
-            }
-            
-            // Wait for all questions to be created and added
-            await Task.WhenAll(questionTasks);
-            
-            // Return the group ID
-            return ResultBox.FromValue(groupId);
-        });
-    }
-    
-    /// <summary>
-    /// Creates a question and adds it to a group
-    /// </summary>
-    private async Task<ResultBox<bool>> CreateQuestionAndAddToGroupAsync(
-        string text, 
-        List<QuestionOption> options, 
-        Guid groupId, 
-        int order)
-    {
-        // 1. Create the question
-        var createQuestionResult = await executor.CommandAsync(new CreateQuestionCommand(
-            text,
-            options,
-            groupId
-        ));
-        
-        // Use Conveyor to process the command result only if it was successful
-        return await createQuestionResult.Conveyor(async questionResult => {
-            var questionId = questionResult.PartitionKeys.AggregateId;
-            
-            // 2. Add the question to the group with proper order
-            await executor.CommandAsync(new AddQuestionToGroup(
-                groupId, 
-                questionId, 
-                order
-            ));
-            
-            return ResultBox.FromValue(true);
-        });
-    }
-    
-    /// <summary>
-    /// Moves a question from one group to another
-    /// </summary>
-    public async Task<ResultBox<bool>> MoveQuestionBetweenGroupsAsync(MoveQuestionBetweenGroupsCommand command)
-    {
-        // 1. Remove from source group
-        var removeResult = await executor.CommandAsync(new RemoveQuestionFromGroup(
-            command.SourceGroupId, 
-            command.QuestionId
-        ));
-        
-        // Use Conveyor to process the command result only if it was successful
-        return await removeResult.Conveyor(async _ => {
-            // 2. Add to target group with new order
-            await executor.CommandAsync(new AddQuestionToGroup(
-                command.TargetGroupId,
-                command.QuestionId,
-                command.NewOrder
-            ));
-            
-            // 3. Update the question's group ID
-            await executor.CommandAsync(new UpdateQuestionGroupIdCommand(
-                command.QuestionId,
-                command.TargetGroupId
-            ));
-            
-            return ResultBox.FromValue(true);
-        });
-    }
-    
-    /// <summary>
     /// Creates a question and adds it to a group with a specified order
     /// </summary>
-    public async Task<ResultBox<Guid>> CreateQuestionAndAddToGroupAsync(
+    public async Task<ResultBox<CommandResponseSimple>> CreateQuestionAndAddToGroupAsync(
         CreateQuestionCommand command,
         int order)
     {
@@ -135,20 +45,18 @@ public class QuestionGroupWorkflow(ISekibanExecutor executor)
             var questionId = questionResult.PartitionKeys.AggregateId;
             
             // 2. Add the question to the group with proper order
-            await executor.CommandAsync(new AddQuestionToGroup(
+            return await executor.CommandAsync(new AddQuestionToGroup(
                 command.QuestionGroupId, 
                 questionId, 
                 order
-            ));
-            
-            return ResultBox.FromValue(questionId);
+            )).ToSimpleCommandResponse();
         });
     }
 
     /// <summary>
     /// Creates a question and adds it to the end of a group
     /// </summary>
-    public async Task<ResultBox<Guid>> CreateQuestionAndAddToGroupEndAsync(
+    public async Task<ResultBox<CommandResponseSimple>> CreateQuestionAndAddToGroupEndAsync(
         CreateQuestionCommand command)
     {
         // グループ内の質問数を取得して、新しい質問を最後に追加
@@ -226,7 +134,7 @@ public class QuestionGroupWorkflow(ISekibanExecutor executor)
     /// <summary>
     /// UniqueCodeの重複をチェックして新しいQuestionGroupを作成する
     /// </summary>
-    public async Task<ResultBox<Guid>> CreateGroupWithUniqueCodeAsync(
+    public async Task<ResultBox<CommandResponseSimple>> CreateGroupWithUniqueCodeAsync(
         string groupName, 
         string uniqueCode = "")
     {
@@ -246,17 +154,13 @@ public class QuestionGroupWorkflow(ISekibanExecutor executor)
             var isValid = await ValidateUniqueCodeAsync(uniqueCode);
             if (!isValid)
             {
-                return ResultBox.FromException<Guid>(
+                return ResultBox.FromException<CommandResponseSimple>(
                     new InvalidOperationException($"UniqueCode '{uniqueCode}' is already in use"));
             }
         }
         
         // グループを作成
-        var groupCommandResult = await executor.CommandAsync(
-            new CreateQuestionGroup(groupName, uniqueCode));
-        
-        // 結果を返す
-        return groupCommandResult.Conveyor(result => 
-            ResultBox.FromValue(result.PartitionKeys.AggregateId));
+        return await executor.CommandAsync(
+            new CreateQuestionGroup(groupName, uniqueCode)).ToSimpleCommandResponse();
     }
 }
