@@ -126,15 +126,15 @@ else
         await HubService.JoinAdminGroup();
         
         // Load initial data
-        await RefreshQuestions();
         await RefreshActiveUsers();
-        await RefreshGroups();
+        await RefreshGroupsWithSortableUniqueId();
+        await RefreshQuestionsInGroupWithSortableUniqueId();
         
         // Select first group if none selected
         if (groups?.Any() == true && selectedGroupId == null)
         {
             selectedGroupId = groups.First().Id;
-            await RefreshQuestionsInGroup();
+            await RefreshQuestionsInGroupWithSortableUniqueId();
             StateHasChanged();
             Console.WriteLine($"Auto-selected first group: {selectedGroupId}");
         }
@@ -142,7 +142,7 @@ else
 
     private async Task OnQuestionChanged()
     {
-        await RefreshQuestions();
+        await RefreshQuestionsInGroupWithSortableUniqueId();
         if (selectedQuestion is not null)
         {
             await RefreshSelectedQuestion();
@@ -151,14 +151,14 @@ else
 
     private async Task OnQuestionGroupChanged() 
     {
-        await RefreshGroups();
-        await RefreshQuestionsInGroup();
+        await RefreshGroupsWithSortableUniqueId();
+        await RefreshQuestionsInGroupWithSortableUniqueId();
     }
 
     private async Task OnResponseAdded()
     {
         Console.WriteLine("Response added event received - refreshing all questions");
-        await RefreshQuestions();
+        await RefreshQuestionsInGroupWithSortableUniqueId();
         
         if (selectedQuestion is not null) 
         {
@@ -182,60 +182,7 @@ else
         }
     }
     
-    private async Task RefreshQuestions()
-    {
-        try
-        {
-            Console.WriteLine("Refreshing questions...");
-            await RefreshQuestionsInGroup();
-            await InvokeAsync(() => StateHasChanged());
-            Console.WriteLine("State has changed");
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error refreshing questions: {ex.Message}");
-        }
-    }
-
-    private async Task RefreshQuestionsWithSortableUniqueId(string sortableUniqueId)
-    {
-        try
-        {
-            await RefreshQuestionsInGroupWithSortableUniqueId(sortableUniqueId);
-            await InvokeAsync(() => StateHasChanged());
-            Console.WriteLine("State has changed with SortableUniqueId");
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error refreshing questions with SortableUniqueId: {ex.Message}");
-        }
-    }
-
-    private async Task RefreshQuestionsInGroup()
-    {
-        if (selectedGroupId.HasValue)
-        {
-            try {
-                Console.WriteLine($"Refreshing questions in group {selectedGroupId.Value}...");
-                var questionArray = await QuestionApi.GetQuestionsByGroupAsync(selectedGroupId.Value);
-                questionsInGroup = questionArray.ToList(); // Convert array to List
-                Console.WriteLine($"Fetched {questionsInGroup?.Count ?? 0} questions in group");
-                await InvokeAsync(() => StateHasChanged());
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Error refreshing questions in group: {ex.Message}");
-                var groupId = selectedGroupId.Value;
-                questionsInGroup = new List<QuestionsQuery.QuestionDetailRecord>();
-            }
-        }
-        else
-        {
-            questionsInGroup = null;
-        }
-    }
-
-    private async Task RefreshQuestionsInGroupWithSortableUniqueId(string sortableUniqueId)
+    private async Task RefreshQuestionsInGroupWithSortableUniqueId(string sortableUniqueId = "")
     {
         if (selectedGroupId.HasValue)
         {
@@ -283,22 +230,7 @@ else
         }
     }
 
-    private async Task RefreshGroups()
-    {
-        try
-        {
-            Console.WriteLine("Refreshing groups...");
-            groups = await QuestionGroupApi.GetGroupsAsync();
-            Console.WriteLine($"Fetched {groups?.Count ?? 0} groups");
-            await InvokeAsync(() => StateHasChanged());
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error refreshing groups: {ex.Message}");
-        }
-    }
-
-    private async Task RefreshGroupsWithSortableUniqueId(string sortableUniqueId)
+    private async Task RefreshGroupsWithSortableUniqueId(string sortableUniqueId = "")
     {
         try
         {
@@ -546,7 +478,7 @@ else
                 // SortableUniqueIdを使ってデータをリフレッシュ
                 if (updateResult.Result != null)
                 {
-                    await RefreshQuestionsWithSortableUniqueId(updateResult.Result.LastSortableUniqueId);
+                    await RefreshQuestionsInGroupWithSortableUniqueId(updateResult.Result.LastSortableUniqueId ?? "");
                 }
                 
                 // グループが変更された場合は移動処理
@@ -604,7 +536,7 @@ else
                     Console.WriteLine($"質問をグループ {groupIdToUse} に作成しました");
                     
                     // SortableUniqueIdを使ってデータをリフレッシュ
-                    await RefreshQuestionsWithSortableUniqueId(response.LastSortableUniqueId);
+                    await RefreshQuestionsInGroupWithSortableUniqueId(response.LastSortableUniqueId);
                 } catch (Exception ex) {
                     await JsRuntime.InvokeVoidAsync("alert", $"質問の作成に失敗しました: {ex.Message}");
                     Console.Error.WriteLine($"質問作成エラー: {ex.Message}");
@@ -616,11 +548,11 @@ else
             await CloseQuestionModal();
             
             // グループの最新データを取得
-            await RefreshGroups();
+            await RefreshGroupsWithSortableUniqueId();
             
             if (this.selectedGroupId.HasValue)
             {
-                await RefreshQuestionsInGroup();
+                await RefreshQuestionsInGroupWithSortableUniqueId();
             }
         }
         catch (Exception ex)
@@ -642,14 +574,9 @@ else
                 await JsRuntime.InvokeVoidAsync("alert", "このグループにはUniqueCodeが設定されていません。グループを編集してUniqueCodeを自動生成してください。");
                 return;
             }
-            
-            // コマンド実行結果を取得してSortableUniqueIdを利用する
             var response = await QuestionApi.StartDisplayQuestionAsync(questionId);
-            // await HubService.StartDisplayQuestionForGroup(questionId, uniqueCode);
             Console.WriteLine($"Display started for question {questionId} with UniqueCode: {uniqueCode}");
-            
-            // SortableUniqueIdを使ってデータをリフレッシュ
-            await RefreshQuestionsWithSortableUniqueId(response.LastSortableUniqueId);
+            await RefreshQuestionsInGroupWithSortableUniqueId(response.LastSortableUniqueId ?? "");
         }
         catch (Exception ex)
         {
@@ -671,13 +598,9 @@ else
                 return;
             }
             
-            // コマンド実行結果を取得してSortableUniqueIdを利用する
             var response = await QuestionApi.StopDisplayQuestionAsync(questionId);
-            // await HubService.StopDisplayQuestionForGroup(questionId, uniqueCode);
             Console.WriteLine($"Display stopped for question {questionId} with UniqueCode: {uniqueCode}");
-            
-            // SortableUniqueIdを使ってデータをリフレッシュ
-            await RefreshQuestionsWithSortableUniqueId(response.LastSortableUniqueId);
+            await RefreshQuestionsInGroupWithSortableUniqueId(response.LastSortableUniqueId ?? "");
         }
         catch (Exception ex)
         {
@@ -702,7 +625,7 @@ else
                 }
                 
                 // SortableUniqueIdを使ってデータをリフレッシュ
-                await RefreshQuestionsWithSortableUniqueId(response.LastSortableUniqueId);
+                await RefreshQuestionsInGroupWithSortableUniqueId(response.LastSortableUniqueId ?? "");
             }
             catch (Exception ex)
             {
@@ -803,7 +726,7 @@ else
         Console.WriteLine($"Selecting group {groupId}...");
         selectedGroupId = groupId;
         selectedQuestion = null;
-        await RefreshQuestionsInGroup();
+        await RefreshQuestionsInGroupWithSortableUniqueId();
         StateHasChanged();
     }
 
@@ -855,8 +778,8 @@ else
             Console.WriteLine($"Changing order for question {questionId} to {newOrder}");
             await QuestionGroupApi.ChangeQuestionOrderAsync(selectedGroupId.Value, questionId, newOrder);
             
-            await RefreshGroups();
-            await RefreshQuestionsInGroup();
+            await RefreshGroupsWithSortableUniqueId();
+            await RefreshQuestionsInGroupWithSortableUniqueId();
         }
         catch (Exception ex)
         {
