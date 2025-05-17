@@ -7,8 +7,14 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 
 [GenerateSerializer]
 public record GetQuestionGroupsQuery() : 
-    IMultiProjectionListQuery<AggregateListProjector<QuestionGroupProjector>, GetQuestionGroupsQuery, GetQuestionGroupsQuery.ResultRecord>
+    IMultiProjectionListQuery<AggregateListProjector<QuestionGroupProjector>, GetQuestionGroupsQuery, GetQuestionGroupsQuery.ResultRecord>,
+    IWaitForSortableUniqueId
 {
+    /// <summary>
+    /// 指定されたイベントが処理されるまで待機するためのソータブルユニークID
+    /// </summary>
+    public string? WaitForSortableUniqueId { get; set; }
+
     public static ResultBox<IEnumerable<ResultRecord>> HandleFilter(
         MultiProjectionState<AggregateListProjector<QuestionGroupProjector>> projection, 
         GetQuestionGroupsQuery query, 

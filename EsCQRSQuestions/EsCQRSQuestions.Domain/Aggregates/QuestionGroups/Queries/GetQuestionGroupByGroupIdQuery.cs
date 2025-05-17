@@ -9,8 +9,14 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 
 [GenerateSerializer]
 public record GetQuestionGroupByGroupIdQuery(Guid QuestionGroupId) : 
-    IMultiProjectionQuery<AggregateListProjector<QuestionGroupProjector>, GetQuestionGroupByGroupIdQuery, Aggregate<QuestionGroup>>
+    IMultiProjectionQuery<AggregateListProjector<QuestionGroupProjector>, GetQuestionGroupByGroupIdQuery, Aggregate<QuestionGroup>>,
+    IWaitForSortableUniqueId
 {
+    /// <summary>
+    /// 指定されたイベントが処理されるまで待機するためのソータブルユニークID
+    /// </summary>
+    public string? WaitForSortableUniqueId { get; set; }
+
     public static ResultBox<Aggregate<QuestionGroup>> HandleQuery(MultiProjectionState<AggregateListProjector<QuestionGroupProjector>> projection, GetQuestionGroupByGroupIdQuery query,
         IQueryContext context)
     {

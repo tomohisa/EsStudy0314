@@ -7,7 +7,7 @@ namespace EsCQRSQuestions.Domain.Projections.Questions;
 
 [GenerateSerializer]
 public record QuestionsQuery(string TextContains = "", Guid? GroupId = null)
-    : IMultiProjectionListQuery<QuestionsMultiProjector, QuestionsQuery, QuestionsQuery.QuestionDetailRecord>
+    : IMultiProjectionListQuery<QuestionsMultiProjector, QuestionsQuery, QuestionsQuery.QuestionDetailRecord>, IWaitForSortableUniqueId
 {
     public static ResultBox<IEnumerable<QuestionDetailRecord>> HandleFilter(
         MultiProjectionState<QuestionsMultiProjector> projection, 
@@ -70,4 +70,6 @@ public record QuestionsQuery(string TextContains = "", Guid? GroupId = null)
         int Order,
         bool AllowMultipleResponses = false // 追加：複数回答を許可するかどうか
     );
+
+    public string? WaitForSortableUniqueId { get; set; } = null; 
 }
