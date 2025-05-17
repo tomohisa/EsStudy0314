@@ -406,9 +406,11 @@ apiRoute.MapGet("/questions", async ([FromServices] SekibanOrleansExecutor execu
     .WithName("GetQuestions");
 
 apiRoute.MapGet("/questions/bygroup/{groupId}",
-        async (Guid groupId, [FromServices] SekibanOrleansExecutor executor, [FromQuery] string textContains = "") =>
+        async (Guid groupId, [FromServices] SekibanOrleansExecutor executor, [FromQuery] string textContains = "",
+            [FromQuery] string? waitForSortableUniqueId = null) =>
         {
-            var list = await executor.QueryAsync(new QuestionsQuery(textContains, groupId)).UnwrapBox();
+            var list = await executor.QueryAsync(new QuestionsQuery(textContains, groupId)
+                { WaitForSortableUniqueId = waitForSortableUniqueId }).UnwrapBox();
             return list.Items;
         })
     .WithOpenApi()
