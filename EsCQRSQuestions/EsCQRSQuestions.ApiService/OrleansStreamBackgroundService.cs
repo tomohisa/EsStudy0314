@@ -10,6 +10,7 @@ using ResultBoxes;
 using Sekiban.Pure.Documents;
 using Sekiban.Pure.Events;
 using Sekiban.Pure.Orleans;
+
 // Added using for QuestionGroup events
 
 namespace EsCQRSQuestions.ApiService;
@@ -136,16 +137,37 @@ public class OrleansStreamBackgroundService : BackgroundService
                     new { AggregateId = aggregateId, orderChanged.QuestionId, orderChanged.NewOrder });
                 break;
 
-            case QuestionDisplayStarted displayStarted: 
+            case QuestionDisplayStarted displayStarted:
                 await _sekibanOrleansExecutor.LoadAggregateAsync<QuestionProjector>(item.PartitionKeys)
                     .Conveyor(aggregate => aggregate.ToTypedPayload<Question>())
                     .Combine(aggregate =>
                         _sekibanOrleansExecutor
-                            .LoadAggregateAsync<QuestionGroupProjector>(PartitionKeys.Existing<QuestionGroupProjector>(aggregate.Payload.QuestionGroupId)).Conveyor(group => group.ToTypedPayload<QuestionGroup>()))
+                            .LoadAggregateAsync<QuestionGroupProjector>(
+                                PartitionKeys.Existing<QuestionGroupProjector>(aggregate.Payload.QuestionGroupId))
+                            .Conveyor(group => group.ToTypedPayload<QuestionGroup>()))
                     .Do(async (question, group) =>
                     {
                         await _hubService.NotifyUniqueCodeGroupAsync(group.Payload.UniqueCode, "QuestionDisplayStarted",
                             new { QuestionId = question.PartitionKeys.AggregateId });
+                    });
+                break;
+
+            case QuestionDisplayStopped displayStopped:
+                await _sekibanOrleansExecutor.LoadAggregateAsync<QuestionProjector>(item.PartitionKeys)
+                    .Conveyor(aggregate => aggregate.ToTypedPayload<Question>())
+                    .Combine(questionPayload =>
+                        _sekibanOrleansExecutor
+                            .LoadAggregateAsync<QuestionGroupProjector>(
+                                PartitionKeys.Existing<QuestionGroupProjector>(questionPayload.Payload.QuestionGroupId))
+                            .Conveyor(groupAggregate => groupAggregate.ToTypedPayload<QuestionGroup>())
+                    )
+                    .Do(async (question, group) =>
+                    {
+                        await _hubService.NotifyUniqueCodeGroupAsync(
+                            group.Payload.UniqueCode,
+                            "QuestionDisplayStopped",
+                            new { QuestionId = question.PartitionKeys.AggregateId }
+                        );
                     });
                 break;
 
