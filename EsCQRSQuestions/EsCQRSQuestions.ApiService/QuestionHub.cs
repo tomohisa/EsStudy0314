@@ -2,6 +2,7 @@ using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Workflows;
 using Microsoft.AspNetCore.SignalR;
+using Sekiban.Pure.Orleans;
 using Sekiban.Pure.Orleans.Parts;
 
 namespace EsCQRSQuestions.ApiService;
@@ -197,85 +198,4 @@ public async Task JoinAsSurveyParticipant(string uniqueCode)
         
         await Clients.Caller.SendAsync("NameSet", name);
     }
-
-// Adminからの表示依頼をUniqueCodeグループにだけ通知
-public async Task StartDisplayQuestionForGroup(Guid questionId, string uniqueCode)
-{
-    _logger.LogInformation($"StartDisplayQuestionForGroup called: QuestionId={questionId}, UniqueCode={uniqueCode}");
-    
-    if (!string.IsNullOrWhiteSpace(uniqueCode))
-    {
-        try
-        {
-            // 1. まずワークフローを使ってコマンドを実行し、イベントを保存
-            var workflow = new QuestionDisplayWorkflow(_executor);
-            var result = await workflow.StartDisplayQuestionExclusivelyAsync(questionId);
-            
-            if (result.IsSuccess)
-            {
-                _logger.LogInformation($"StartDisplayCommand executed successfully for question {questionId}");
-                
-                // 2. 実行成功した場合のみ、通知を送信
-                await _notificationService.NotifyUniqueCodeGroupAsync(
-                    uniqueCode, 
-                    "QuestionDisplayStarted", 
-                    new { QuestionId = questionId });
-                
-                _logger.LogInformation($"Notification sent to group {uniqueCode} for question {questionId}");
-            }
-            else
-            {
-                _logger.LogError($"StartDisplayCommand failed: {result.GetException()?.Message}");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Error in StartDisplayQuestionForGroup: {ex.Message}");
-        }
-    }
-    else
-    {
-        _logger.LogWarning($"UniqueCode is empty, command not executed for question {questionId}");
-    }
-}
-
-// Adminからの表示停止依頼をUniqueCodeグループにだけ通知
-public async Task StopDisplayQuestionForGroup(Guid questionId, string uniqueCode)
-{
-    _logger.LogInformation($"StopDisplayQuestionForGroup called: QuestionId={questionId}, UniqueCode={uniqueCode}");
-    
-    if (!string.IsNullOrWhiteSpace(uniqueCode))
-    {
-        try
-        {
-            // 1. まずコマンドを実行し、イベントを保存
-            var result = await _executor.CommandAsync(new StopDisplayCommand(questionId));
-            
-            if (result.IsSuccess)
-            {
-                _logger.LogInformation($"StopDisplayCommand executed successfully for question {questionId}");
-                
-                // 2. 実行成功した場合のみ、通知を送信
-                await _notificationService.NotifyUniqueCodeGroupAsync(
-                    uniqueCode, 
-                    "QuestionDisplayStopped", 
-                    new { QuestionId = questionId });
-                
-                _logger.LogInformation($"Notification sent to group {uniqueCode} for question {questionId}");
-            }
-            else
-            {
-                _logger.LogError($"StopDisplayCommand failed: {result.GetException()?.Message}");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Error in StopDisplayQuestionForGroup: {ex.Message}");
-        }
-    }
-    else
-    {
-        _logger.LogWarning($"UniqueCode is empty, command not executed for question {questionId}");
-    }
-}
 }

@@ -1,15 +1,20 @@
 using EsCQRSQuestions.Domain;
 using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts.Commands;
+using Sekiban.Pure.Command.Executor;
 
 namespace EsCQRSQuestions.Web;
 
 public class WeatherApiClient(HttpClient httpClient)
 {
-    public async Task<WeatherForecastQuery.WeatherForecastRecord[]> GetWeatherAsync(int maxItems = 10, CancellationToken cancellationToken = default)
+    public async Task<WeatherForecastQuery.WeatherForecastRecord[]> GetWeatherAsync(int maxItems = 10, string? waitForSortableUniqueId = null, CancellationToken cancellationToken = default)
     {
         List<WeatherForecastQuery.WeatherForecastRecord>? forecasts = null;
+        
+        var requestUri = string.IsNullOrEmpty(waitForSortableUniqueId)
+            ? "/api/weatherforecast"
+            : $"/api/weatherforecast?waitForSortableUniqueId={Uri.EscapeDataString(waitForSortableUniqueId)}";
 
-        await foreach (var forecast in httpClient.GetFromJsonAsAsyncEnumerable<WeatherForecastQuery.WeatherForecastRecord>("/api/weatherforecast", cancellationToken))
+        await foreach (var forecast in httpClient.GetFromJsonAsAsyncEnumerable<WeatherForecastQuery.WeatherForecastRecord>(requestUri, cancellationToken))
         {
             if (forecasts?.Count >= maxItems)
             {
@@ -25,20 +30,29 @@ public class WeatherApiClient(HttpClient httpClient)
         return forecasts?.ToArray() ?? [];
     }
 
-    public async Task InputWeatherAsync(InputWeatherForecastCommand command, CancellationToken cancellationToken = default)
+    public async Task<CommandResponseSimple> InputWeatherAsync(InputWeatherForecastCommand command, CancellationToken cancellationToken = default)
     {
-        await httpClient.PostAsJsonAsync("/api/inputweatherforecast", command, cancellationToken);
+        var response = await httpClient.PostAsJsonAsync("/api/inputweatherforecast", command, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+               ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
 
-    public async Task RemoveWeatherAsync(Guid weatherForecastId, CancellationToken cancellationToken = default)
+    public async Task<CommandResponseSimple> RemoveWeatherAsync(Guid weatherForecastId, CancellationToken cancellationToken = default)
     {
         var command = new RemoveWeatherForecastCommand(weatherForecastId);
-        await httpClient.PostAsJsonAsync("/api/removeweatherforecast", command, cancellationToken);
+        var response = await httpClient.PostAsJsonAsync("/api/removeweatherforecast", command, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken)
+               ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
 
-    public async Task UpdateLocationAsync(Guid weatherForecastId, string newLocation, CancellationToken cancellationToken = default)
+    public async Task<CommandResponseSimple> UpdateLocationAsync(Guid weatherForecastId, string newLocation, CancellationToken cancellationToken = default)
     {
         var command = new UpdateWeatherForecastLocationCommand(weatherForecastId, newLocation);
-        await httpClient.PostAsJsonAsync("/api/updateweatherforecastlocation", command, cancellationToken);
+        var response = await httpClient.PostAsJsonAsync("/api/updateweatherforecastlocation", command, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken)
+               ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
 }

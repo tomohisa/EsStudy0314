@@ -7,8 +7,14 @@ namespace EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Queries;
 
 [GenerateSerializer]
 public record ActiveUsersQuery(Guid ActiveUsersId)
-    : IMultiProjectionQuery<AggregateListProjector<ActiveUsersProjector>, ActiveUsersQuery, ActiveUsersQuery.ActiveUsersRecord>
+    : IMultiProjectionQuery<AggregateListProjector<ActiveUsersProjector>, ActiveUsersQuery, ActiveUsersQuery.ActiveUsersRecord>,
+      IWaitForSortableUniqueId
 {
+    /// <summary>
+    /// 指定されたイベントが処理されるまで待機するためのソータブルユニークID
+    /// </summary>
+    public string? WaitForSortableUniqueId { get; set; }
+
     public static ResultBox<ActiveUsersRecord> HandleQuery(
         MultiProjectionState<AggregateListProjector<ActiveUsersProjector>> projection, 
         ActiveUsersQuery query, 
