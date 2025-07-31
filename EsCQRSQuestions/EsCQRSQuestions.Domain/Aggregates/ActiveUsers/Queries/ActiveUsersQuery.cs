@@ -5,7 +5,7 @@ using Sekiban.Pure.Query;
 
 namespace EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Queries;
 
-[GenerateSerializer]
+[GenerateSerializer(GenerateFieldIds = GenerateFieldIds.PublicProperties)]
 public record ActiveUsersQuery(Guid ActiveUsersId)
     : IMultiProjectionQuery<AggregateListProjector<ActiveUsersProjector>, ActiveUsersQuery, ActiveUsersQuery.ActiveUsersRecord>,
       IWaitForSortableUniqueId

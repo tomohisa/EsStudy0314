@@ -5,7 +5,7 @@ using ResultBoxes;
 
 namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 
-[GenerateSerializer]
+[GenerateSerializer(GenerateFieldIds = GenerateFieldIds.PublicProperties)]
 public record GetQuestionGroupsQuery() : 
     IMultiProjectionListQuery<AggregateListProjector<QuestionGroupProjector>, GetQuestionGroupsQuery, GetQuestionGroupsQuery.ResultRecord>,
     IWaitForSortableUniqueId
