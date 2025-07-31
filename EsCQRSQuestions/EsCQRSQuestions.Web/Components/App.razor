@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="ja">
+<html lang="@GetLanguageCode()">
 
 <head>
     <meta charset="utf-8" />
@@ -31,3 +31,12 @@
 </body>
 
 </html>
+
+@code {
+    private string GetLanguageCode()
+    {
+        // Default to English since we can't access NavigationManager in App.razor
+        // The actual language will be determined by the route
+        return "en";
+    }
+}

@@ -1,4 +1,6 @@
-﻿﻿<nav class="navbar">
+﻿@inject NavigationManager Navigation
+
+<nav class="navbar">
     <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
         <span class="navbar-toggler-icon"></span>
     </button>
@@ -6,26 +8,92 @@
     <div class="@NavMenuCssClass">
         <ul class="nav-links">
             <li class="nav-item">
-                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                    <span class="icon icon-home" aria-hidden="true"></span> ホーム
+                <NavLink class="nav-link" href="@GetLocalizedPath("")" Match="NavLinkMatch.All">
+                    <span class="icon icon-home" aria-hidden="true"></span> @GetHomeText()
                 </NavLink>
             </li>
             <li class="nav-item">
-                <NavLink class="nav-link" href="questionair">
-                    <span class="icon icon-survey" aria-hidden="true"></span> アンケート
+                <NavLink class="nav-link" href="@GetLocalizedPath("questionair")">
+                    <span class="icon icon-survey" aria-hidden="true"></span> @GetSurveyText()
                 </NavLink>
             </li>
         </ul>
+        
+        <div class="language-switcher mt-4">
+            <h6 class="text-muted mb-2">Language / 言語</h6>
+            <div class="btn-group-vertical w-100" role="group">
+                <button class="btn btn-sm @GetLanguageButtonClass("en")" @onclick='() => SwitchLanguage("en")'>
+                    English
+                </button>
+                <button class="btn btn-sm @GetLanguageButtonClass("jp")" @onclick='() => SwitchLanguage("jp")'>
+                    日本語
+                </button>
+            </div>
+        </div>
     </div>
 </nav>
 
 @code {
     private bool collapseNavMenu = false;
+    private string currentLanguage = "en";
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    protected override void OnInitialized()
+    {
+        // Determine current language from URL
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        currentLanguage = uri.AbsolutePath.StartsWith("/jp") ? "jp" : "en";
+    }
 
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    private string GetLocalizedPath(string path)
+    {
+        if (currentLanguage == "jp")
+        {
+            return string.IsNullOrEmpty(path) ? "/jp" : $"/jp/{path}";
+        }
+        return string.IsNullOrEmpty(path) ? "/" : $"/{path}";
+    }
+
+    private string GetHomeText() => currentLanguage == "jp" ? "ホーム" : "Home";
+    private string GetSurveyText() => currentLanguage == "jp" ? "アンケート" : "Survey";
+
+    private string GetLanguageButtonClass(string lang)
+    {
+        return currentLanguage == lang ? "btn-primary" : "btn-outline-primary";
+    }
+
+    private void SwitchLanguage(string language)
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var path = uri.AbsolutePath;
+        
+        // Extract the current path without language prefix
+        if (path.StartsWith("/jp/"))
+        {
+            path = path.Substring(3); // Remove "/jp" prefix
+        }
+        else if (path == "/jp")
+        {
+            path = "/";
+        }
+        
+        // Navigate to the new language path
+        if (language == "jp")
+        {
+            Navigation.NavigateTo(path == "/" ? "/jp" : $"/jp{path}");
+        }
+        else
+        {
+            Navigation.NavigateTo(path);
+        }
+        
+        // Update current language
+        currentLanguage = language;
     }
 }

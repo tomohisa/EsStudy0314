@@ -1,9 +1,11 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <div class="page">
     <header class="top-nav">
         <div class="container">
-            <div class="logo">リアルタイムアンケート</div>
+            <div class="logo">@GetLogoText()</div>
             <NavMenu />
         </div>
     </header>
@@ -17,14 +19,52 @@
     <footer class="footer">
         <div class="container">
             <div class="footer-content">
-                <a href="https://www.jtechs.com/japan/" target="_blank">会社概要</a>
+                <a href="@GetCompanyUrl()" target="_blank">@GetCompanyText()</a>
             </div>
         </div>
     </footer>
 </div>
 
 <div id="blazor-error-ui">
-    エラーが発生しました。
-    <a href="" class="reload">再読み込み</a>
+    @GetErrorText()
+    <a href="" class="reload">@GetReloadText()</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    private string currentLanguage = "en";
+
+    protected override void OnInitialized()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        currentLanguage = uri.AbsolutePath.StartsWith("/jp") ? "jp" : "en";
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var lang = currentLanguage == "jp" ? "ja" : "en";
+            await JS.InvokeVoidAsync("eval", $"document.documentElement.lang = '{lang}';");
+        }
+    }
+    
+    protected override void OnParametersSet()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var newLanguage = uri.AbsolutePath.StartsWith("/jp") ? "jp" : "en";
+        
+        if (newLanguage != currentLanguage)
+        {
+            currentLanguage = newLanguage;
+            var lang = currentLanguage == "jp" ? "ja" : "en";
+            _ = JS.InvokeVoidAsync("eval", $"document.documentElement.lang = '{lang}';");
+        }
+    }
+
+    private string GetLogoText() => currentLanguage == "jp" ? "リアルタイムアンケート" : "Real-Time Survey";
+    private string GetCompanyUrl() => currentLanguage == "jp" ? "https://www.jtechs.com/japan/" : "https://www.jtechs.com/";
+    private string GetCompanyText() => currentLanguage == "jp" ? "会社概要" : "About Company";
+    private string GetErrorText() => currentLanguage == "jp" ? "エラーが発生しました。" : "An error has occurred.";
+    private string GetReloadText() => currentLanguage == "jp" ? "再読み込み" : "Reload";
+}
