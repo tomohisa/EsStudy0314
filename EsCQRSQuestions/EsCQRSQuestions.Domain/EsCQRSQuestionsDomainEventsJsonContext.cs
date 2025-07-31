@@ -5,6 +5,10 @@ using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
 using EsCQRSQuestions.Domain.ValueObjects;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using Sekiban.Pure.Events;
+using EsCQRSQuestions.Domain.Aggregates.ActiveUsers;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups;
+using EsCQRSQuestions.Domain.Aggregates.Questions;
+using EsCQRSQuestions.Domain.Aggregates.WeatherForecasts;
 
 namespace EsCQRSQuestions.Domain;
 
@@ -16,6 +20,10 @@ namespace EsCQRSQuestions.Domain;
     [JsonSerializable(typeof(Sekiban.Pure.Documents.PartitionKeys))]
     [JsonSerializable(typeof(Sekiban.Pure.Projectors.SerializableAggregateListProjector))]
     [JsonSerializable(typeof(Sekiban.Pure.Aggregates.SerializableAggregate))]
+    [JsonSerializable(typeof(Sekiban.Pure.Projectors.AggregateListProjector<ActiveUsersProjector>))]
+    [JsonSerializable(typeof(Sekiban.Pure.Projectors.AggregateListProjector<QuestionGroupProjector>))]
+    [JsonSerializable(typeof(Sekiban.Pure.Projectors.AggregateListProjector<QuestionProjector>))]
+    [JsonSerializable(typeof(Sekiban.Pure.Projectors.AggregateListProjector<WeatherForecastProjector>))]
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionCreated>))]
     [JsonSerializable(typeof(EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionCreated))]
     [JsonSerializable(typeof(EventDocument<EsCQRSQuestions.Domain.Aggregates.Questions.Events.QuestionDeleted>))]

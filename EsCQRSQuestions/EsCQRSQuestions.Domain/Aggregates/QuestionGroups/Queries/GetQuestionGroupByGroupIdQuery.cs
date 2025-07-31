@@ -7,7 +7,7 @@ using Sekiban.Pure.Query;
 
 namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 
-[GenerateSerializer]
+[GenerateSerializer(GenerateFieldIds = GenerateFieldIds.PublicProperties)]
 public record GetQuestionGroupByGroupIdQuery(Guid QuestionGroupId) : 
     IMultiProjectionQuery<AggregateListProjector<QuestionGroupProjector>, GetQuestionGroupByGroupIdQuery, Aggregate<QuestionGroup>>,
     IWaitForSortableUniqueId

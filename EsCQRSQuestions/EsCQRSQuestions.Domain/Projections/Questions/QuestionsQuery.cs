@@ -5,7 +5,7 @@ using Sekiban.Pure.Query;
 
 namespace EsCQRSQuestions.Domain.Projections.Questions;
 
-[GenerateSerializer]
+[GenerateSerializer(GenerateFieldIds = GenerateFieldIds.PublicProperties)]
 public record QuestionsQuery(string TextContains = "", Guid? GroupId = null)
     : IMultiProjectionListQuery<QuestionsMultiProjector, QuestionsQuery, QuestionsQuery.QuestionDetailRecord>, IWaitForSortableUniqueId
 {
