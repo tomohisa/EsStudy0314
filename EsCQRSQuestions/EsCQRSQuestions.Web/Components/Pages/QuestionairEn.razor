@@ -12,10 +12,10 @@
 @inject IHttpMessageHandlerFactory HttpMessageHandlerFactory
 @inject NavigationManager NavigationManager
 
-<PageTitle>アンケート</PageTitle>
+<PageTitle>Survey</PageTitle>
 
 <style>
-    /* ボタンの基本スタイル */
+    /* Button basic styles */
     .submit-button {
         position: relative;
         transition: all 0.3s ease;
@@ -23,27 +23,27 @@
         min-width: 150px;
     }
     
-    /* クリック効果 */
+    /* Click effect */
     .submit-button:active:not(:disabled) {
         transform: scale(0.95);
     }
     
-    /* 送信中のパルスアニメーション */
+    /* Submitting pulse animation */
     .submit-pulse {
         animation: pulse 1.5s infinite;
     }
     
-    /* 成功時のフェードインアニメーション */
+    /* Success fade in animation */
     .submit-success {
         animation: fadeInOut 3s;
     }
     
-    /* エラー時の振動アニメーション */
+    /* Error shake animation */
     .submit-error {
         animation: shake 0.5s, fadeInOut 5s;
     }
     
-    /* アニメーションの定義 */
+    /* Animation definitions */
     @@keyframes pulse {
         0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
         70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
@@ -63,7 +63,7 @@
         20%, 40%, 60%, 80% { transform: translateX(5px); }
     }
     
-    /* 送信中のプログレスバー風エフェクト */
+    /* Progress bar effect during submission */
     .submit-progress::after {
         content: '';
         position: absolute;
@@ -87,31 +87,31 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h2 class="mb-0">リアルタイムアンケート</h2>
+                    <h2 class="mb-0">Real-Time Survey</h2>
                 </div>
                 <div class="card-body">
                     @if (!string.IsNullOrEmpty(UniqueCode))
                     {
                         <div class="alert alert-info mb-3">
-                            <small>アンケートコード: <strong>@UniqueCode</strong></small>
+                            <small>Survey Code: <strong>@UniqueCode</strong></small>
                         </div>
                     }
                     else
                     {
                         <div class="mb-3">
-                            <label for="uniqueCode" class="form-label">アンケートコードを入力</label>
+                            <label for="uniqueCode" class="form-label">Enter Survey Code</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="uniqueCode" 
-                                       @bind="inputUniqueCode" placeholder="アンケートコードを入力してください" />
+                                       @bind="inputUniqueCode" placeholder="Enter survey code" />
                                 <button class="btn btn-outline-primary" type="button" @onclick="NavigateToSurvey" disabled="@isValidating">
                                     @if (isValidating)
                                     {
                                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                        <span class="ms-2">検証中...</span>
+                                        <span class="ms-2">Validating...</span>
                                     }
                                     else
                                     {
-                                        <span>アンケートに参加</span>
+                                        <span>Join Survey</span>
                                     }
                                 </button>
                             </div>
@@ -126,9 +126,9 @@
                     }
 
                     <div class="mb-3">
-                        <label for="participantName" class="form-label">お名前（任意）</label>
+                        <label for="participantName" class="form-label">Your Name (Optional)</label>
                         <input type="text" class="form-control" id="participantName" 
-                               @bind="participantName" placeholder="お名前を入力してください" />
+                               @bind="participantName" placeholder="Enter your name" />
                     </div>
 
                     @if (activeQuestion == null)
@@ -136,19 +136,19 @@
                         <div class="text-center py-5">
                             @if (string.IsNullOrEmpty(UniqueCode))
                             {
-                                <h3>アンケートコードを入力してください</h3>
-                                <p class="lead">アンケートに参加するには、上部のフォームからコードを入力してください。</p>
+                                <h3>Please Enter a Survey Code</h3>
+                                <p class="lead">To join a survey, enter the code in the form above.</p>
                                 <div class="alert alert-info mt-3">
                                     <i class="bi bi-info-circle me-2"></i>
-                                    アンケートコードはアンケート管理者から提供されます。
+                                    The survey code is provided by the survey administrator.
                                 </div>
                             }
                             else
                             {
-                                <h3>アンケートへようこそ！</h3>
-                                <p class="lead">質問が表示されるまでお待ちください。</p>
+                                <h3>Welcome to the Survey!</h3>
+                                <p class="lead">Please wait for a question to appear.</p>
                                 <div class="spinner-border text-primary mt-3" role="status">
-                                    <span class="visually-hidden">読み込み中...</span>
+                                    <span class="visually-hidden">Loading...</span>
                                 </div>
                             }
                         </div>
@@ -162,7 +162,7 @@
                                 @if (activeQuestion.AllowMultipleResponses)
                                 {
                                     <div class="alert alert-info mb-3">
-                                        <i class="bi bi-info-circle me-2"></i>複数の選択肢を選ぶことができます
+                                        <i class="bi bi-info-circle me-2"></i>You can select multiple options
                                     </div>
                                     
                                     @foreach (var option in activeQuestion.Options)
@@ -203,14 +203,14 @@
                             <div class="mb-4">
                                 @if (selectedOptionIds.Any())
                                 {
-                                    <label for="comment" class="form-label">コメント（任意）</label>
+                                    <label for="comment" class="form-label">Comment (Optional)</label>
                                     <textarea class="form-control" id="comment" rows="3" 
-                                              @bind="comment" placeholder="コメントを入力してください"></textarea>
+                                              @bind="comment" placeholder="Enter your comment"></textarea>
                                 }
                                 else
                                 {
                                     <div class="alert alert-info">
-                                        回答を選択してください！
+                                        Please select an answer!
                                     </div>
                                 }
                             </div>
@@ -223,19 +223,19 @@
                                     @switch (buttonState)
                                     {
                                         case SubmitButtonState.Ready:
-                                            <span>回答を送信</span>
+                                            <span>Submit Response</span>
                                             break;
                                         case SubmitButtonState.Submitting:
                                             <div class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></div>
-                                            <span>送信中...</span>
+                                            <span>Submitting...</span>
                                             break;
                                         case SubmitButtonState.Success:
                                             <i class="bi bi-check-circle-fill me-2"></i>
-                                            <span>送信完了！</span>
+                                            <span>Submitted!</span>
                                             break;
                                         case SubmitButtonState.Error:
                                             <i class="bi bi-exclamation-circle-fill me-2"></i>
-                                            <span>エラー - 再試行</span>
+                                            <span>Error - Retry</span>
                                             break;
                                     }
                                 </div>
@@ -245,19 +245,19 @@
                         @if (activeQuestion.Responses.Any())
                         {
                             <div class="mt-5">
-                                <h4>回答統計</h4>
+                                <h4>Response Statistics</h4>
                                 <div class="row">
                                     @foreach (var option in activeQuestion.Options)
                                     {
                                         var count = activeQuestion.Responses.Count(r => r.SelectedOptionId == option.Id);
                                         
-                                        // ユニークな回答者数を取得（クライアントIDでグループ化）
+                                        // Get unique respondent count (group by client ID)
                                         var uniqueRespondents = activeQuestion.Responses
                                             .Select(r => r.ClientId)
                                             .Distinct()
                                             .Count();
                                         
-                                        // 安全なパーセンテージ計算（ゼロ除算対策）
+                                        // Safe percentage calculation (avoid division by zero)
                                         var percentage = uniqueRespondents > 0 
                                             ? (count * 100.0 / uniqueRespondents)
                                             : 0;
@@ -275,7 +275,7 @@
                                 </div>
                                 
                                 <div class="mt-4">
-                                    <h5>最近のコメント</h5>
+                                    <h5>Recent Comments</h5>
                                     @if (activeQuestion.Responses.Any(r => !string.IsNullOrEmpty(r.Comment)))
                                     {
                                         <div class="list-group">
@@ -286,7 +286,7 @@
                                             {
                                                 <div class="list-group-item">
                                                     <div class="d-flex w-100 justify-content-between">
-                                                        <h6 class="mb-1">@(string.IsNullOrEmpty(response.ParticipantName) ? "匿名" : response.ParticipantName)</h6>
+                                                        <h6 class="mb-1">@(string.IsNullOrEmpty(response.ParticipantName) ? "Anonymous" : response.ParticipantName)</h6>
                                                         <small>@response.Timestamp.ToString("g")</small>
                                                     </div>
                                                     <p class="mb-1">@response.Comment</p>
@@ -296,7 +296,7 @@
                                     }
                                     else
                                     {
-                                        <p>まだコメントはありません。</p>
+                                        <p>No comments yet.</p>
                                     }
                                 </div>
                             </div>
@@ -315,7 +315,7 @@
     private HubConnection hubConnection;
     private ActiveQuestionQuery.ActiveQuestionRecord? activeQuestion;
     private string participantName = "";
-    private List<string> selectedOptionIds = new List<string>(); // 変更：複数の選択肢を保持するリストに
+    private List<string> selectedOptionIds = new List<string>(); // Multiple selections support
     private string comment = "";
     private string errorMessage = "";
     private string optionError = "";
@@ -325,28 +325,28 @@
     private string inputUniqueCode = "";
     private bool isValidating = false;
     
-    // クライアントIDを保持する変数
+    // Client ID variable
     private string clientId = "";
 
-    // 前回のUniqueCodeを保存する変数
+    // Previous UniqueCode to track changes
     private string? previousUniqueCode;
     
-    // ボタンの状態を管理する列挙型
+    // Button state enum
     private enum SubmitButtonState
     {
-        Ready,      // 送信準備完了
-        Submitting, // 送信中
-        Success,    // 送信成功
-        Error       // 送信失敗
+        Ready,      // Ready to submit
+        Submitting, // Submitting
+        Success,    // Submission successful
+        Error       // Submission failed
     }
     
-    // 現在のボタン状態
+    // Current button state
     private SubmitButtonState buttonState = SubmitButtonState.Ready;
     
-    // タイマー用変数（成功/エラー状態を一時的に表示した後、準備完了状態に戻すため）
+    // Timer variable (to reset state after showing success/error)
     private Timer? stateResetTimer;
 
-    // JSインタロップ用の関数
+    // JS interop function
     [JSInvokable]
     public void SetClientId(string id)
     {
@@ -357,7 +357,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // クライアントIDの取得または生成
+        // Get or create client ID
         await JsRuntime.InvokeVoidAsync("getOrCreateClientId");
         
         // Set up SignalR connection with improved timeout and resilience settings
@@ -415,7 +415,7 @@
                     Console.Error.WriteLine($"Error during reconnection attempt {i+1}: {ex.Message}");
                     if (i == 4) // Last attempt
                     {
-                        errorMessage = "接続が切断されました。再接続するにはページを更新してください。";
+                        errorMessage = "Connection lost. Please refresh the page to reconnect.";
                         await InvokeAsync(StateHasChanged);
                     }
                 }
@@ -427,7 +427,7 @@
         {
             Console.WriteLine($"SignalR reconnecting... Error: {error?.Message}");
             Console.WriteLine($"Connection state: {hubConnection.State}");
-            errorMessage = "接続が不安定です。再接続を試みています...";
+            errorMessage = "Connection unstable. Attempting to reconnect...";
             InvokeAsync(StateHasChanged);
             return Task.CompletedTask;
         };
@@ -517,7 +517,7 @@
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error starting SignalR connection: {ex.Message}");
-            errorMessage = $"接続エラー: {ex.Message}";
+            errorMessage = $"Connection error: {ex.Message}";
         }
 
         // Get the active question
@@ -525,17 +525,17 @@
     }
 
     /// <summary>
-    /// パラメータが変更されたときに呼び出されるライフサイクルメソッド
+    /// Lifecycle method called when parameters change
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {
-        // UniqueCodeが変更された場合のみ処理
+        // Only process if UniqueCode has changed
         if (UniqueCode != previousUniqueCode && !string.IsNullOrEmpty(UniqueCode))
         {
             Console.WriteLine($"UniqueCode changed from {previousUniqueCode} to {UniqueCode}");
             previousUniqueCode = UniqueCode;
             
-            // すでに接続済みの場合は再接続せずにSignalRグループに参加
+            // If already connected, join the SignalR group without reconnecting
             if (hubConnection.State == HubConnectionState.Connected)
             {
                 await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
@@ -553,7 +553,7 @@
         {
             Console.WriteLine($"Refreshing active question for UniqueCode: {UniqueCode ?? "none"}");
             
-            // UniqueCodeが空の場合は質問を表示しない
+            // Don't show question if no UniqueCode
             if (string.IsNullOrEmpty(UniqueCode))
             {
                 activeQuestion = null;
@@ -565,7 +565,7 @@
             {
                 Console.WriteLine($"Active question received: {activeQuestion.Text}");
                 
-                // クライアントIDに基づいて重複チェック
+                // Check for duplicate responses based on client ID
                 var currentResponses = activeQuestion.Responses.Where(r => r.ClientId == clientId);
                 hasSubmitted = currentResponses.Any();
                 
@@ -574,7 +574,7 @@
                     Console.WriteLine($"User with client ID {clientId} has already submitted a response");
                 }
                 
-                // エラーメッセージをクリア（成功時）
+                // Clear error message on success
                 errorMessage = "";
             }
             else
@@ -582,39 +582,39 @@
                 Console.WriteLine("No active question at this time");
                 activeQuestion = null; // Ensure null if empty result returned
                 
-                // 既にコードの検証は済んでいるので、アクティブな質問がない場合はエラーではない
+                // Code validation is already done, so no active question is not an error
             }
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error refreshing active question: {ex.Message}");
             
-            // 接続エラーの場合のみエラーメッセージを更新
+            // Only update error message for connection errors
             if (ex.Message.Contains("Connection") || ex.Message.Contains("connect"))
             {
-                errorMessage = $"サーバーとの接続に問題があります: {ex.Message}";
+                errorMessage = $"Server connection issue: {ex.Message}";
             }
-            // 404エラーの場合は存在しないコード
+            // 404 error means non-existent code
             else if (ex is HttpRequestException httpEx && httpEx.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                errorMessage = "入力されたアンケートコードは存在しません。正しいコードを入力してください。";
+                errorMessage = "The survey code entered does not exist. Please check the code and try again.";
             }
         }
     }
 
     /// <summary>
-    /// アンケートコードを入力してナビゲーションするメソッド
+    /// Method to enter survey code and navigate
     /// </summary>
     private async Task NavigateToSurvey()
     {
         if (!string.IsNullOrWhiteSpace(inputUniqueCode))
         {
-            // URLに含まれない文字を削除/置換
+            // Remove/replace URL-unsafe characters
             var sanitizedCode = Uri.EscapeDataString(inputUniqueCode.Trim());
             
-            // コードが有効かどうかを検証
+            // Validate the code
             isValidating = true;
-            errorMessage = ""; // エラーメッセージをクリア
+            errorMessage = ""; // Clear error message
             
             try
             {
@@ -622,18 +622,18 @@
                 
                 if (!isValidCode)
                 {
-                    errorMessage = "入力されたアンケートコードは存在しません。正しいコードを入力してください。";
+                    errorMessage = "The survey code entered does not exist. Please check the code and try again.";
                     isValidating = false;
                     return;
                 }
                 
-                // UniqueCodeを更新
+                // Update UniqueCode
                 UniqueCode = sanitizedCode;
                 
-                // URLを更新（クライアントサイドルーティング）
+                // Update URL (client-side routing)
                 NavigationManager.NavigateTo($"/questionair/{sanitizedCode}");
                 
-                // ナビゲーション後にSignalRグループに参加
+                // Join SignalR group after navigation
                 if (hubConnection.State == HubConnectionState.Connected)
                 {
                     try
@@ -645,13 +645,13 @@
                     catch (Exception ex)
                     {
                         Console.Error.WriteLine($"Error joining survey after navigation: {ex.Message}");
-                        errorMessage = "アンケートグループへの参加中にエラーが発生しました。ページを更新してください。";
+                        errorMessage = "Error joining survey group. Please refresh the page.";
                     }
                 }
             }
             catch (Exception ex)
             {
-                errorMessage = $"アンケートコードの検証中にエラーが発生しました: {ex.Message}";
+                errorMessage = $"Error validating survey code: {ex.Message}";
                 Console.Error.WriteLine(errorMessage);
             }
             finally
@@ -661,7 +661,7 @@
         }
         else
         {
-            errorMessage = "アンケートコードを入力してください。アンケートに参加するにはコードが必要です。";
+            errorMessage = "Please enter a survey code. A code is required to join a survey.";
         }
     }
     
@@ -693,10 +693,10 @@
 
     private async Task SubmitResponse()
     {
-        // 入力検証
+        // Input validation
         if (!selectedOptionIds.Any())
         {
-            optionError = "少なくとも1つの選択肢を選んでください";
+            optionError = "Please select at least one option";
             return;
         }
         else
@@ -706,25 +706,25 @@
 
         if (activeQuestion == null)
         {
-            errorMessage = "回答する質問がありません";
+            errorMessage = "No question to answer";
             return;
         }
 
         if (hasSubmitted)
         {
-            errorMessage = "すでにこの質問に回答済みです";
+            errorMessage = "You have already answered this question";
             return;
         }
 
-        // クライアントIDが空の場合は再生成を試みる
+        // If client ID is empty, try to regenerate
         if (string.IsNullOrEmpty(clientId))
         {
             await JsRuntime.InvokeVoidAsync("getOrCreateClientId");
-            await Task.Delay(500); // 少し待ってIDが設定されるのを待つ
+            await Task.Delay(500); // Wait a bit for ID to be set
             
             if (string.IsNullOrEmpty(clientId))
             {
-                // それでも取得できない場合は一時的なIDを生成
+                // If still can't get it, generate temporary ID
                 clientId = Guid.NewGuid().ToString();
                 Console.WriteLine($"Generated temporary client ID: {clientId}");
             }
@@ -732,7 +732,7 @@
 
         try
         {
-            // 送信中状態に設定
+            // Set to submitting state
             buttonState = SubmitButtonState.Submitting;
             isSubmitting = true;
             
@@ -750,10 +750,10 @@
                 comment,
                 clientId);
             
-            // 成功状態に設定
+            // Set to success state
             buttonState = SubmitButtonState.Success;
             
-            // 3秒後に準備完了状態に戻す
+            // Reset to ready state after 3 seconds
             SetupStateResetTimer();
             
             // Mark as submitted and show responses
@@ -767,13 +767,13 @@
         }
         catch (Exception ex)
         {
-            // エラー状態に設定
+            // Set to error state
             buttonState = SubmitButtonState.Error;
             
-            // 5秒後に準備完了状態に戻す
+            // Reset to ready state after 5 seconds
             SetupStateResetTimer(5000);
             
-            errorMessage = $"回答の送信中にエラーが発生しました: {ex.Message}";
+            errorMessage = $"Error submitting response: {ex.Message}";
             Console.Error.WriteLine(errorMessage);
         }
         finally
@@ -784,7 +784,7 @@
 
     public async ValueTask DisposeAsync()
     {
-        // タイマーの破棄
+        // Dispose timer
         stateResetTimer?.Dispose();
         
         if (hubConnection is not null)
@@ -794,7 +794,7 @@
     }
     
     /// <summary>
-    /// ボタンのスタイルクラスを取得するヘルパーメソッド
+    /// Helper method to get button style class
     /// </summary>
     private string GetButtonClass()
     {
@@ -809,7 +809,7 @@
     }
     
     /// <summary>
-    /// ボタンのアニメーションクラスを取得するヘルパーメソッド
+    /// Helper method to get button animation class
     /// </summary>
     private string GetButtonAnimation()
     {
@@ -824,14 +824,14 @@
     }
     
     /// <summary>
-    /// 状態リセットタイマーを設定するヘルパーメソッド
+    /// Helper method to set up state reset timer
     /// </summary>
     private void SetupStateResetTimer(int milliseconds = 3000)
     {
-        // 既存のタイマーをクリア
+        // Clear existing timer
         stateResetTimer?.Dispose();
         
-        // 新しいタイマーをセットアップ
+        // Set up new timer
         stateResetTimer = new Timer(_ => 
         {
             buttonState = SubmitButtonState.Ready;
