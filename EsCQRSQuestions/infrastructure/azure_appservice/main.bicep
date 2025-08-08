@@ -73,7 +73,9 @@ module cosmosOrleansDefaultGrainContainer '3.cosmos/5.orleans-grain-container.bi
     orleansDefaultGrainType: orleansDefaultGrainType
   }
   dependsOn: [
-    cosmosDatabase
+  cosmosDatabase
+  // Ensure Orleans DB is created before creating OrleansStorage container
+  cosmosOrleansContainer
   ]
 }
 
