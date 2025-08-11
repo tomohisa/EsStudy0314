@@ -157,41 +157,109 @@ public class QuestionApiClient(HttpClient httpClient)
     // Start displaying a question
     public async Task<CommandResponseSimple> StartDisplayQuestionAsync(Guid questionId, CancellationToken cancellationToken = default)
     {
-        var command = new StartDisplayCommand(questionId);
-        var response = await httpClient.PostAsJsonAsync("/api/questions/startDisplay", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
-              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        try
+        {
+            var command = new StartDisplayCommand(questionId);
+            var response = await httpClient.PostAsJsonAsync("/api/questions/startDisplay", command, cancellationToken);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"API request failed with status {response.StatusCode}: {errorContent}");
+            }
+            
+            return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+                  ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        }
+        catch (HttpRequestException)
+        {
+            throw; // Re-throw HTTP exceptions as-is
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to start question display: {ex.Message}", ex);
+        }
     }
 
     // Stop displaying a question
     public async Task<CommandResponseSimple> StopDisplayQuestionAsync(Guid questionId, CancellationToken cancellationToken = default)
     {
-        var command = new StopDisplayCommand(questionId);
-        var response = await httpClient.PostAsJsonAsync("/api/questions/stopDisplay", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
-              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        try
+        {
+            var command = new StopDisplayCommand(questionId);
+            var response = await httpClient.PostAsJsonAsync("/api/questions/stopDisplay", command, cancellationToken);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"API request failed with status {response.StatusCode}: {errorContent}");
+            }
+            
+            return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+                  ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        }
+        catch (HttpRequestException)
+        {
+            throw; // Re-throw HTTP exceptions as-is
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to stop question display: {ex.Message}", ex);
+        }
     }
 
     // Add a response to a question
     public async Task<CommandResponseSimple> AddResponseAsync(Guid questionId, string? participantName, string selectedOptionId, string? comment, string clientId, CancellationToken cancellationToken = default)
     {
-        var command = new AddResponseCommand(questionId, participantName, selectedOptionId, comment, clientId);
-        var response = await httpClient.PostAsJsonAsync("/api/questions/addResponse", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
-              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        try
+        {
+            var command = new AddResponseCommand(questionId, participantName, selectedOptionId, comment, clientId);
+            var response = await httpClient.PostAsJsonAsync("/api/questions/addResponse", command, cancellationToken);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"API request failed with status {response.StatusCode}: {errorContent}");
+            }
+            
+            return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+                  ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        }
+        catch (HttpRequestException)
+        {
+            throw; // Re-throw HTTP exceptions as-is
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to add response: {ex.Message}", ex);
+        }
     }
 
     // Delete a question
     public async Task<CommandResponseSimple> DeleteQuestionAsync(Guid questionId, CancellationToken cancellationToken = default)
     {
-        var command = new DeleteQuestionCommand(questionId);
-        var response = await httpClient.PostAsJsonAsync("/api/questions/delete", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
-              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        try
+        {
+            var command = new DeleteQuestionCommand(questionId);
+            var response = await httpClient.PostAsJsonAsync("/api/questions/delete", command, cancellationToken);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"API request failed with status {response.StatusCode}: {errorContent}");
+            }
+            
+            return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+                  ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        }
+        catch (HttpRequestException)
+        {
+            throw; // Re-throw HTTP exceptions as-is
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to delete question: {ex.Message}", ex);
+        }
     }
 }
 

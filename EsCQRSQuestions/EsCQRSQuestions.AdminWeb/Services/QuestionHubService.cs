@@ -83,18 +83,49 @@ namespace EsCQRSQuestions.AdminWeb.Services
 
         public async Task JoinAdminGroup()
         {
-            if (IsConnected)
+            try
             {
-                await _hubConnection!.InvokeAsync("JoinAdminGroup");
+                if (IsConnected)
+                {
+                    _logger.LogInformation("Joining admin group...");
+                    await _hubConnection!.InvokeAsync("JoinAdminGroup");
+                    _logger.LogInformation("Successfully joined admin group");
+                }
+                else
+                {
+                    _logger.LogWarning("Cannot join admin group - SignalR connection not established");
+                    throw new InvalidOperationException("SignalR connection not established");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error joining admin group: {Message}", ex.Message);
+                throw new InvalidOperationException($"Failed to join admin group: {ex.Message}", ex);
             }
         }
 
         // UniqueCodeを指定して表示依頼を送信
         public async Task StartDisplayQuestionForGroup(Guid questionId, string uniqueCode)
         {
-            if (IsConnected && !string.IsNullOrWhiteSpace(uniqueCode))
+            try
             {
-                await _hubConnection!.InvokeAsync("StartDisplayQuestionForGroup", questionId, uniqueCode);
+                if (IsConnected && !string.IsNullOrWhiteSpace(uniqueCode))
+                {
+                    _logger.LogInformation("Starting display for question {QuestionId} in group {UniqueCode}", questionId, uniqueCode);
+                    await _hubConnection!.InvokeAsync("StartDisplayQuestionForGroup", questionId, uniqueCode);
+                    _logger.LogInformation("Successfully started display for question {QuestionId}", questionId);
+                }
+                else
+                {
+                    var reason = !IsConnected ? "SignalR connection not established" : "UniqueCode is empty";
+                    _logger.LogWarning("Cannot start display - {Reason}", reason);
+                    throw new InvalidOperationException($"Cannot start display: {reason}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error starting display for question {QuestionId}: {Message}", questionId, ex.Message);
+                throw new InvalidOperationException($"Failed to start display for question {questionId}: {ex.Message}", ex);
             }
         }
 
@@ -191,9 +222,19 @@ namespace EsCQRSQuestions.AdminWeb.Services
                             await _hubConnection.InvokeAsync("JoinAdminGroup");
                             
                             // Notify subscribers that they need to refresh their data
-                            OnActiveUsersChanged();
-                            OnQuestionChanged();
-                            OnQuestionGroupChanged();
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    await OnActiveUsersChanged();
+                                    await OnQuestionChanged();
+                                    await OnQuestionGroupChanged();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "Error during reconnection event notifications: {Message}", ex.Message);
+                                }
+                            });
                             
                             break;
                         }
