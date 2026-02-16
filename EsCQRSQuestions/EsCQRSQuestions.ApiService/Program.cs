@@ -40,9 +40,6 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
 builder.AddKeyedAzureTableClient("OrleansSekibanClustering");
-
-builder.Services.AddSingleton<JsonGrainStorageSerializer>();
-
 builder.AddKeyedAzureBlobClient("OrleansSekibanGrainState");
 builder.AddKeyedAzureQueueClient("OrleansSekibanQueue");
 builder.AddKeyedAzureTableClient("OrleansPubSubGrainState");
@@ -223,10 +220,8 @@ builder.UseOrleans(config =>
             options.Configure<IServiceProvider>((opt, sp) =>
             {
                 opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
-                // opt.GrainStorageSerializer = sp.GetRequiredService<CustomJsonSerializer>();
-                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSerializer>();
+                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSekibanOrleansSerializer>();
             });
-            // options.GrainStorageSerializer は既定でこの Newtonsoft シリアライザーになる
             options.Configure<IGrainStorageSerializer>((op, serializer) => op.GrainStorageSerializer = serializer);
         });
 
@@ -236,18 +231,19 @@ builder.UseOrleans(config =>
             options.Configure<IServiceProvider>((opt, sp) =>
             {
                 opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
-                // opt.GrainStorageSerializer = sp.GetRequiredService<IGrainStorageSerializer>();
-                // opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
-                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSerializer>();
-                // opt.BlobServiceClient = sp.GetKeyedService<Azure.Storage.Blobs.BlobServiceClient>("OrleansSekibanGrainState");
+                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSekibanOrleansSerializer>();
             });
-            // options.GrainStorageSerializer は既定でこの Newtonsoft シリアライザーになる
             options.Configure<IGrainStorageSerializer>((op, serializer) => op.GrainStorageSerializer = serializer);
         });
+
+        // Orleans will automatically discover grains in the same assembly
         // Orleans will automatically discover grains in the same assembly
         config.ConfigureServices(services =>
-            services.AddTransient<IGrainStorageSerializer, CustomJsonSerializer>());
+            services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonSekibanOrleansSerializer>());
     }
+    // Orleans will automatically discover grains in the same assembly
+    config.ConfigureServices(services =>
+        services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonSekibanOrleansSerializer>());
 });
 
 builder.Services.AddSingleton(
@@ -261,8 +257,8 @@ builder.Services.AddTransient<IExecutingUserProvider, HttpExecutingUserProvider>
 builder.Services.AddHttpContextAccessor();
 // builder.Services.AddTransient<IGrainStorageSerializer, CustomJsonSerializer>();
 // builder.Services.AddTransient<CustomJsonSerializer>();
-builder.Services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonSerializer>();
-builder.Services.AddTransient<NewtonsoftJsonSerializer>();
+builder.Services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonSekibanOrleansSerializer>();
+builder.Services.AddTransient<NewtonsoftJsonSekibanOrleansSerializer>();
 builder.Services.AddTransient<SekibanOrleansExecutor>();
 
 

@@ -68,11 +68,28 @@ public class QuestionGroupApiClient(HttpClient httpClient)
         string name,
         CancellationToken cancellationToken = default)
     {
-        var command = new CreateQuestionGroup(name);
-        var response = await httpClient.PostAsJsonAsync("/api/questionGroups", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
-              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        try
+        {
+            var command = new CreateQuestionGroup(name);
+            var response = await httpClient.PostAsJsonAsync("/api/questionGroups", command, cancellationToken);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"API request failed with status {response.StatusCode}: {errorContent}");
+            }
+            
+            return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+                  ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        }
+        catch (HttpRequestException)
+        {
+            throw; // Re-throw HTTP exceptions as-is
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to create group: {ex.Message}", ex);
+        }
     }
     
     // Update a question group's name
@@ -81,11 +98,28 @@ public class QuestionGroupApiClient(HttpClient httpClient)
         string newName,
         CancellationToken cancellationToken = default)
     {
-        var command = new UpdateQuestionGroupCommand(groupId, newName);
-        var response = await httpClient.PutAsJsonAsync($"/api/questionGroups/{groupId}", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
-              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        try
+        {
+            var command = new UpdateQuestionGroupCommand(groupId, newName);
+            var response = await httpClient.PutAsJsonAsync($"/api/questionGroups/{groupId}", command, cancellationToken);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"API request failed with status {response.StatusCode}: {errorContent}");
+            }
+            
+            return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+                  ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        }
+        catch (HttpRequestException)
+        {
+            throw; // Re-throw HTTP exceptions as-is
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to update group: {ex.Message}", ex);
+        }
     }
     
     // Delete a question group
@@ -93,10 +127,27 @@ public class QuestionGroupApiClient(HttpClient httpClient)
         Guid groupId,
         CancellationToken cancellationToken = default)
     {
-        var response = await httpClient.DeleteAsync($"/api/questionGroups/{groupId}", cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
-              ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        try
+        {
+            var response = await httpClient.DeleteAsync($"/api/questionGroups/{groupId}", cancellationToken);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"API request failed with status {response.StatusCode}: {errorContent}");
+            }
+            
+            return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
+                  ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+        }
+        catch (HttpRequestException)
+        {
+            throw; // Re-throw HTTP exceptions as-is
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to delete group: {ex.Message}", ex);
+        }
     }
     
     // Add a question to a group

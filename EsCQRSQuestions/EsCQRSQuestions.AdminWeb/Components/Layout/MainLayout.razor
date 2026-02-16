@@ -17,11 +17,17 @@
     </main>
 </div>
 
+<!-- Notification container for toast messages -->
+<div id="notification-container" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;"></div>
+
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+<!-- Error handling JavaScript -->
+<script src="~/js/error-handler.js"></script>
 
 <style>
     .admin-badge {

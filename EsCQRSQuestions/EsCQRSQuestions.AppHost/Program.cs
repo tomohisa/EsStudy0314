@@ -38,6 +38,7 @@ var apiService = builder.AddProject<EsCQRSQuestions_ApiService>("apiservice")
     .WithReference(postgres)
     .WithReference(orleans)
     .WithReference(queueCheckpointTable)
+    .WaitFor(clusteringTable)
     // .WithReplicas(2); // Uncomment to run with 2 replicas
     ; // Use our custom extension method
 

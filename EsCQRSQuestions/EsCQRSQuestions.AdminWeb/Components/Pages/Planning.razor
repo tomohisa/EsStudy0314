@@ -115,54 +115,106 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // Set up event handlers for the hub service
-        HubService.ActiveUsersChanged += RefreshActiveUsers;
-        HubService.QuestionChanged += OnQuestionChanged;
-        HubService.QuestionGroupChanged += OnQuestionGroupChanged;
-        HubService.ResponseAdded += OnResponseAdded;
-        
-        // Initialize the hub connection
-        await HubService.InitializeAsync();
-        await HubService.JoinAdminGroup();
-        
-        // Load initial data
-        await RefreshActiveUsers();
-        await RefreshGroupsWithSortableUniqueId();
-        await RefreshQuestionsInGroupWithSortableUniqueId();
-        
-        // Select first group if none selected
-        if (groups?.Any() == true && selectedGroupId == null)
+        try
         {
-            selectedGroupId = groups.First().Id;
+            Console.WriteLine("Planning page initialization started");
+            
+            // Set up event handlers for the hub service
+            HubService.ActiveUsersChanged += RefreshActiveUsers;
+            HubService.QuestionChanged += OnQuestionChanged;
+            HubService.QuestionGroupChanged += OnQuestionGroupChanged;
+            HubService.ResponseAdded += OnResponseAdded;
+            
+            Console.WriteLine("Hub service event handlers configured");
+            
+            // Initialize the hub connection
+            await HubService.InitializeAsync();
+            Console.WriteLine("Hub service initialized");
+            
+            await HubService.JoinAdminGroup();
+            Console.WriteLine("Joined admin group");
+            
+            // Load initial data
+            await RefreshActiveUsers();
+            await RefreshGroupsWithSortableUniqueId();
             await RefreshQuestionsInGroupWithSortableUniqueId();
-            StateHasChanged();
-            Console.WriteLine($"Auto-selected first group: {selectedGroupId}");
+            
+            // Select first group if none selected
+            if (groups?.Any() == true && selectedGroupId == null)
+            {
+                selectedGroupId = groups.First().Id;
+                await RefreshQuestionsInGroupWithSortableUniqueId();
+                StateHasChanged();
+                Console.WriteLine($"Auto-selected first group: {selectedGroupId}");
+            }
+            
+            Console.WriteLine("Planning page initialization completed successfully");
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = $"Planning page initialization failed: {ex.Message}";
+            Console.Error.WriteLine(errorMessage);
+            Console.Error.WriteLine($"Exception Type: {ex.GetType().Name}");
+            Console.Error.WriteLine($"Stack Trace: {ex.StackTrace}");
+            
+            // Log to browser console and show alert
+            await LogErrorToBrowserAsync("OnInitializedAsync", ex);
+            await ShowUserErrorAsync($"ページの初期化中にエラーが発生しました: {ex.Message}");
         }
     }
 
     private async Task OnQuestionChanged()
     {
-        await RefreshQuestionsInGroupWithSortableUniqueId();
-        if (selectedQuestion is not null)
+        try
         {
-            await RefreshSelectedQuestion();
+            Console.WriteLine("OnQuestionChanged event received");
+            await RefreshQuestionsInGroupWithSortableUniqueId();
+            if (selectedQuestion is not null)
+            {
+                await RefreshSelectedQuestion();
+            }
+            Console.WriteLine("OnQuestionChanged event handled successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error in OnQuestionChanged: {ex.Message}");
+            await LogErrorToBrowserAsync("OnQuestionChanged", ex);
         }
     }
 
     private async Task OnQuestionGroupChanged() 
     {
-        await RefreshGroupsWithSortableUniqueId();
-        await RefreshQuestionsInGroupWithSortableUniqueId();
+        try
+        {
+            Console.WriteLine("OnQuestionGroupChanged event received");
+            await RefreshGroupsWithSortableUniqueId();
+            await RefreshQuestionsInGroupWithSortableUniqueId();
+            Console.WriteLine("OnQuestionGroupChanged event handled successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error in OnQuestionGroupChanged: {ex.Message}");
+            await LogErrorToBrowserAsync("OnQuestionGroupChanged", ex);
+        }
     }
 
     private async Task OnResponseAdded()
     {
-        Console.WriteLine("Response added event received - refreshing all questions");
-        await RefreshQuestionsInGroupWithSortableUniqueId();
-        
-        if (selectedQuestion is not null) 
+        try
         {
-             await RefreshSelectedQuestion();
+            Console.WriteLine("Response added event received - refreshing all questions");
+            await RefreshQuestionsInGroupWithSortableUniqueId();
+            
+            if (selectedQuestion is not null) 
+            {
+                 await RefreshSelectedQuestion();
+            }
+            Console.WriteLine("OnResponseAdded event handled successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error in OnResponseAdded: {ex.Message}");
+            await LogErrorToBrowserAsync("OnResponseAdded", ex);
         }
     }
 
@@ -536,7 +588,7 @@ else
                     Console.WriteLine($"質問をグループ {groupIdToUse} に作成しました");
                     
                     // SortableUniqueIdを使ってデータをリフレッシュ
-                    await RefreshQuestionsInGroupWithSortableUniqueId(response.LastSortableUniqueId);
+                    await RefreshQuestionsInGroupWithSortableUniqueId(response.LastSortableUniqueId ?? "");
                 } catch (Exception ex) {
                     await JsRuntime.InvokeVoidAsync("alert", $"質問の作成に失敗しました: {ex.Message}");
                     Console.Error.WriteLine($"質問作成エラー: {ex.Message}");
@@ -581,7 +633,8 @@ else
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error starting display: {ex.Message}");
-            await JsRuntime.InvokeVoidAsync("alert", $"質問の表示に失敗しました: {ex.Message}");
+            await LogErrorToBrowserAsync("StartDisplayQuestion", ex);
+            await ShowUserErrorAsync($"質問の表示に失敗しました: {ex.Message}");
         }
     }
 
@@ -630,6 +683,8 @@ else
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Error deleting question: {ex.Message}");
+                await LogErrorToBrowserAsync("DeleteQuestion", ex);
+                await ShowUserErrorAsync($"質問の削除中にエラーが発生しました: {ex.Message}");
             }
         }
     }
@@ -679,11 +734,13 @@ else
             await CloseGroupModal();
 
             // SortableUniqueIdを使ってグループデータをリフレッシュ
-            await RefreshGroupsWithSortableUniqueId(response.LastSortableUniqueId);
+            await RefreshGroupsWithSortableUniqueId(response.LastSortableUniqueId ?? "");
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error saving group: {ex.Message}");
+            await LogErrorToBrowserAsync("SaveGroup", ex);
+            await ShowUserErrorAsync($"グループの保存中にエラーが発生しました: {ex.Message}");
         }
     }
 
@@ -706,7 +763,7 @@ else
                 }
 
                 // SortableUniqueIdを使ってグループデータをリフレッシュ
-                await RefreshGroupsWithSortableUniqueId(response.LastSortableUniqueId);
+                await RefreshGroupsWithSortableUniqueId(response.LastSortableUniqueId ?? "");
                 
                 // 強制的にUIを更新
                 await InvokeAsync(StateHasChanged);
@@ -784,18 +841,80 @@ else
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error changing question order: {ex.Message}");
+            await LogErrorToBrowserAsync("ChangeQuestionOrder", ex);
+            await ShowUserErrorAsync($"質問の順序変更中にエラーが発生しました: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// エラーをブラウザのコンソールとサーバーログに出力します
+    /// </summary>
+    private async Task LogErrorToBrowserAsync(string methodName, Exception ex)
+    {
+        try
+        {
+            var errorInfo = new
+            {
+                Method = methodName,
+                ErrorType = ex.GetType().Name,
+                Message = ex.Message,
+                StackTrace = ex.StackTrace,
+                Timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                Url = NavigationManager.Uri
+            };
+            
+            var jsonError = System.Text.Json.JsonSerializer.Serialize(errorInfo, new System.Text.Json.JsonSerializerOptions 
+            { 
+                WriteIndented = true 
+            });
+            
+            // ブラウザコンソールにエラー出力
+            await JsRuntime.InvokeVoidAsync("console.error", $"[AdminWeb Error] {methodName}:", jsonError);
+            
+            // サーバーログにも出力
+            Console.Error.WriteLine($"[AdminWeb Error] Method: {methodName}");
+            Console.Error.WriteLine($"ErrorType: {ex.GetType().Name}");
+            Console.Error.WriteLine($"Message: {ex.Message}");
+            Console.Error.WriteLine($"StackTrace: {ex.StackTrace}");
+            Console.Error.WriteLine($"Url: {NavigationManager.Uri}");
+        }
+        catch (Exception logEx)
+        {
+            Console.Error.WriteLine($"Failed to log error: {logEx.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ユーザーにエラーメッセージを表示します
+    /// </summary>
+    private async Task ShowUserErrorAsync(string message)
+    {
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("alert", message);
+        }
+        catch (Exception alertEx)
+        {
+            Console.Error.WriteLine($"Failed to show user alert: {alertEx.Message}");
         }
     }
 
     public async ValueTask DisposeAsync()
     {
-        // Unsubscribe from events
-        HubService.ActiveUsersChanged -= RefreshActiveUsers;
-        HubService.QuestionChanged -= OnQuestionChanged;
-        HubService.QuestionGroupChanged -= OnQuestionGroupChanged;
-        HubService.ResponseAdded -= OnResponseAdded;
-        
-        // HubServiceのDisposeを呼び出す
-        await HubService.DisposeAsync();
+        try
+        {
+            // Unsubscribe from events
+            HubService.ActiveUsersChanged -= RefreshActiveUsers;
+            HubService.QuestionChanged -= OnQuestionChanged;
+            HubService.QuestionGroupChanged -= OnQuestionGroupChanged;
+            HubService.ResponseAdded -= OnResponseAdded;
+            
+            // HubServiceのDisposeを呼び出す
+            await HubService.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error during disposal: {ex.Message}");
+        }
     }
 }
