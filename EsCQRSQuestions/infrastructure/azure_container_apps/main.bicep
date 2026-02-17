@@ -36,6 +36,9 @@ var suffix = substring(uniqueString(resourceGroup().id), 0, 6)
 var acrName = 'acr${uniqueString(resourceGroup().id, 'acr')}'
 var logAnalyticsName = 'law-${suffix}'
 var appInsightsName = 'ai-${suffix}'
+var signalRName = 'signalr-${suffix}'
+var cosmosAccountName = 'cosmos${uniqueString(resourceGroup().id, 'cosmos')}'
+var storageAccountName = take('st${replace(uniqueString(resourceGroup().id, 'storage'), '-', '')}', 24)
 var containerEnvName = 'cae-${suffix}'
 var backendAppName = 'be-${suffix}'
 var frontendAppName = 'fe-${suffix}'
@@ -81,6 +84,151 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
     adminUserEnabled: true
   }
 }
+
+resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2023-04-15' = {
+  name: cosmosAccountName
+  location: resourceGroup().location
+  kind: 'GlobalDocumentDB'
+  properties: {
+    databaseAccountOfferType: 'Standard'
+    consistencyPolicy: {
+      defaultConsistencyLevel: 'Session'
+    }
+    locations: [
+      {
+        locationName: resourceGroup().location
+        failoverPriority: 0
+        isZoneRedundant: false
+      }
+    ]
+    capabilities: [
+      {
+        name: 'EnableServerless'
+      }
+    ]
+    enableFreeTier: false
+    publicNetworkAccess: 'Enabled'
+    disableLocalAuth: false
+  }
+}
+
+resource sekibanDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023-04-15' = {
+  parent: cosmosAccount
+  name: 'SekibanDb'
+  properties: {
+    resource: {
+      id: 'SekibanDb'
+    }
+  }
+}
+
+resource sekibanEventsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  parent: sekibanDatabase
+  name: 'events'
+  properties: {
+    resource: {
+      id: 'events'
+      partitionKey: {
+        paths: [
+          '/rootPartitionKey'
+          '/aggregateGroup'
+          '/partitionKey'
+        ]
+        kind: 'MultiHash'
+        version: 2
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+      }
+    }
+  }
+}
+
+resource orleansDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023-04-15' = {
+  parent: cosmosAccount
+  name: 'Orleans'
+  properties: {
+    resource: {
+      id: 'Orleans'
+    }
+  }
+}
+
+resource orleansStorageContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  parent: orleansDatabase
+  name: 'OrleansStorage'
+  properties: {
+    resource: {
+      id: 'OrleansStorage'
+      partitionKey: {
+        paths: [
+          '/PartitionKey'
+        ]
+        kind: 'Hash'
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+      }
+    }
+  }
+}
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: storageAccountName
+  location: resourceGroup().location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {
+    accessTier: 'Hot'
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+var cosmosConnectionString = cosmosAccount.listConnectionStrings().connectionStrings[0].connectionString
+var storageAccountKey = storageAccount.listKeys().keys[0].value
+var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccountKey};EndpointSuffix=${environment().suffixes.storage}'
+
+resource signalR 'Microsoft.SignalRService/signalR@2022-08-01-preview' = {
+  name: signalRName
+  location: resourceGroup().location
+  sku: {
+    name: 'Free_F1'
+    tier: 'Free'
+    capacity: 1
+  }
+  kind: 'SignalR'
+  properties: {
+    cors: {
+      allowedOrigins: [
+        '*'
+      ]
+    }
+    features: [
+      {
+        flag: 'ServiceMode'
+        value: 'Default'
+      }
+    ]
+  }
+}
+
+var signalRConnectionString = signalR.listKeys().primaryConnectionString
 
 resource containerEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: containerEnvName
@@ -137,13 +285,21 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'acr-pwd'
           value: acrPassword
         }
+        {
+          name: 'cosmos-connection-string'
+          value: cosmosConnectionString
+        }
+        {
+          name: 'storage-connection-string'
+          value: storageConnectionString
+        }
       ]
     }
     template: {
       containers: [
         {
           name: 'apiservice'
-          image: '${acr.properties.loginServer}/escqrsquestions-backend:initial'
+          image: 'mcr.microsoft.com/dotnet/samples:aspnetapp'
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -160,6 +316,50 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'OTEL_SERVICE_NAME'
               value: 'EsCQRSQuestions.ApiService'
+            }
+            {
+              name: 'Azure__SignalR__ConnectionString'
+              value: signalRConnectionString
+            }
+            {
+              name: 'Sekiban__Database'
+              value: 'cosmos'
+            }
+            {
+              name: 'ORLEANS_CLUSTERING_TYPE'
+              value: 'cosmos'
+            }
+            {
+              name: 'ORLEANS_GRAIN_DEFAULT_TYPE'
+              value: 'cosmos'
+            }
+            {
+              name: 'ConnectionStrings__SekibanDcbCosmos'
+              secretRef: 'cosmos-connection-string'
+            }
+            {
+              name: 'ConnectionStrings__OrleansCosmos'
+              secretRef: 'cosmos-connection-string'
+            }
+            {
+              name: 'ConnectionStrings__OrleansPubSubGrainState'
+              secretRef: 'storage-connection-string'
+            }
+            {
+              name: 'ConnectionStrings__OrleansSekibanClustering'
+              secretRef: 'storage-connection-string'
+            }
+            {
+              name: 'ConnectionStrings__OrleansSekibanGrainState'
+              secretRef: 'storage-connection-string'
+            }
+            {
+              name: 'ConnectionStrings__OrleansSekibanQueue'
+              secretRef: 'storage-connection-string'
+            }
+            {
+              name: 'ConnectionStrings__OrleansSekibanTable'
+              secretRef: 'storage-connection-string'
             }
           ]
         }
@@ -209,7 +409,7 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'webfrontend'
-          image: '${acr.properties.loginServer}/escqrsquestions-frontend:initial'
+          image: 'mcr.microsoft.com/dotnet/samples:aspnetapp'
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -286,7 +486,7 @@ resource adminwebApp 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'adminweb'
-          image: '${acr.properties.loginServer}/escqrsquestions-adminweb:initial'
+          image: 'mcr.microsoft.com/dotnet/samples:aspnetapp'
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -332,6 +532,9 @@ output acrLoginServer string = acr.properties.loginServer
 output managedEnvironmentName string = containerEnv.name
 output applicationInsightsName string = appInsights.name
 output applicationInsightsConnectionString string = appInsights.properties.ConnectionString
+output signalRName string = signalR.name
+output cosmosAccountName string = cosmosAccount.name
+output storageAccountName string = storageAccount.name
 output backendAppName string = backendApp.name
 output frontendAppName string = frontendApp.name
 output adminwebAppName string = adminwebApp.name

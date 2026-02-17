@@ -8,6 +8,7 @@ load_config "${1:-}"
 TAG="${2:-$(current_tag)}"
 
 login_if_needed
+set_subscription_if_configured
 "${SCRIPT_DIR}/create_resource_group.sh" "$ENVIRONMENT"
 "${SCRIPT_DIR}/deploy_infra.sh" "$ENVIRONMENT"
 "${SCRIPT_DIR}/code_deploy_backend.sh" "$ENVIRONMENT" "$TAG"

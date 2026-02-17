@@ -10,6 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/_common.sh"
 
 load_config "$1"
+login_if_needed
+set_subscription_if_configured
 BICEP_FILE="$2"
 
 if [ ! -f "$SCRIPT_DIR/$BICEP_FILE" ] && [ ! -f "$BICEP_FILE" ]; then
@@ -22,7 +24,7 @@ if [ -f "$SCRIPT_DIR/$BICEP_FILE" ]; then
   TEMPLATE_PATH="$SCRIPT_DIR/$BICEP_FILE"
 fi
 
-az deployment group create \
+az_retry deployment group create \
   --resource-group "$RESOURCE_GROUP" \
   --template-file "$TEMPLATE_PATH" \
   --parameters \

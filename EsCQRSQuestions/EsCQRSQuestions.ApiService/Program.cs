@@ -43,10 +43,22 @@ builder.Services.AddProblemDetails();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.AddKeyedAzureTableServiceClient("OrleansSekibanClustering");
-builder.AddKeyedAzureBlobServiceClient("OrleansSekibanGrainState");
-builder.AddKeyedAzureQueueServiceClient("OrleansSekibanQueue");
-builder.AddKeyedAzureTableServiceClient("OrleansPubSubGrainState");
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("OrleansSekibanClustering")))
+{
+    builder.AddKeyedAzureTableServiceClient("OrleansSekibanClustering");
+}
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("OrleansSekibanGrainState")))
+{
+    builder.AddKeyedAzureBlobServiceClient("OrleansSekibanGrainState");
+}
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("OrleansSekibanQueue")))
+{
+    builder.AddKeyedAzureQueueServiceClient("OrleansSekibanQueue");
+}
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("OrleansPubSubGrainState")))
+{
+    builder.AddKeyedAzureTableServiceClient("OrleansPubSubGrainState");
+}
 builder.UseOrleans(config =>
 {
     if ((builder.Configuration["ORLEANS_CLUSTERING_TYPE"] ?? "").ToLower() == "cosmos")
@@ -56,8 +68,7 @@ builder.UseOrleans(config =>
         config.UseCosmosClustering(options =>
         {
             options.ConfigureCosmosClient(connectionString);
-            // this can be enabled if you use Provisioning 
-            // options.IsResourceCreationEnabled = true;
+            options.IsResourceCreationEnabled = true;
         });
     }
 
@@ -71,6 +82,13 @@ builder.UseOrleans(config =>
         });
     else
         config.AddMemoryGrainStorage("OrleansStorage");
+
+    // Fallback clustering for ACA/self-host scenarios where clustering provider is not configured.
+    // This prevents startup failure ("Unable to resolve service for type Orleans.IMembershipTable").
+    if ((builder.Configuration["ORLEANS_CLUSTERING_TYPE"] ?? "").ToLower() != "cosmos")
+    {
+        config.UseLocalhostClustering();
+    }
 
     // Check for VNet IP Address from environment variable APP Service specific setting
     if (!string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_IP"]) &&
@@ -299,7 +317,7 @@ builder.Services.AddHostedService<OrleansStreamBackgroundService>();
 if (!string.IsNullOrEmpty(builder.Configuration["Azure:SignalR:ConnectionString"]))
 {
     builder.Services.AddSignalR().AddAzureSignalR();
-    Console.WriteLine("Local SignalR configured (no connection string found)");
+    Console.WriteLine("Azure SignalR configured");
 }
 else
 {
