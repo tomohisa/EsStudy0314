@@ -32,6 +32,19 @@ param adminwebMinReplicas int = 0
 @minValue(1)
 param adminwebMaxReplicas int = 2
 
+@description('Enable Easy Auth (Microsoft Entra ID) for AdminWeb')
+param enableAdminEasyAuth bool = false
+
+@description('Tenant ID for AdminWeb Easy Auth')
+param adminEasyAuthTenantId string = ''
+
+@description('Client ID (App Registration) for AdminWeb Easy Auth')
+param adminEasyAuthClientId string = ''
+
+@secure()
+@description('Client secret for AdminWeb Easy Auth app registration')
+param adminEasyAuthClientSecret string = ''
+
 var suffix = substring(uniqueString(resourceGroup().id), 0, 6)
 var acrName = 'acr${uniqueString(resourceGroup().id, 'acr')}'
 var logAnalyticsName = 'law-${suffix}'
@@ -475,12 +488,22 @@ resource adminwebApp 'Microsoft.App/containerApps@2024-03-01' = {
           passwordSecretRef: 'acr-pwd'
         }
       ]
-      secrets: [
-        {
-          name: 'acr-pwd'
-          value: acrPassword
-        }
-      ]
+      secrets: concat(
+        [
+          {
+            name: 'acr-pwd'
+            value: acrPassword
+          }
+        ],
+        enableAdminEasyAuth && !empty(adminEasyAuthClientSecret)
+          ? [
+              {
+                name: 'microsoft-provider-authentication-secret'
+                value: adminEasyAuthClientSecret
+              }
+            ]
+          : []
+      )
     }
     template: {
       containers: [
@@ -527,6 +550,37 @@ resource adminwebApp 'Microsoft.App/containerApps@2024-03-01' = {
   ]
 }
 
+var adminOpenIdIssuer = 'https://login.microsoftonline.com/${adminEasyAuthTenantId}/v2.0'
+
+resource adminwebAuthConfig 'Microsoft.App/containerApps/authConfigs@2023-05-01' = if (enableAdminEasyAuth && !empty(adminEasyAuthTenantId) && !empty(adminEasyAuthClientId)) {
+  parent: adminwebApp
+  name: 'current'
+  properties: {
+    platform: {
+      enabled: true
+    }
+    globalValidation: {
+      unauthenticatedClientAction: 'RedirectToLoginPage'
+      redirectToProvider: 'azureactivedirectory'
+    }
+    identityProviders: {
+      azureActiveDirectory: {
+        enabled: true
+        registration: {
+          clientId: adminEasyAuthClientId
+          clientSecretSettingName: 'microsoft-provider-authentication-secret'
+          openIdIssuer: adminOpenIdIssuer
+        }
+        login: {
+          loginParameters: [
+            'scope=openid profile email'
+          ]
+        }
+      }
+    }
+  }
+}
+
 output acrName string = acr.name
 output acrLoginServer string = acr.properties.loginServer
 output managedEnvironmentName string = containerEnv.name
@@ -541,3 +595,4 @@ output adminwebAppName string = adminwebApp.name
 output backendFqdn string = backendApp.properties.configuration.ingress.fqdn
 output frontendFqdn string = frontendApp.properties.configuration.ingress.fqdn
 output adminwebFqdn string = adminwebApp.properties.configuration.ingress.fqdn
+output adminEasyAuthConfigured bool = enableAdminEasyAuth && !empty(adminEasyAuthTenantId) && !empty(adminEasyAuthClientId)
