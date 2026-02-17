@@ -194,8 +194,18 @@
     }
 
     .settings-name-input {
-        width: 220px;
-        max-width: 220px;
+        width: 190px;
+        max-width: 190px;
+    }
+
+    .settings-name-badge {
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 999px;
+        border: 1px solid #b8d6ff;
+        background: #eef5ff;
+        color: #285188;
     }
 
     .comment-composer {
@@ -286,9 +296,17 @@
                                     }
                                     else
                                     {
-                                        <span class="text-secondary small">Name: <strong>@participantName</strong></span>
-                                        <button class="btn btn-sm btn-outline-primary" @onclick="StartParticipantNameEdit">Change</button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="ClearParticipantNameAsync">Clear</button>
+                                        @if (string.IsNullOrWhiteSpace(participantName))
+                                        {
+                                            <span class="settings-name-badge">Anonymous</span>
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="StartParticipantNameEdit">Set name</button>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-secondary small">Name: <strong>@participantName</strong></span>
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="StartParticipantNameEdit">Change</button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="ClearParticipantNameAsync">Clear</button>
+                                        }
                                     }
                                 </div>
                             </div>
@@ -504,7 +522,6 @@
         if (string.IsNullOrWhiteSpace(clientId) && !string.IsNullOrWhiteSpace(id))
         {
             clientId = id;
-            Console.WriteLine($"Client ID set from callback: {clientId}");
             StateHasChanged();
         }
     }
@@ -516,9 +533,8 @@
         {
             clientId = await JsRuntime.InvokeAsync<string>("getOrCreateClientId") ?? "";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.Error.WriteLine($"Error getting client ID from JS: {ex.Message}");
             clientId = "";
         }
 
@@ -541,7 +557,6 @@
 
         hubConnection.Closed += async (error) =>
         {
-            Console.Error.WriteLine($"SignalR connection closed: {error?.Message}");
             
             // Implement exponential backoff for reconnection attempts
             for (var i = 0; i < 5; i++)
@@ -549,11 +564,9 @@
                 try
                 {
                     var retryDelay = Math.Min(1000 * Math.Pow(2, i), 30000); // exponential backoff capped at 30s
-                    Console.WriteLine($"Attempting reconnection in {retryDelay/1000} seconds...");
                     await Task.Delay((int)retryDelay);
                     
                     await hubConnection.StartAsync();
-                    Console.WriteLine("SignalR connection restarted successfully");
                     
                     // Set participant name again after reconnection
                     if (!string.IsNullOrEmpty(participantName))
@@ -565,7 +578,6 @@
                     if (!string.IsNullOrEmpty(UniqueCode))
                     {
                         await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
-                        Console.WriteLine($"Reconnected to survey with unique code: {UniqueCode}");
                     }
                     
                     // Refresh active question
@@ -574,9 +586,8 @@
                     
                     break; // Exit the retry loop if successful
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Console.Error.WriteLine($"Error during reconnection attempt {i+1}: {ex.Message}");
                     if (i == 4) // Last attempt
                     {
                         errorMessage = "Connection lost. Please refresh the page to reconnect.";
@@ -589,8 +600,6 @@
         // Improved connection state logging
         hubConnection.Reconnecting += (error) =>
         {
-            Console.WriteLine($"SignalR reconnecting... Error: {error?.Message}");
-            Console.WriteLine($"Connection state: {hubConnection.State}");
             errorMessage = "Connection unstable. Attempting to reconnect...";
             InvokeAsync(StateHasChanged);
             return Task.CompletedTask;
@@ -598,8 +607,6 @@
 
         hubConnection.Reconnected += (connectionId) =>
         {
-            Console.WriteLine($"SignalR reconnected with connection ID: {connectionId}");
-            Console.WriteLine($"Connection state: {hubConnection.State}");
             errorMessage = "";
             InvokeAsync(StateHasChanged);
             return Task.CompletedTask;
@@ -607,13 +614,11 @@
 
         // Handle events
         hubConnection.On<object>("JoinedGroup", group => {
-            Console.WriteLine($"Joined group with UniqueCode: {(group as dynamic).UniqueCode}");
             errorMessage = "";
             InvokeAsync(StateHasChanged);
         });
 
         hubConnection.On<object>("QuestionDisplayStarted", async data => {
-            Console.WriteLine($"QuestionDisplayStarted event received: {System.Text.Json.JsonSerializer.Serialize(data)}");
             await RefreshActiveQuestion();
             hasSubmitted = false;
             comment = "";
@@ -633,10 +638,8 @@
         {
             if (activeQuestion != null)
             {
-                Console.WriteLine("Response added event received");
                 await RefreshActiveQuestion();
                 await InvokeAsync(() => StateHasChanged());
-                Console.WriteLine("Question refreshed after response added");
             }
         });
 
@@ -654,14 +657,13 @@
         {
             participantName = name;
             editingParticipantName = name;
-            isEditingParticipantName = string.IsNullOrWhiteSpace(name);
+            isEditingParticipantName = false;
             InvokeAsync(StateHasChanged);
         });
 
         // Start the connection with timeout handling
         try
         {
-            Console.WriteLine("Starting SignalR connection...");
             
             // Create a task that will complete if the connection times out
             var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
@@ -678,18 +680,15 @@
             // Ensure the connection task completed successfully
             await connectionTask;
             
-            Console.WriteLine($"SignalR connection established successfully. State: {hubConnection.State}");
             
             // Join as survey participant with unique code if available
             if (!string.IsNullOrEmpty(UniqueCode))
             {
                 await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
-                Console.WriteLine($"Joined survey with unique code: {UniqueCode}");
             }
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error starting SignalR connection: {ex.Message}");
             errorMessage = $"Connection error: {ex.Message}";
         }
 
@@ -707,7 +706,6 @@
         // Only process if UniqueCode has changed
         if (UniqueCode != previousUniqueCode && !string.IsNullOrEmpty(UniqueCode))
         {
-            Console.WriteLine($"UniqueCode changed from {previousUniqueCode} to {UniqueCode}");
             previousUniqueCode = UniqueCode;
             
             // If already connected, join the SignalR group without reconnecting
@@ -715,7 +713,6 @@
             {
                 await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
                 await RefreshActiveQuestion();
-                Console.WriteLine($"Joined survey with unique code: {UniqueCode} in OnParametersSetAsync");
             }
         }
         
@@ -734,14 +731,14 @@
         }
 
         editingParticipantName = participantName;
-        isEditingParticipantName = string.IsNullOrWhiteSpace(participantName);
+        isEditingParticipantName = false;
     }
 
     private async Task SaveParticipantNameAsync()
     {
         participantName = (editingParticipantName ?? string.Empty).Trim();
         editingParticipantName = participantName;
-        isEditingParticipantName = string.IsNullOrWhiteSpace(participantName);
+        isEditingParticipantName = false;
 
         await JsRuntime.InvokeVoidAsync("setStoredParticipantName", participantName);
 
@@ -760,14 +757,14 @@
     private void CancelParticipantNameEdit()
     {
         editingParticipantName = participantName;
-        isEditingParticipantName = string.IsNullOrWhiteSpace(participantName);
+        isEditingParticipantName = false;
     }
 
     private async Task ClearParticipantNameAsync()
     {
         participantName = "";
         editingParticipantName = "";
-        isEditingParticipantName = true;
+        isEditingParticipantName = false;
         await JsRuntime.InvokeVoidAsync("clearStoredParticipantName");
     }
 
@@ -775,7 +772,6 @@
     {
         try
         {
-            Console.WriteLine($"Refreshing active question for UniqueCode: {UniqueCode ?? "none"}");
             
             // Don't show question if no UniqueCode
             if (string.IsNullOrEmpty(UniqueCode))
@@ -787,7 +783,6 @@
             activeQuestion = await QuestionApi.GetActiveQuestionAsync(UniqueCode);
             if (activeQuestion != null && activeQuestion.QuestionId != Guid.Empty)
             {
-                Console.WriteLine($"Active question received: {activeQuestion.Text}");
                 
                 // Check for duplicate responses based on client ID
                 var currentResponses = activeQuestion.Responses.Where(r => r.ClientId == clientId);
@@ -795,7 +790,6 @@
                 
                 if (hasSubmitted)
                 {
-                    Console.WriteLine($"User with client ID {clientId} has already submitted a response");
                 }
 
                 if (!isSubmittingOption && !isSubmittingComment)
@@ -809,7 +803,6 @@
             }
             else
             {
-                Console.WriteLine("No active question at this time");
                 activeQuestion = null; // Ensure null if empty result returned
                 
                 // Code validation is already done, so no active question is not an error
@@ -817,7 +810,6 @@
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error refreshing active question: {ex.Message}");
             
             // Only update error message for connection errors
             if (ex.Message.Contains("Connection") || ex.Message.Contains("connect"))
@@ -868,13 +860,11 @@
                 {
                     try
                     {
-                        Console.WriteLine($"Joining survey with unique code: {sanitizedCode} after navigation");
                         await hubConnection.InvokeAsync("JoinAsSurveyParticipant", sanitizedCode);
                         await RefreshActiveQuestion();
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        Console.Error.WriteLine($"Error joining survey after navigation: {ex.Message}");
                         errorMessage = "Error joining survey group. Please refresh the page.";
                     }
                 }
@@ -882,7 +872,6 @@
             catch (Exception ex)
             {
                 errorMessage = $"Error validating survey code: {ex.Message}";
-                Console.Error.WriteLine(errorMessage);
             }
             finally
             {
@@ -932,15 +921,13 @@
             {
                 clientId = await JsRuntime.InvokeAsync<string>("getOrCreateClientId") ?? "";
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.Error.WriteLine($"Error regenerating client ID from JS: {ex.Message}");
             }
 
             if (string.IsNullOrEmpty(clientId))
             {
                 clientId = Guid.NewGuid().ToString();
-                Console.WriteLine($"Generated temporary client ID: {clientId}");
             }
         }
 
@@ -1008,12 +995,10 @@
             }
 
             await RefreshActiveQuestion();
-            Console.Error.WriteLine(errorMessage);
         }
         catch (Exception ex)
         {
             errorMessage = $"Error submitting response: {ex.Message}";
-            Console.Error.WriteLine(errorMessage);
         }
         finally
         {
@@ -1127,9 +1112,8 @@
             {
                 break;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.Error.WriteLine($"Survey auto refresh loop error: {ex.Message}");
             }
             finally
             {
