@@ -67,6 +67,8 @@ builder.UseOrleans(config =>
             options.ConfigureCosmosClient(connectionString);
             options.IsResourceCreationEnabled = true;
         });
+    else
+        config.AddMemoryGrainStorage("OrleansStorage");
 
     // Check for VNet IP Address from environment variable APP Service specific setting
     if (!string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_IP"]) &&
@@ -252,15 +254,19 @@ var domainTypes = EsCQRSQuestionsDomainDomainTypes.Generate();
 builder.Services.AddSingleton(domainTypes);
 
 builder.Services.AddSekibanDcbNativeRuntime();
+builder.Services.AddTransient<Sekiban.Dcb.MultiProjections.IMultiProjectionEventStatistics, Sekiban.Dcb.MultiProjections.NoOpMultiProjectionEventStatistics>();
+builder.Services.AddTransient<Sekiban.Dcb.Actors.GeneralMultiProjectionActorOptions>(_ => new Sekiban.Dcb.Actors.GeneralMultiProjectionActorOptions());
 if (builder.Configuration.GetSection("Sekiban").GetValue<string>("Database")?.ToLower() == "cosmos")
 {
     builder.Services.AddSekibanDcbCosmosDbWithAspire();
+    builder.Services.AddSingleton<IMultiProjectionStateStore, Sekiban.Dcb.CosmosDb.CosmosMultiProjectionStateStore>();
 }
 else
 {
     builder.Services.AddSingleton<Sekiban.Dcb.ServiceId.IServiceIdProvider, Sekiban.Dcb.ServiceId.DefaultServiceIdProvider>();
     builder.Services.AddSingleton<IEventStore, PostgresEventStore>();
     builder.Services.AddSekibanDcbPostgresWithAspire();
+    builder.Services.AddSingleton<IMultiProjectionStateStore, Sekiban.Dcb.Postgres.PostgresMultiProjectionStateStore>();
 }
 
 builder.Services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonDcbOrleansSerializer>();

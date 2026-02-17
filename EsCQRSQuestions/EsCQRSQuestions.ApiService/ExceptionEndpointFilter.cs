@@ -1,4 +1,4 @@
-public class ExceptionEndpointFilter : IEndpointFilter
+public class ExceptionEndpointFilter(ILogger<ExceptionEndpointFilter> logger) : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
@@ -8,6 +8,7 @@ public class ExceptionEndpointFilter : IEndpointFilter
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Unhandled exception in endpoint filter");
             return Results.Problem(
                 statusCode: StatusCodes.Status500InternalServerError,
                 title: ex.GetType().FullName,
