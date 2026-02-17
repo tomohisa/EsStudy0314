@@ -183,19 +183,19 @@
                                                 disabled="@disabled">
                                             @if (isRegistered)
                                             {
-                                                <span>登録済み</span>
+                                                <span>選択済み</span>
                                             }
                                             else
                                             {
-                                                <span>登録</span>
+                                                <span>選択を送信</span>
                                             }
                                         </button>
                                     </div>
                                 }
 
-                                @if (!string.IsNullOrEmpty(optionError))
+                                @if (!string.IsNullOrEmpty(optionMessage))
                                 {
-                                    <div class="text-danger mt-2">@optionError</div>
+                                    <div class="@(isOptionMessageError ? "text-danger" : "text-success") mt-2">@optionMessage</div>
                                 }
                             </div>
 
@@ -207,7 +207,7 @@
                                     <button class="btn btn-outline-primary"
                                             @onclick="SubmitCommentOnly"
                                             disabled="@isSubmittingComment">
-                                        @(isSubmittingComment ? "コメント送信中..." : "コメントだけ送信")
+                                        @(isSubmittingComment ? "コメント送信中..." : "コメントを送信")
                                     </button>
                                 </div>
                             </div>
@@ -288,7 +288,8 @@
     private string participantName = "";
     private string comment = "";
     private string errorMessage = "";
-    private string optionError = "";
+    private string optionMessage = "";
+    private bool isOptionMessageError = false;
     private bool showResponses = false;
     private bool hasSubmitted = false;
     private bool isSubmittingOption = false;
@@ -298,6 +299,9 @@
     
     // クライアントIDを保持する変数
     private string clientId = "";
+    private CancellationTokenSource? autoRefreshCts;
+    private Task? autoRefreshTask;
+    private bool isAutoRefreshing;
 
     // 前回のUniqueCodeを保存する変数
     private string? previousUniqueCode;
@@ -494,6 +498,8 @@
             errorMessage = $"接続エラー: {ex.Message}";
         }
 
+        StartAutoRefresh();
+
         // Get the active question
         await RefreshActiveQuestion();
     }
@@ -546,6 +552,12 @@
                 if (hasSubmitted)
                 {
                     Console.WriteLine($"User with client ID {clientId} has already submitted a response");
+                }
+
+                if (!isSubmittingOption && !isSubmittingComment)
+                {
+                    optionMessage = "";
+                    isOptionMessageError = false;
                 }
                 
                 // エラーメッセージをクリア（成功時）
@@ -647,6 +659,20 @@
     private bool HasRegisteredOption(string optionId) =>
         activeQuestion?.Responses.Any(r => r.ClientId == clientId && r.SelectedOptionId == optionId) == true;
 
+    private async Task WaitUntilOptionIsVisibleForCurrentClient(string optionId)
+    {
+        for (var attempt = 1; attempt <= 5; attempt++)
+        {
+            await RefreshActiveQuestion();
+            if (HasRegisteredOption(optionId))
+            {
+                return;
+            }
+
+            await Task.Delay(300);
+        }
+    }
+
     private async Task RegisterOption(string optionId)
     {
         if (activeQuestion == null)
@@ -674,7 +700,8 @@
 
         try
         {
-            optionError = "";
+            optionMessage = "";
+            isOptionMessageError = false;
             errorMessage = "";
             isSubmittingOption = true;
 
@@ -693,7 +720,8 @@
 
             if (HasRegisteredOption(optionId))
             {
-                optionError = "この選択肢はすでに登録済みです。";
+                optionMessage = "この選択肢はすでに選択済みです。";
+                isOptionMessageError = true;
                 return;
             }
 
@@ -709,8 +737,10 @@
                 null,
                 clientId);
 
-            await RefreshActiveQuestion();
-            optionError = "選択肢を登録しました。";
+            hasSubmitted = true;
+            await WaitUntilOptionIsVisibleForCurrentClient(optionId);
+            optionMessage = "選択肢を送信しました。";
+            isOptionMessageError = false;
         }
         catch (QuestionApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
         {
@@ -768,11 +798,13 @@
             errorMessage = "";
             await QuestionApi.UpdateResponseCommentAsync(activeQuestion.QuestionId, clientId, comment);
             await RefreshActiveQuestion();
-            optionError = "コメントを送信しました。";
+            optionMessage = "コメントを送信しました。";
+            isOptionMessageError = false;
         }
         catch (Exception ex)
         {
             errorMessage = $"コメント送信中にエラーが発生しました: {ex.Message}";
+            isOptionMessageError = true;
         }
         finally
         {
@@ -780,8 +812,60 @@
         }
     }
 
+    private void StartAutoRefresh()
+    {
+        autoRefreshCts?.Cancel();
+        autoRefreshCts = new CancellationTokenSource();
+        autoRefreshTask = Task.Run(() => AutoRefreshLoop(autoRefreshCts.Token));
+    }
+
+    private async Task AutoRefreshLoop(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+                if (cancellationToken.IsCancellationRequested || string.IsNullOrEmpty(UniqueCode) || isAutoRefreshing)
+                {
+                    continue;
+                }
+
+                isAutoRefreshing = true;
+                await InvokeAsync(async () =>
+                {
+                    await RefreshActiveQuestion();
+                    StateHasChanged();
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Survey auto refresh loop error: {ex.Message}");
+            }
+            finally
+            {
+                isAutoRefreshing = false;
+            }
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
+        if (autoRefreshCts is not null)
+        {
+            await autoRefreshCts.CancelAsync();
+            autoRefreshCts.Dispose();
+            autoRefreshCts = null;
+        }
+        if (autoRefreshTask is not null)
+        {
+            await autoRefreshTask;
+        }
+
         if (hubConnection is not null)
         {
             await hubConnection.DisposeAsync();
