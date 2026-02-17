@@ -38,3 +38,21 @@ window.clearClientId = function() {
     console.log('Client ID cleared');
     return true;
 };
+
+window.getStoredParticipantName = function() {
+    return localStorage.getItem('survey_participant_name') || '';
+};
+
+window.setStoredParticipantName = function(name) {
+    const normalized = (name || '').trim();
+    if (!normalized) {
+        localStorage.removeItem('survey_participant_name');
+        return;
+    }
+
+    localStorage.setItem('survey_participant_name', normalized);
+};
+
+window.clearStoredParticipantName = function() {
+    localStorage.removeItem('survey_participant_name');
+};

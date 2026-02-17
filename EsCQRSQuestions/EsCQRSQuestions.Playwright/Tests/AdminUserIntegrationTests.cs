@@ -84,11 +84,20 @@ public class AdminUserIntegrationTests : BaseTest
 
         await userPage.GetByText(questionText).WaitForAsync(new LocatorWaitForOptions { Timeout = 30000 });
         await observerPage.GetByText(questionText).WaitForAsync(new LocatorWaitForOptions { Timeout = 30000 });
-        await userPage.Locator("#participantName").FillAsync(participantName);
-        await userPage.Locator(".border.rounded").Filter(new LocatorFilterOptions { HasText = optionA })
+        var nameInput = userPage.Locator("#participantName");
+        if (await nameInput.CountAsync() == 0)
+        {
+            await userPage.GetByRole(AriaRole.Button, new() { Name = "Change" }).ClickAsync();
+            nameInput = userPage.Locator("#participantName");
+        }
+
+        await nameInput.FillAsync(participantName);
+        await userPage.GetByRole(AriaRole.Button, new() { Name = "Save" }).ClickAsync();
+
+        await userPage.Locator(".option-row").Filter(new LocatorFilterOptions { HasText = optionA })
             .GetByRole(AriaRole.Button, new() { Name = "Submit Choice" })
             .ClickAsync();
-        await userPage.Locator(".border.rounded").Filter(new LocatorFilterOptions { HasText = optionA })
+        await userPage.Locator(".option-row").Filter(new LocatorFilterOptions { HasText = optionA })
             .GetByRole(AriaRole.Button, new() { Name = "Chosen" })
             .WaitForAsync(new LocatorWaitForOptions { Timeout = 10000 });
         await observerPage.GetByRole(AriaRole.Heading, new() { Name = "Response Statistics" })
