@@ -224,6 +224,13 @@ builder.UseOrleans(config =>
 
     if ((builder.Configuration["ORLEANS_GRAIN_DEFAULT_TYPE"] ?? "").ToLower() == "cosmos")
     {
+        config.AddCosmosGrainStorage("OrleansStorage", options =>
+        {
+            var connectionString = builder.Configuration.GetConnectionString("OrleansCosmos") ??
+                                   throw new InvalidOperationException();
+            options.ConfigureCosmosClient(connectionString);
+            options.IsResourceCreationEnabled = true;
+        });
         config.AddCosmosGrainStorage("PubSubStore", options =>
         {
             var connectionString = builder.Configuration.GetConnectionString("OrleansCosmos") ??
