@@ -89,7 +89,8 @@ public class QuestionGroupWorkflow(ISekibanExecutor executor)
             var codeResult = await GenerateUniqueCodeAsync();
             if (!codeResult.IsSuccess)
             {
-                return codeResult.Exception;
+                return ResultBox.FromException<CommandResponseSimple>(
+                    codeResult.Exception ?? new InvalidOperationException("Failed to generate unique code"));
             }
 
             uniqueCode = codeResult.GetValue();

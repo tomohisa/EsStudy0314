@@ -41,10 +41,10 @@ builder.Services.AddProblemDetails();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.AddKeyedAzureTableClient("OrleansSekibanClustering");
-builder.AddKeyedAzureBlobClient("OrleansSekibanGrainState");
-builder.AddKeyedAzureQueueClient("OrleansSekibanQueue");
-builder.AddKeyedAzureTableClient("OrleansPubSubGrainState");
+builder.AddKeyedAzureTableServiceClient("OrleansSekibanClustering");
+builder.AddKeyedAzureBlobServiceClient("OrleansSekibanGrainState");
+builder.AddKeyedAzureQueueServiceClient("OrleansSekibanQueue");
+builder.AddKeyedAzureTableServiceClient("OrleansPubSubGrainState");
 builder.UseOrleans(config =>
 {
     if ((builder.Configuration["ORLEANS_CLUSTERING_TYPE"] ?? "").ToLower() == "cosmos")
@@ -105,8 +105,9 @@ builder.UseOrleans(config =>
                 {
                     cp.TableName = "EventHubCheckpointsEventStreamsProvider"; // any table name you like
                     cp.PersistInterval = TimeSpan.FromSeconds(10); // write frequency
-                    cp.ConfigureTableServiceClient(
-                        builder.Configuration.GetConnectionString("OrleansSekibanTable"));
+                    var tableConnectionString = builder.Configuration.GetConnectionString("OrleansSekibanTable")
+                            ?? throw new InvalidOperationException();
+                        cp.TableServiceClient = new TableServiceClient(tableConnectionString);
                 }));
 
                 // …your cache, queue‑mapper, pulling‑agent settings remain unchanged …
@@ -129,8 +130,9 @@ builder.UseOrleans(config =>
                 {
                     cp.TableName = "EventHubCheckpointsOrleansSekibanQueue"; // any table name you like
                     cp.PersistInterval = TimeSpan.FromSeconds(10); // write frequency
-                    cp.ConfigureTableServiceClient(
-                        builder.Configuration.GetConnectionString("OrleansSekibanTable"));
+                    var tableConnectionString = builder.Configuration.GetConnectionString("OrleansSekibanTable")
+                            ?? throw new InvalidOperationException();
+                        cp.TableServiceClient = new TableServiceClient(tableConnectionString);
                 }));
 
                 // …your cache, queue‑mapper, pulling‑agent settings remain unchanged …
@@ -344,7 +346,7 @@ apiRoute.MapGet("/weatherforecast", async ([FromServices] ISekibanExecutor execu
     {
         var list = await executor.QueryAsync(new WeatherForecastQuery("")).UnwrapBox();
         return list.Items;
-    }).WithOpenApi()
+    })
     .WithName("GetWeatherForecast");
 
 apiRoute
@@ -353,8 +355,7 @@ apiRoute
         async (
             [FromBody] InputWeatherForecastCommand command,
             [FromServices] ISekibanExecutor executor) => await executor.ExecuteAsync(command).UnwrapBox())
-    .WithName("InputWeatherForecast")
-    .WithOpenApi();
+    .WithName("InputWeatherForecast");
 
 apiRoute
     .MapPost(
@@ -362,8 +363,7 @@ apiRoute
         async (
             [FromBody] RemoveWeatherForecastCommand command,
             [FromServices] ISekibanExecutor executor) => await executor.ExecuteAsync(command).UnwrapBox())
-    .WithName("RemoveWeatherForecast")
-    .WithOpenApi();
+    .WithName("RemoveWeatherForecast");
 
 apiRoute
     .MapPost(
@@ -371,8 +371,7 @@ apiRoute
         async (
             [FromBody] UpdateWeatherForecastLocationCommand command,
             [FromServices] ISekibanExecutor executor) => await executor.ExecuteAsync(command).UnwrapBox())
-    .WithName("UpdateWeatherForecastLocation")
-    .WithOpenApi();
+    .WithName("UpdateWeatherForecastLocation");
 
 app.MapDefaultEndpoints();
 
@@ -388,7 +387,6 @@ apiRoute.MapGet("/questions/validate/{uniqueCode}", async (
 
         return Results.NotFound();
     })
-    .WithOpenApi()
     .WithName("ValidateUniqueCode");
 
 // Question API endpoints
@@ -401,7 +399,6 @@ apiRoute.MapGet("/questions/multi",
             var list = await executor.QueryAsync(new QuestionsQuery(textContains)).UnwrapBox();
             return list.Items;
         })
-    .WithOpenApi()
     .WithName("GetQuestionsMulti");
 
 // クライアント側との互換性のための既存エンドポイント維持
@@ -410,7 +407,6 @@ apiRoute.MapGet("/questions", async ([FromServices] ISekibanExecutor executor) =
         var list = await executor.QueryAsync(new QuestionListQuery()).UnwrapBox();
         return list.Items;
     })
-    .WithOpenApi()
     .WithName("GetQuestions");
 
 apiRoute.MapGet("/questions/bygroup/{groupId}",
@@ -421,7 +417,6 @@ apiRoute.MapGet("/questions/bygroup/{groupId}",
                 { WaitForSortableUniqueId = waitForSortableUniqueId }).UnwrapBox();
             return list.Items;
         })
-    .WithOpenApi()
     .WithName("GetQuestionsByGroup");
 
 apiRoute.MapGet("/questions/active/{uniqueCode}", async (
@@ -466,7 +461,6 @@ apiRoute.MapGet("/questions/active/{uniqueCode}", async (
 
         return activeQuestion;
     })
-    .WithOpenApi()
     .WithName("GetActiveQuestion");
 
 apiRoute.MapGet("/questions/{id}", async (Guid id, [FromServices] ISekibanExecutor executor) =>
@@ -475,7 +469,6 @@ apiRoute.MapGet("/questions/{id}", async (Guid id, [FromServices] ISekibanExecut
         if (question == null) return Results.NotFound();
         return Results.Ok(question);
     })
-    .WithOpenApi()
     .WithName("GetQuestionById");
 
 // Commands
@@ -491,7 +484,6 @@ apiRoute
             // ToSimpleCommandResponseを使用してLastSortableUniqueIdを含むレスポンスに変換
             return await workflow.CreateQuestionAndAddToGroupEndAsync(command).UnwrapBox();
         })
-    .WithOpenApi()
     .WithName("CreateQuestion");
 
 apiRoute
@@ -501,7 +493,6 @@ apiRoute
                 [FromBody] UpdateQuestionCommand command,
                 [FromServices] ISekibanExecutor executor) =>
             await executor.ExecuteAsync(command).ToSimpleCommandResponse().UnwrapBox())
-    .WithOpenApi()
     .WithName("UpdateQuestion");
 
 apiRoute
@@ -515,7 +506,6 @@ apiRoute
             var workflow = new QuestionDisplayWorkflow(executor);
             return await workflow.StartDisplayQuestionExclusivelyAsync(command.QuestionId).UnwrapBox();
         })
-    .WithOpenApi()
     .WithName("StartDisplayQuestion");
 
 apiRoute
@@ -525,7 +515,6 @@ apiRoute
                 [FromBody] StopDisplayCommand command,
                 [FromServices] ISekibanExecutor executor) =>
             executor.ExecuteAsync(command).ToSimpleCommandResponse().UnwrapBox())
-    .WithOpenApi()
     .WithName("StopDisplayQuestion");
 
 apiRoute
@@ -557,7 +546,6 @@ apiRoute
                 }).UnwrapBox();
             return commandResult.ToSimpleCommandResponse().UnwrapBox();
         })
-    .WithOpenApi()
     .WithName("AddResponse");
 
 apiRoute
@@ -570,7 +558,6 @@ apiRoute
             var result = await executor.ExecuteAsync(command);
             return result.ToSimpleCommandResponse().UnwrapBox();
         })
-    .WithOpenApi()
     .WithName("DeleteQuestion");
 
 // ActiveUsers API endpoints
@@ -585,7 +572,6 @@ apiRoute.MapGet("/activeusers/{id}",
             if (activeUsers == null) return Results.NotFound();
             return Results.Ok(activeUsers);
         })
-    .WithOpenApi()
     .WithName("GetActiveUsers");
 
 // QuestionGroups API endpoints
@@ -600,7 +586,6 @@ apiRoute.MapGet("/questionGroups",
             var list = await executor.QueryAsync(query).UnwrapBox();
             return list.Items;
         })
-    .WithOpenApi()
     .WithName("GetQuestionGroups");
 
 apiRoute.MapGet("/questionGroups/{id}",
@@ -615,7 +600,6 @@ apiRoute.MapGet("/questionGroups/{id}",
             if (group == null) return Results.NotFound();
             return Results.Ok(group);
         })
-    .WithOpenApi()
     .WithName("GetQuestionGroupById");
 
 apiRoute.MapGet("/questionGroups/{id}/questions",
@@ -628,7 +612,6 @@ apiRoute.MapGet("/questionGroups/{id}/questions",
             var questions = await executor.QueryAsync(query).UnwrapBox();
             return questions.Items;
         })
-    .WithOpenApi()
     .WithName("GetQuestionsByGroupId");
 
 // Commands
@@ -639,7 +622,6 @@ apiRoute
                 [FromBody] CreateQuestionGroup command,
                 [FromServices] ISekibanExecutor executor) =>
             executor.ExecuteAsync(command).ToSimpleCommandResponse().UnwrapBox())
-    .WithOpenApi()
     .WithName("CreateQuestionGroup");
 
 // 重複チェック機能を持つエンドポイント
@@ -655,7 +637,6 @@ apiRoute
             return await workflow.CreateGroupWithUniqueCodeAsync(
                 command.Name, command.UniqueCode);
         })
-    .WithOpenApi()
     .WithName("CreateQuestionGroupWithUniqueCode");
 
 apiRoute
@@ -670,7 +651,6 @@ apiRoute
             var result = await executor.ExecuteAsync(command);
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
-    .WithOpenApi()
     .WithName("UpdateQuestionGroup");
 
 apiRoute
@@ -684,7 +664,6 @@ apiRoute
             var result = await executor.ExecuteAsync(command);
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
-    .WithOpenApi()
     .WithName("DeleteQuestionGroup");
 
 apiRoute
@@ -700,7 +679,6 @@ apiRoute
             var result = await executor.ExecuteAsync(command);
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
-    .WithOpenApi()
     .WithName("AddQuestionToGroup");
 
 apiRoute
@@ -716,7 +694,6 @@ apiRoute
             var result = await executor.ExecuteAsync(command);
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
-    .WithOpenApi()
     .WithName("ChangeQuestionOrder");
 
 apiRoute
@@ -731,7 +708,6 @@ apiRoute
             var result = await executor.ExecuteAsync(command);
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
-    .WithOpenApi()
     .WithName("RemoveQuestionFromGroup");
 
 
