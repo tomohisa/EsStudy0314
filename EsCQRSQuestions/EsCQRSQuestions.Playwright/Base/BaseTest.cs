@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace EsCQRSQuestions.Playwright.Base
 {
-    public class BaseTest : IDisposable
+    public abstract class BaseTest : IDisposable
     {
         protected const string BaseUrl = "https://localhost:7201"; // Default URL, will be overridden if needed
         protected IBrowser? Browser;
@@ -33,7 +33,7 @@ namespace EsCQRSQuestions.Playwright.Base
                 Console.WriteLine($"Current directory: {currentDirectory}");
                 
                 // Try multiple possible paths to find the AppHost directory
-                string appHostPath = FindAppHostDirectory(currentDirectory);
+                string? appHostPath = FindAppHostDirectory(currentDirectory);
                 
                 if (string.IsNullOrEmpty(appHostPath))
                 {
@@ -189,7 +189,7 @@ namespace EsCQRSQuestions.Playwright.Base
             _disposed = true;
         }
         
-        private string FindAppHostDirectory(string startingDirectory)
+        private string? FindAppHostDirectory(string startingDirectory)
         {
             // List of possible relative paths to try
             string[] possiblePaths = new[]
@@ -203,7 +203,7 @@ namespace EsCQRSQuestions.Playwright.Base
             };
             
             // First try to find the solution root by looking for EsCQRSQuestions.sln
-            string solutionRoot = FindSolutionRoot(startingDirectory);
+            string? solutionRoot = FindSolutionRoot(startingDirectory);
             
             if (!string.IsNullOrEmpty(solutionRoot))
             {
@@ -269,7 +269,7 @@ namespace EsCQRSQuestions.Playwright.Base
             return null;
         }
         
-        private string FindSolutionRoot(string startingDirectory)
+        private string? FindSolutionRoot(string startingDirectory)
         {
             try
             {
@@ -288,7 +288,7 @@ namespace EsCQRSQuestions.Playwright.Base
                     }
                     
                     // Check if we've reached the root directory
-                    string parent = Directory.GetParent(directory)?.FullName;
+                    string? parent = Directory.GetParent(directory)?.FullName;
                     if (string.IsNullOrEmpty(parent) || parent == directory)
                     {
                         break;

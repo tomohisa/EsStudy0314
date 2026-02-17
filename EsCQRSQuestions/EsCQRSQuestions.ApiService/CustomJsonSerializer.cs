@@ -22,7 +22,10 @@ public class CustomJsonSerializer : IGrainStorageSerializer
 
     public T Deserialize<T>(BinaryData input)
     {
-        return JsonSerializer.Deserialize<T>(input.ToStream(), _options);
+        var result = JsonSerializer.Deserialize<T>(input.ToStream(), _options);
+        return result is null
+            ? throw new System.Text.Json.JsonException($"Failed to deserialize {typeof(T).FullName} from grain storage payload.")
+            : result;
     }
 }
 public class NewtonsoftJsonSerializer : IGrainStorageSerializer
@@ -50,6 +53,9 @@ public class NewtonsoftJsonSerializer : IGrainStorageSerializer
     public T Deserialize<T>(BinaryData input)
     {
         string json = input.ToString();
-        return JsonConvert.DeserializeObject<T>(json, _settings);
+        var result = JsonConvert.DeserializeObject<T>(json, _settings);
+        return result is null
+            ? throw new JsonSerializationException($"Failed to deserialize {typeof(T).FullName} from grain storage payload.")
+            : result;
     }
 }
