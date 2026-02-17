@@ -31,6 +31,7 @@ public static class EsCQRSQuestionsDomainDomainTypes
             types.EventTypes.RegisterEventType<QuestionDisplayStarted>();
             types.EventTypes.RegisterEventType<QuestionDisplayStopped>();
             types.EventTypes.RegisterEventType<ResponseAdded>();
+            types.EventTypes.RegisterEventType<ResponseCommentUpdated>();
             types.EventTypes.RegisterEventType<QuestionGroupIdUpdated>();
 
             types.EventTypes.RegisterEventType<QuestionGroupCreated>();

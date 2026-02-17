@@ -1,11 +1,14 @@
 using Microsoft.Playwright;
 using System.Diagnostics;
+using System.Net;
 
 namespace EsCQRSQuestions.Playwright.Base
 {
     public abstract class BaseTest : IDisposable
     {
-        protected const string BaseUrl = "https://localhost:7201"; // Default URL, will be overridden if needed
+        protected const string BaseUrl = "https://localhost:7201";
+        protected const string UserBaseUrl = "http://localhost:5095";
+        protected const string AdminBaseUrl = "http://localhost:5260";
         protected IBrowser? Browser;
         protected IBrowserContext? Context;
         protected IPage? Page;
@@ -50,8 +53,10 @@ namespace EsCQRSQuestions.Playwright.Base
                         FileName = "dotnet",
                         Arguments = "run --launch-profile https",
                         WorkingDirectory = appHostPath,
-                        UseShellExecute = true,
-                        CreateNoWindow = false
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
                     }
                 };
                 
@@ -65,6 +70,14 @@ namespace EsCQRSQuestions.Playwright.Base
                 if (!serverStarted)
                 {
                     Console.WriteLine("WARNING: Server did not respond within the timeout period");
+                }
+                else
+                {
+                    var apiReady = await WaitForApiReady();
+                    if (!apiReady)
+                    {
+                        Console.WriteLine("WARNING: API did not become ready within the timeout period");
+                    }
                 }
             }
             catch (Exception ex)
@@ -85,19 +98,21 @@ namespace EsCQRSQuestions.Playwright.Base
             // Launch browser with increased timeout and viewport size
             Console.WriteLine("Launching browser...");
             var browserSw = Stopwatch.StartNew();
+            var isHeadless = GetHeadlessSetting();
             Browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
             {
-                Headless = false, // Set to false for debugging
+                Headless = isHeadless,
                 Timeout = 60000 // 60 seconds
             });
             browserSw.Stop();
-            Console.WriteLine($"Browser launched in {browserSw.ElapsedMilliseconds}ms");
+            Console.WriteLine($"Browser launched in {browserSw.ElapsedMilliseconds}ms (headless={isHeadless})");
             
             // Create a new browser context with larger viewport
             Console.WriteLine("Creating browser context...");
             var contextSw = Stopwatch.StartNew();
             Context = await Browser.NewContextAsync(new BrowserNewContextOptions
             {
+                IgnoreHTTPSErrors = true,
                 ViewportSize = new ViewportSize
                 {
                     Width = 1280,
@@ -119,8 +134,8 @@ namespace EsCQRSQuestions.Playwright.Base
             
             // Wait for the postgresql database to be ready
             Console.WriteLine("Waiting for database to be ready...");
-            await Task.Delay(5000);
-            Console.WriteLine("Waited 5000ms for database to be ready");
+            await Task.Delay(3000);
+            Console.WriteLine("Waited 3000ms for database to be ready");
             
         }
 
@@ -268,6 +283,18 @@ namespace EsCQRSQuestions.Playwright.Base
             
             return null;
         }
+
+        private static bool GetHeadlessSetting()
+        {
+            var env = Environment.GetEnvironmentVariable("PLAYWRIGHT_HEADLESS");
+            if (string.IsNullOrWhiteSpace(env))
+            {
+                return true;
+            }
+
+            return !string.Equals(env, "false", StringComparison.OrdinalIgnoreCase)
+                   && !string.Equals(env, "0", StringComparison.OrdinalIgnoreCase);
+        }
         
         private string? FindSolutionRoot(string startingDirectory)
         {
@@ -307,32 +334,70 @@ namespace EsCQRSQuestions.Playwright.Base
         
         private async Task<bool> WaitForServerToStart()
         {
-            const int maxRetries = 30;
+            const int maxRetries = 90;
             const int retryDelayMs = 1000;
+            var healthUrls = new[] { AdminBaseUrl, UserBaseUrl };
             
             for (int i = 0; i < maxRetries; i++)
             {
-                try
+                var allHealthy = true;
+                foreach (var url in healthUrls)
                 {
-                    Console.WriteLine($"Checking if server is running (attempt {i+1}/{maxRetries})...");
-                    var response = await _httpClient.GetAsync(BaseUrl);
-                    
-                    if (response.IsSuccessStatusCode)
+                    try
                     {
-                        Console.WriteLine("Server is running!");
-                        return true;
+                        Console.WriteLine($"Checking {url} (attempt {i + 1}/{maxRetries})...");
+                        using var response = await _httpClient.GetAsync(url);
+                        if (response.StatusCode != HttpStatusCode.OK)
+                        {
+                            allHealthy = false;
+                            break;
+                        }
                     }
-                    
-                    Console.WriteLine($"Server returned status code: {response.StatusCode}");
+                    catch (Exception)
+                    {
+                        allHealthy = false;
+                        break;
+                    }
                 }
-                catch (HttpRequestException ex)
+
+                if (allHealthy)
                 {
-                    Console.WriteLine($"Server not yet available: {ex.Message}");
+                    Console.WriteLine("Admin and user frontends are reachable.");
+                    return true;
                 }
                 
                 await Task.Delay(retryDelayMs);
             }
             
+            return false;
+        }
+
+        private async Task<bool> WaitForApiReady()
+        {
+            const int maxRetries = 60;
+            const int retryDelayMs = 1000;
+            const string apiUrl = "http://localhost:5349/api/questionGroups";
+
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    Console.WriteLine($"Checking API readiness {apiUrl} (attempt {i + 1}/{maxRetries})...");
+                    using var response = await _httpClient.GetAsync(apiUrl);
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        Console.WriteLine("API is ready.");
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // continue polling
+                }
+
+                await Task.Delay(retryDelayMs);
+            }
+
             return false;
         }
         

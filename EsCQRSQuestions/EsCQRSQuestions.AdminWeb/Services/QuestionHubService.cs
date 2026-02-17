@@ -2,8 +2,9 @@ using Microsoft.AspNetCore.SignalR.Client;
 using EsCQRSQuestions.AdminWeb.Models;
 using System;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using System.Globalization;
 
 namespace EsCQRSQuestions.AdminWeb.Services
 {
@@ -21,13 +22,13 @@ namespace EsCQRSQuestions.AdminWeb.Services
         public event Func<Task>? ResponseAdded;
 
         public QuestionHubService(
-            NavigationManager navigationManager,
+            IConfiguration configuration,
             IHttpMessageHandlerFactory httpMessageHandlerFactory,
             ILogger<QuestionHubService> logger)
         {
             _httpMessageHandlerFactory = httpMessageHandlerFactory;
             _logger = logger;
-            _hubUrl = "https+http://apiservice/questionHub";
+            _hubUrl = ResolveHubUrl(configuration);
         }
 
         public async Task InitializeAsync()
@@ -56,7 +57,7 @@ namespace EsCQRSQuestions.AdminWeb.Services
 
             try
             {
-                _logger.LogInformation("Starting SignalR connection...");
+                _logger.LogInformation("Starting SignalR connection to {HubUrl}...", _hubUrl);
                 
                 var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
                 var connectionTask = _hubConnection.StartAsync();
@@ -174,6 +175,9 @@ namespace EsCQRSQuestions.AdminWeb.Services
 
             // Response events
             _hubConnection.On<object>("ResponseAdded", _ => 
+                OnResponseAdded());
+
+            _hubConnection.On<object>("ResponseCommentUpdated", _ =>
                 OnResponseAdded());
 
             // Question group events
@@ -300,6 +304,69 @@ namespace EsCQRSQuestions.AdminWeb.Services
         {
             _logger.LogInformation("Response added event received");
             return ResponseAdded?.Invoke() ?? Task.CompletedTask;
+        }
+
+        private static string ResolveHubUrl(IConfiguration configuration)
+        {
+            var keys = new[]
+            {
+                "services:apiservice:http:0",
+                "services:apiservice:https:0",
+                "services:apiservice:http",
+                "services:apiservice:https"
+            };
+
+            foreach (var key in keys)
+            {
+                var value = configuration[key];
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return $"{NormalizeHttpUrl(value)}/questionHub";
+                }
+            }
+
+            foreach (var entry in configuration.AsEnumerable())
+            {
+                if (string.IsNullOrWhiteSpace(entry.Key) || string.IsNullOrWhiteSpace(entry.Value))
+                {
+                    continue;
+                }
+
+                if (entry.Key.StartsWith("services:apiservice:", true, CultureInfo.InvariantCulture))
+                {
+                    return $"{NormalizeHttpUrl(entry.Value)}/questionHub";
+                }
+            }
+
+            throw new InvalidOperationException("apiservice endpoint not found in configuration for SignalR hub.");
+        }
+
+        private static string NormalizeHttpUrl(string rawValue)
+        {
+            var value = rawValue.Trim();
+
+            if (value.StartsWith("https+http://", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"http://{value["https+http://".Length..].TrimEnd('/')}";
+            }
+
+            if (value.StartsWith("http+https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"https://{value["http+https://".Length..].TrimEnd('/')}";
+            }
+
+            if (Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                return value.TrimEnd('/');
+            }
+
+            if (Uri.TryCreate($"http://{value}", UriKind.Absolute, out var hostPortUri))
+            {
+                return hostPortUri.ToString().TrimEnd('/');
+            }
+
+            throw new InvalidOperationException($"Cannot parse API service endpoint value: '{rawValue}'.");
         }
 
         public async ValueTask DisposeAsync()

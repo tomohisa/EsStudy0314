@@ -36,6 +36,14 @@ public class QuestionProjector : ITagProjector<QuestionProjector>
                     .Append(new QuestionResponse(response.ResponseId, response.ParticipantName, response.SelectedOptionId,
                         response.Comment, response.Timestamp, response.ClientId)).ToList()
             },
+            (Question question, ResponseCommentUpdated updated) => question with
+            {
+                Responses = question.Responses
+                    .Select(r => r.Id == updated.ResponseId
+                        ? r with { Comment = updated.Comment, Timestamp = updated.Timestamp }
+                        : r)
+                    .ToList()
+            },
             (Question question, QuestionDeleted) => new DeletedQuestion(question.Text, question.Options,
                 question.IsDisplayed, question.Responses, question.QuestionGroupId, question.AllowMultipleResponses),
             _ => current

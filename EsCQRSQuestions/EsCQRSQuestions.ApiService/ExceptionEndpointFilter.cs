@@ -8,9 +8,24 @@ public class ExceptionEndpointFilter(ILogger<ExceptionEndpointFilter> logger) : 
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unhandled exception in endpoint filter");
+            var statusCode = ex switch
+            {
+                ArgumentException => StatusCodes.Status400BadRequest,
+                InvalidOperationException => StatusCodes.Status409Conflict,
+                _ => StatusCodes.Status500InternalServerError
+            };
+
+            if (statusCode >= 500)
+            {
+                logger.LogError(ex, "Unhandled exception in endpoint filter");
+            }
+            else
+            {
+                logger.LogWarning(ex, "Handled endpoint exception with status code {StatusCode}", statusCode);
+            }
+
             return Results.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
+                statusCode: statusCode,
                 title: ex.GetType().FullName,
                 detail: ex.Message);
         }

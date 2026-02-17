@@ -51,7 +51,7 @@ public class QuestionProjector : IAggregateProjector
                     response.Timestamp,
                     response.ClientId)).ToList()
             },
-            
+
             // Delete a question
             (Question question, QuestionDeleted _) => new DeletedQuestion(
                 question.Text,

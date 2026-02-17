@@ -29,4 +29,11 @@ public record ResponseAdded(
     string ClientId) : IEventPayload;
 
 [GenerateSerializer]
+public record ResponseCommentUpdated(
+    Guid ResponseId,
+    string ClientId,
+    string? Comment,
+    DateTime Timestamp) : IEventPayload;
+
+[GenerateSerializer]
 public record QuestionGroupIdUpdated(Guid QuestionGroupId) : IEventPayload;

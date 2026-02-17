@@ -47,8 +47,9 @@
                                    @bind="Model.Options[index].Text" />
                             @if (Model.Options.Count > 2)
                             {
-                                <button class="btn btn-outline-danger" type="button" @onclick="() => RemoveOption(index)">
+                                <button class="btn btn-outline-danger btn-sm option-delete-btn" type="button" @onclick="() => RemoveOption(index)">
                                     <span class="bi bi-trash" aria-hidden="true"></span>
+                                    <span class="ms-1">Delete</span>
                                 </button>
                             }
                         </div>
@@ -121,3 +122,10 @@
 
     // Removed original nested classes as they are now in Models/QuestionEditModels.cs
 }
+
+<style>
+    .option-delete-btn {
+        min-width: 86px;
+        white-space: nowrap;
+    }
+</style>

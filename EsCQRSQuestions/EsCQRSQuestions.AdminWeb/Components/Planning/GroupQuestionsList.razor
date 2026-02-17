@@ -69,16 +69,16 @@ else
                         <td>
                             <div class="d-flex align-items-center">
                                 <span class="me-2">@order</span>
-                                <div class="btn-group">
-                                    <button class="btn btn-sm btn-outline-secondary" 
+                                <div class="btn-group order-buttons" role="group" aria-label="Change question order">
+                                    <button class="btn btn-outline-secondary order-btn" 
                                             @onclick="() => ChangeOrderClicked(question.QuestionId, order - 1)" 
                                             disabled="@(order <= 0)">
-                                        <i class="bi bi-arrow-up"></i>
+                                        <i class="bi bi-arrow-up"></i><span class="ms-1">Up</span>
                                     </button>
-                                    <button class="btn btn-sm btn-outline-secondary" 
+                                    <button class="btn btn-outline-secondary order-btn" 
                                             @onclick="() => ChangeOrderClicked(question.QuestionId, order + 1)" 
                                             disabled="@(order >= QuestionsInGroup.Count - 1)">
-                                        <i class="bi bi-arrow-down"></i>
+                                        <i class="bi bi-arrow-down"></i><span class="ms-1">Down</span>
                                     </button>
                                 </div>
                             </div>
@@ -166,7 +166,7 @@ else
     
     private bool isLinkCopied = false;
     
-    private string QuestionnaireUrl => $"{ClientUrls.BaseUrl}/questionair/{UniqueCode}";
+    private string QuestionnaireUrl => $"{ClientUrls.BaseUrl.TrimEnd('/')}/questionair/{UniqueCode}";
     
     private async Task ViewQuestionClicked(Guid questionId)
     {
@@ -241,3 +241,12 @@ else
         }
     }
 }
+
+<style>
+    .order-buttons .order-btn {
+        min-width: 64px;
+        padding: 0.15rem 0.4rem;
+        font-size: 0.8rem;
+        line-height: 1.1;
+    }
+</style>

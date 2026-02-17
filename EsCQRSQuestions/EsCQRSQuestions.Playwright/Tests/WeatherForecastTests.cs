@@ -6,6 +6,7 @@ using System.Diagnostics;
 namespace EsCQRSQuestions.Playwright.Tests
 {
     [TestFixture]
+    [Ignore("Legacy Weather UI route is no longer present in current Web frontend. Use Planning/Admin integration tests instead.")]
     public class WeatherForecastTests : BaseTest
     {
         private WeatherPage _weatherPage = null!;
