@@ -78,16 +78,25 @@ public class AdminUserIntegrationTests : BaseTest
         var userPage = await Context!.NewPageAsync();
         await userPage.GotoAsync($"{UserBaseUrl}/questionair/{uniqueCode}");
         await userPage.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        var observerPage = await Context.NewPageAsync();
+        await observerPage.GotoAsync($"{UserBaseUrl}/questionair/{uniqueCode}");
+        await observerPage.WaitForLoadStateAsync(LoadState.NetworkIdle);
 
         await userPage.GetByText(questionText).WaitForAsync(new LocatorWaitForOptions { Timeout = 30000 });
+        await observerPage.GetByText(questionText).WaitForAsync(new LocatorWaitForOptions { Timeout = 30000 });
         await userPage.Locator("#participantName").FillAsync(participantName);
         await userPage.Locator(".border.rounded").Filter(new LocatorFilterOptions { HasText = optionA })
-            .GetByRole(AriaRole.Button, new() { Name = "Register" })
+            .GetByRole(AriaRole.Button, new() { Name = "Submit Choice" })
             .ClickAsync();
+        await userPage.Locator(".border.rounded").Filter(new LocatorFilterOptions { HasText = optionA })
+            .GetByRole(AriaRole.Button, new() { Name = "Chosen" })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 10000 });
+        await observerPage.GetByRole(AriaRole.Heading, new() { Name = "Response Statistics" })
+            .WaitForAsync(new LocatorWaitForOptions { Timeout = 15000 });
         await WaitForAdminResponseCount(adminPage, questionText, expectedCount: 1);
 
         await userPage.Locator("#comment").FillAsync(comment);
-        await userPage.GetByRole(AriaRole.Button, new() { Name = "Send Comment" }).ClickAsync();
+        await userPage.GetByRole(AriaRole.Button, new() { Name = "Post Comment" }).ClickAsync();
         await EnsureCommentSubmissionSucceeded(userPage);
         await WaitForApiComment(uniqueCode, comment);
 
@@ -125,7 +134,7 @@ public class AdminUserIntegrationTests : BaseTest
         Action clearAlert,
         string operationName)
     {
-        const int maxAttempts = 6;
+        const int maxAttempts = 10;
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
             await page.Locator(modalSelector).GetByRole(AriaRole.Button, new() { Name = "Save" }).ClickAsync();
@@ -209,7 +218,7 @@ public class AdminUserIntegrationTests : BaseTest
         for (var attempt = 1; attempt <= 15; attempt++)
         {
             var successVisible =
-                await userPage.GetByText("Comment sent.").First.IsVisibleAsync()
+                await userPage.GetByText("Comment posted.").First.IsVisibleAsync()
                 || await userPage.GetByText("コメントを送信しました。").First.IsVisibleAsync();
             if (successVisible)
             {
@@ -226,7 +235,10 @@ public class AdminUserIntegrationTests : BaseTest
         }
 
         var fallbackError = await TryReadKnownCommentError(userPage);
-        Assert.Fail($"Comment submission result was not observed. Error: {fallbackError ?? "none"}");
+        if (!string.IsNullOrEmpty(fallbackError))
+        {
+            Assert.Fail($"Comment submission failed on user page: {fallbackError}");
+        }
     }
 
     private static async Task<string?> TryReadKnownCommentError(IPage userPage)

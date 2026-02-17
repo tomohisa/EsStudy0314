@@ -183,19 +183,19 @@
                                                 disabled="@disabled">
                                             @if (isRegistered)
                                             {
-                                                <span>Registered</span>
+                                                <span>Chosen</span>
                                             }
                                             else
                                             {
-                                                <span>Register</span>
+                                                <span>Submit Choice</span>
                                             }
                                         </button>
                                     </div>
                                 }
 
-                                @if (!string.IsNullOrEmpty(optionError))
+                                @if (!string.IsNullOrEmpty(optionMessage))
                                 {
-                                    <div class="text-danger mt-2">@optionError</div>
+                                    <div class="@(isOptionMessageError ? "text-danger" : "text-success") mt-2">@optionMessage</div>
                                 }
                             </div>
 
@@ -207,7 +207,7 @@
                                     <button class="btn btn-outline-primary"
                                             @onclick="SubmitCommentOnly"
                                             disabled="@isSubmittingComment">
-                                        @(isSubmittingComment ? "Sending comment..." : "Send Comment")
+                                        @(isSubmittingComment ? "Posting comment..." : "Post Comment")
                                     </button>
                                 </div>
                             </div>
@@ -288,7 +288,8 @@
     private string participantName = "";
     private string comment = "";
     private string errorMessage = "";
-    private string optionError = "";
+    private string optionMessage = "";
+    private bool isOptionMessageError = false;
     private bool showResponses = false;
     private bool hasSubmitted = false;
     private bool isSubmittingOption = false;
@@ -298,6 +299,9 @@
     
     // Client ID variable
     private string clientId = "";
+    private CancellationTokenSource? autoRefreshCts;
+    private Task? autoRefreshTask;
+    private bool isAutoRefreshing;
 
     // Previous UniqueCode to track changes
     private string? previousUniqueCode;
@@ -494,6 +498,8 @@
             errorMessage = $"Connection error: {ex.Message}";
         }
 
+        StartAutoRefresh();
+
         // Get the active question
         await RefreshActiveQuestion();
     }
@@ -546,6 +552,12 @@
                 if (hasSubmitted)
                 {
                     Console.WriteLine($"User with client ID {clientId} has already submitted a response");
+                }
+
+                if (!isSubmittingOption && !isSubmittingComment)
+                {
+                    optionMessage = "";
+                    isOptionMessageError = false;
                 }
                 
                 // Clear error message on success
@@ -647,6 +659,20 @@
     private bool HasRegisteredOption(string optionId) =>
         activeQuestion?.Responses.Any(r => r.ClientId == clientId && r.SelectedOptionId == optionId) == true;
 
+    private async Task WaitUntilOptionIsVisibleForCurrentClient(string optionId)
+    {
+        for (var attempt = 1; attempt <= 5; attempt++)
+        {
+            await RefreshActiveQuestion();
+            if (HasRegisteredOption(optionId))
+            {
+                return;
+            }
+
+            await Task.Delay(300);
+        }
+    }
+
     private async Task RegisterOption(string optionId)
     {
         if (activeQuestion == null)
@@ -676,7 +702,8 @@
 
         try
         {
-            optionError = "";
+            optionMessage = "";
+            isOptionMessageError = false;
             errorMessage = "";
             isSubmittingOption = true;
 
@@ -696,7 +723,8 @@
 
             if (HasRegisteredOption(optionId))
             {
-                optionError = "This option is already registered.";
+                optionMessage = "This option is already chosen.";
+                isOptionMessageError = true;
                 return;
             }
 
@@ -713,8 +741,10 @@
                 null,
                 clientId);
 
-            await RefreshActiveQuestion();
-            optionError = "Option registered.";
+            hasSubmitted = true;
+            await WaitUntilOptionIsVisibleForCurrentClient(optionId);
+            optionMessage = "Choice submitted.";
+            isOptionMessageError = false;
         }
         catch (QuestionApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
         {
@@ -774,11 +804,13 @@
             errorMessage = "";
             await QuestionApi.UpdateResponseCommentAsync(activeQuestion.QuestionId, clientId, comment);
             await RefreshActiveQuestion();
-            optionError = "Comment sent.";
+            optionMessage = "Comment posted.";
+            isOptionMessageError = false;
         }
         catch (Exception ex)
         {
             errorMessage = $"Error sending comment: {ex.Message}";
+            isOptionMessageError = true;
         }
         finally
         {
@@ -786,8 +818,60 @@
         }
     }
 
+    private void StartAutoRefresh()
+    {
+        autoRefreshCts?.Cancel();
+        autoRefreshCts = new CancellationTokenSource();
+        autoRefreshTask = Task.Run(() => AutoRefreshLoop(autoRefreshCts.Token));
+    }
+
+    private async Task AutoRefreshLoop(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+                if (cancellationToken.IsCancellationRequested || string.IsNullOrEmpty(UniqueCode) || isAutoRefreshing)
+                {
+                    continue;
+                }
+
+                isAutoRefreshing = true;
+                await InvokeAsync(async () =>
+                {
+                    await RefreshActiveQuestion();
+                    StateHasChanged();
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Survey auto refresh loop error: {ex.Message}");
+            }
+            finally
+            {
+                isAutoRefreshing = false;
+            }
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
+        if (autoRefreshCts is not null)
+        {
+            await autoRefreshCts.CancelAsync();
+            autoRefreshCts.Dispose();
+            autoRefreshCts = null;
+        }
+        if (autoRefreshTask is not null)
+        {
+            await autoRefreshTask;
+        }
+
         if (hubConnection is not null)
         {
             await hubConnection.DisposeAsync();
