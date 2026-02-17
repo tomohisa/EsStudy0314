@@ -1076,7 +1076,7 @@
     private async Task HandleCommentKeyDown(KeyboardEventArgs e)
     {
         // Prevent accidental submit while IME composition is active (e.g. Japanese conversion).
-        if (isCommentComposing || e.IsComposing || string.Equals(e.Key, "Process", StringComparison.OrdinalIgnoreCase))
+        if (isCommentComposing || e.IsComposing)
         {
             return;
         }

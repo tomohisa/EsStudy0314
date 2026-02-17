@@ -1070,7 +1070,7 @@
     private async Task HandleCommentKeyDown(KeyboardEventArgs e)
     {
         // 日本語IME変換中(確定前)はEnterを送信扱いにしない
-        if (isCommentComposing || e.IsComposing || string.Equals(e.Key, "Process", StringComparison.OrdinalIgnoreCase))
+        if (isCommentComposing || e.IsComposing)
         {
             return;
         }
