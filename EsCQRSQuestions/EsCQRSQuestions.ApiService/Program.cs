@@ -20,13 +20,15 @@ using Orleans.Configuration;
 using Orleans.Storage;
 using ResultBoxes;
 using Scalar.AspNetCore;
-using Sekiban.Pure.AspNetCore;
+using Sekiban.Dcb;
 using Sekiban.Pure.Command.Executor;
-using Sekiban.Pure.Command.Handlers;
-using Sekiban.Pure.CosmosDb;
-using Sekiban.Pure.Orleans;
-using Sekiban.Pure.Orleans.Parts;
-using Sekiban.Pure.Postgres;
+using Sekiban.Dcb.Actors;
+using Sekiban.Dcb.Orleans.Streams;
+using Sekiban.Dcb.CosmosDb;
+using Sekiban.Dcb.Orleans;
+using Sekiban.Dcb.Orleans.Grains;
+using Sekiban.Dcb.Postgres;
+using Sekiban.Dcb.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,6 +67,8 @@ builder.UseOrleans(config =>
             options.ConfigureCosmosClient(connectionString);
             options.IsResourceCreationEnabled = true;
         });
+    else
+        config.AddMemoryGrainStorage("OrleansStorage");
 
     // Check for VNet IP Address from environment variable APP Service specific setting
     if (!string.IsNullOrWhiteSpace(builder.Configuration["WEBSITE_PRIVATE_IP"]) &&
@@ -220,7 +224,7 @@ builder.UseOrleans(config =>
             options.Configure<IServiceProvider>((opt, sp) =>
             {
                 opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
-                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSekibanOrleansSerializer>();
+                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonDcbOrleansSerializer>();
             });
             options.Configure<IGrainStorageSerializer>((op, serializer) => op.GrainStorageSerializer = serializer);
         });
@@ -231,7 +235,7 @@ builder.UseOrleans(config =>
             options.Configure<IServiceProvider>((opt, sp) =>
             {
                 opt.TableServiceClient = sp.GetKeyedService<TableServiceClient>("OrleansPubSubGrainState");
-                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonSekibanOrleansSerializer>();
+                opt.GrainStorageSerializer = sp.GetRequiredService<NewtonsoftJsonDcbOrleansSerializer>();
             });
             options.Configure<IGrainStorageSerializer>((op, serializer) => op.GrainStorageSerializer = serializer);
         });
@@ -239,27 +243,41 @@ builder.UseOrleans(config =>
         // Orleans will automatically discover grains in the same assembly
         // Orleans will automatically discover grains in the same assembly
         config.ConfigureServices(services =>
-            services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonSekibanOrleansSerializer>());
+            services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonDcbOrleansSerializer>());
     }
     // Orleans will automatically discover grains in the same assembly
     config.ConfigureServices(services =>
-        services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonSekibanOrleansSerializer>());
+        services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonDcbOrleansSerializer>());
 });
 
-builder.Services.AddSingleton(
-    EsCQRSQuestionsDomainDomainTypes.Generate(EsCQRSQuestionsDomainEventsJsonContext.Default.Options));
+var domainTypes = EsCQRSQuestionsDomainDomainTypes.Generate();
+builder.Services.AddSingleton(domainTypes);
 
-SekibanSerializationTypesChecker.CheckDomainSerializability(
-    EsCQRSQuestionsDomainDomainTypes.Generate(EsCQRSQuestionsDomainEventsJsonContext.Default.Options));
+builder.Services.AddSekibanDcbNativeRuntime();
+builder.Services.AddTransient<Sekiban.Dcb.MultiProjections.IMultiProjectionEventStatistics, Sekiban.Dcb.MultiProjections.NoOpMultiProjectionEventStatistics>();
+builder.Services.AddTransient<Sekiban.Dcb.Actors.GeneralMultiProjectionActorOptions>(_ => new Sekiban.Dcb.Actors.GeneralMultiProjectionActorOptions());
+if (builder.Configuration.GetSection("Sekiban").GetValue<string>("Database")?.ToLower() == "cosmos")
+{
+    builder.Services.AddSekibanDcbCosmosDbWithAspire();
+    builder.Services.AddSingleton<IMultiProjectionStateStore, Sekiban.Dcb.CosmosDb.CosmosMultiProjectionStateStore>();
+}
+else
+{
+    builder.Services.AddSingleton<Sekiban.Dcb.ServiceId.IServiceIdProvider, Sekiban.Dcb.ServiceId.DefaultServiceIdProvider>();
+    builder.Services.AddSingleton<IEventStore, PostgresEventStore>();
+    builder.Services.AddSekibanDcbPostgresWithAspire();
+    builder.Services.AddSingleton<IMultiProjectionStateStore, Sekiban.Dcb.Postgres.PostgresMultiProjectionStateStore>();
+}
 
-builder.Services.AddTransient<ICommandMetadataProvider, CommandMetadataProvider>();
-builder.Services.AddTransient<IExecutingUserProvider, HttpExecutingUserProvider>();
-builder.Services.AddHttpContextAccessor();
-// builder.Services.AddTransient<IGrainStorageSerializer, CustomJsonSerializer>();
-// builder.Services.AddTransient<CustomJsonSerializer>();
-builder.Services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonSekibanOrleansSerializer>();
-builder.Services.AddTransient<NewtonsoftJsonSekibanOrleansSerializer>();
-builder.Services.AddTransient<SekibanOrleansExecutor>();
+builder.Services.AddTransient<IGrainStorageSerializer, NewtonsoftJsonDcbOrleansSerializer>();
+builder.Services.AddTransient<NewtonsoftJsonDcbOrleansSerializer>();
+builder.Services.AddSingleton<IStreamDestinationResolver>(_ =>
+    new DefaultOrleansStreamDestinationResolver("EventStreamProvider", "AllEvents", Guid.Empty));
+builder.Services.AddSingleton<IEventSubscriptionResolver>(_ =>
+    new DefaultOrleansEventSubscriptionResolver("EventStreamProvider", "AllEvents", Guid.Empty));
+builder.Services.AddSingleton<IEventPublisher, OrleansEventPublisher>();
+builder.Services.AddTransient<ISekibanExecutor, OrleansDcbExecutor>();
+builder.Services.AddScoped<IActorObjectAccessor, OrleansActorObjectAccessor>();
 
 
 // Register hub notification service
@@ -286,12 +304,6 @@ else
     Console.WriteLine("Local SignalR configured (no connection string found)");
 }
 
-if (builder.Configuration.GetSection("Sekiban").GetValue<string>("Database")?.ToLower() == "cosmos")
-    // Cosmos settings
-    builder.AddSekibanCosmosDb();
-else
-    // Postgres settings
-    builder.AddSekibanPostgresDb();
 // Add CORS services and configure a policy that allows specific origins with credentials
 // builder.Services.AddCors(options =>
 // {
@@ -328,7 +340,7 @@ app.MapHub<QuestionHub>("/questionHub");
 string[] summaries =
     ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
 
-apiRoute.MapGet("/weatherforecast", async ([FromServices] SekibanOrleansExecutor executor) =>
+apiRoute.MapGet("/weatherforecast", async ([FromServices] ISekibanExecutor executor) =>
     {
         var list = await executor.QueryAsync(new WeatherForecastQuery("")).UnwrapBox();
         return list.Items;
@@ -340,7 +352,7 @@ apiRoute
         "/inputweatherforecast",
         async (
             [FromBody] InputWeatherForecastCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] ISekibanExecutor executor) => await executor.ExecuteAsync(command).UnwrapBox())
     .WithName("InputWeatherForecast")
     .WithOpenApi();
 
@@ -349,7 +361,7 @@ apiRoute
         "/removeweatherforecast",
         async (
             [FromBody] RemoveWeatherForecastCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] ISekibanExecutor executor) => await executor.ExecuteAsync(command).UnwrapBox())
     .WithName("RemoveWeatherForecast")
     .WithOpenApi();
 
@@ -358,7 +370,7 @@ apiRoute
         "/updateweatherforecastlocation",
         async (
             [FromBody] UpdateWeatherForecastLocationCommand command,
-            [FromServices] SekibanOrleansExecutor executor) => await executor.CommandAsync(command).UnwrapBox())
+            [FromServices] ISekibanExecutor executor) => await executor.ExecuteAsync(command).UnwrapBox())
     .WithName("UpdateWeatherForecastLocation")
     .WithOpenApi();
 
@@ -367,7 +379,7 @@ app.MapDefaultEndpoints();
 // コード検証エンドポイントを追加
 apiRoute.MapGet("/questions/validate/{uniqueCode}", async (
         string uniqueCode,
-        [FromServices] SekibanOrleansExecutor executor) =>
+        [FromServices] ISekibanExecutor executor) =>
     {
         // グループIDが存在するかどうかを確認するためのクエリを実行
         var groupExists = await executor.QueryAsync(new QuestionGroupExistsQuery(uniqueCode));
@@ -384,7 +396,7 @@ apiRoute.MapGet("/questions/validate/{uniqueCode}", async (
 
 // 新しいマルチプロジェクターを使用するエンドポイント
 apiRoute.MapGet("/questions/multi",
-        async ([FromServices] SekibanOrleansExecutor executor, [FromQuery] string textContains = "") =>
+        async ([FromServices] ISekibanExecutor executor, [FromQuery] string textContains = "") =>
         {
             var list = await executor.QueryAsync(new QuestionsQuery(textContains)).UnwrapBox();
             return list.Items;
@@ -393,7 +405,7 @@ apiRoute.MapGet("/questions/multi",
     .WithName("GetQuestionsMulti");
 
 // クライアント側との互換性のための既存エンドポイント維持
-apiRoute.MapGet("/questions", async ([FromServices] SekibanOrleansExecutor executor) =>
+apiRoute.MapGet("/questions", async ([FromServices] ISekibanExecutor executor) =>
     {
         var list = await executor.QueryAsync(new QuestionListQuery()).UnwrapBox();
         return list.Items;
@@ -402,7 +414,7 @@ apiRoute.MapGet("/questions", async ([FromServices] SekibanOrleansExecutor execu
     .WithName("GetQuestions");
 
 apiRoute.MapGet("/questions/bygroup/{groupId}",
-        async (Guid groupId, [FromServices] SekibanOrleansExecutor executor, [FromQuery] string textContains = "",
+        async (Guid groupId, [FromServices] ISekibanExecutor executor, [FromQuery] string textContains = "",
             [FromQuery] string? waitForSortableUniqueId = null) =>
         {
             var list = await executor.QueryAsync(new QuestionsQuery(textContains, groupId)
@@ -413,7 +425,7 @@ apiRoute.MapGet("/questions/bygroup/{groupId}",
     .WithName("GetQuestionsByGroup");
 
 apiRoute.MapGet("/questions/active/{uniqueCode}", async (
-        [FromServices] SekibanOrleansExecutor executor,
+        [FromServices] ISekibanExecutor executor,
         string uniqueCode) =>
     {
         // UniqueCodeが指定されていない場合は空の結果を返す
@@ -457,7 +469,7 @@ apiRoute.MapGet("/questions/active/{uniqueCode}", async (
     .WithOpenApi()
     .WithName("GetActiveQuestion");
 
-apiRoute.MapGet("/questions/{id}", async (Guid id, [FromServices] SekibanOrleansExecutor executor) =>
+apiRoute.MapGet("/questions/{id}", async (Guid id, [FromServices] ISekibanExecutor executor) =>
     {
         var question = await executor.QueryAsync(new QuestionDetailQuery(id)).UnwrapBox();
         if (question == null) return Results.NotFound();
@@ -472,7 +484,7 @@ apiRoute
         "/questions/create",
         async (
             [FromBody] CreateQuestionCommand command,
-            [FromServices] SekibanOrleansExecutor executor) =>
+            [FromServices] ISekibanExecutor executor) =>
         {
             // Workflowを作成して呼び出すシンプルな実装
             var workflow = new QuestionGroupWorkflow(executor);
@@ -487,8 +499,8 @@ apiRoute
         "/questions/update",
         async (
                 [FromBody] UpdateQuestionCommand command,
-                [FromServices] SekibanOrleansExecutor executor) =>
-            await executor.CommandAsync(command).ToSimpleCommandResponse().UnwrapBox())
+                [FromServices] ISekibanExecutor executor) =>
+            await executor.ExecuteAsync(command).ToSimpleCommandResponse().UnwrapBox())
     .WithOpenApi()
     .WithName("UpdateQuestion");
 
@@ -497,7 +509,7 @@ apiRoute
         "/questions/startDisplay",
         async (
             [FromBody] StartDisplayCommand command,
-            [FromServices] SekibanOrleansExecutor executor) =>
+            [FromServices] ISekibanExecutor executor) =>
         {
             // ワークフローを使って排他制御を実装
             var workflow = new QuestionDisplayWorkflow(executor);
@@ -511,8 +523,8 @@ apiRoute
         "/questions/stopDisplay",
         (
                 [FromBody] StopDisplayCommand command,
-                [FromServices] SekibanOrleansExecutor executor) =>
-            executor.CommandAsync(command).ToSimpleCommandResponse().UnwrapBox())
+                [FromServices] ISekibanExecutor executor) =>
+            executor.ExecuteAsync(command).ToSimpleCommandResponse().UnwrapBox())
     .WithOpenApi()
     .WithName("StopDisplayQuestion");
 
@@ -521,29 +533,29 @@ apiRoute
         "/questions/addResponse",
         async (
             [FromBody] AddResponseCommand command,
-            [FromServices] SekibanOrleansExecutor executor,
+            [FromServices] ISekibanExecutor executor,
             [FromServices] IHubNotificationService notificationService) =>
         {
-            var commandResult = await executor.CommandAsync(command);
+            var commandResult = await executor.ExecuteAsync(command);
             var response = commandResult.UnwrapBox();
             await executor.QueryAsync(new QuestionDetailQuery(command.QuestionId))
                 .Remap(response => response.QuestionGroupId)
                 .Conveyor(groupId => executor.QueryAsync(new GetQuestionGroupByGroupIdQuery(groupId)))
-                .Remap(group => group.Payload.UniqueCode)
+                .Remap(group => group.UniqueCode)
                 .Do(uniquecode =>
                 {
                     notificationService.NotifyUniqueCodeGroupAsync(uniquecode, "ResponseAdded", new
                     {
                         AggregateId = command.QuestionId,
-                        ResponseId = response.PartitionKeys.AggregateId,
+                        ResponseId = (commandResult.GetValue().Events.FirstOrDefault()?.Payload as ResponseAdded)?.ResponseId ?? Guid.Empty,
                         command.ParticipantName,
                         command.SelectedOptionId,
                         command.Comment,
-                        (response.Events.First().GetPayload() as ResponseAdded)?.Timestamp,
+                        (commandResult.GetValue().Events.FirstOrDefault()?.Payload as ResponseAdded)?.Timestamp,
                         command.ClientId // クライアントIDを通知に含める
                     });
                 }).UnwrapBox();
-            return response.ToSimpleCommandResponse();
+            return commandResult.ToSimpleCommandResponse().UnwrapBox();
         })
     .WithOpenApi()
     .WithName("AddResponse");
@@ -553,9 +565,9 @@ apiRoute
         "/questions/delete",
         async (
             [FromBody] DeleteQuestionCommand command,
-            [FromServices] SekibanOrleansExecutor executor) =>
+            [FromServices] ISekibanExecutor executor) =>
         {
-            var result = await executor.CommandAsync(command);
+            var result = await executor.ExecuteAsync(command);
             return result.ToSimpleCommandResponse().UnwrapBox();
         })
     .WithOpenApi()
@@ -563,7 +575,7 @@ apiRoute
 
 // ActiveUsers API endpoints
 apiRoute.MapGet("/activeusers/{id}",
-        async (Guid id, [FromQuery] string? waitForSortableUniqueId, [FromServices] SekibanOrleansExecutor executor) =>
+        async (Guid id, [FromQuery] string? waitForSortableUniqueId, [FromServices] ISekibanExecutor executor) =>
         {
             var query = new ActiveUsersQuery(id)
             {
@@ -579,7 +591,7 @@ apiRoute.MapGet("/activeusers/{id}",
 // QuestionGroups API endpoints
 // Queries
 apiRoute.MapGet("/questionGroups",
-        async ([FromQuery] string? waitForSortableUniqueId, [FromServices] SekibanOrleansExecutor executor) =>
+        async ([FromQuery] string? waitForSortableUniqueId, [FromServices] ISekibanExecutor executor) =>
         {
             var query = new GetQuestionGroupsQuery
             {
@@ -592,7 +604,7 @@ apiRoute.MapGet("/questionGroups",
     .WithName("GetQuestionGroups");
 
 apiRoute.MapGet("/questionGroups/{id}",
-        async (Guid id, [FromQuery] string? waitForSortableUniqueId, [FromServices] SekibanOrleansExecutor executor) =>
+        async (Guid id, [FromQuery] string? waitForSortableUniqueId, [FromServices] ISekibanExecutor executor) =>
         {
             var query = new GetQuestionGroupsQuery
             {
@@ -607,7 +619,7 @@ apiRoute.MapGet("/questionGroups/{id}",
     .WithName("GetQuestionGroupById");
 
 apiRoute.MapGet("/questionGroups/{id}/questions",
-        async (Guid id, [FromQuery] string? waitForSortableUniqueId, [FromServices] SekibanOrleansExecutor executor) =>
+        async (Guid id, [FromQuery] string? waitForSortableUniqueId, [FromServices] ISekibanExecutor executor) =>
         {
             var query = new GetQuestionsByGroupIdQuery(id)
             {
@@ -625,8 +637,8 @@ apiRoute
         "/questionGroups",
         (
                 [FromBody] CreateQuestionGroup command,
-                [FromServices] SekibanOrleansExecutor executor) =>
-            executor.CommandAsync(command).ToSimpleCommandResponse().UnwrapBox())
+                [FromServices] ISekibanExecutor executor) =>
+            executor.ExecuteAsync(command).ToSimpleCommandResponse().UnwrapBox())
     .WithOpenApi()
     .WithName("CreateQuestionGroup");
 
@@ -636,7 +648,7 @@ apiRoute
         "/questionGroups/createWithUniqueCode",
         async (
             [FromBody] CreateQuestionGroup command,
-            [FromServices] SekibanOrleansExecutor executor) =>
+            [FromServices] ISekibanExecutor executor) =>
         {
             // ワークフローを使って重複チェックを実行
             var workflow = new QuestionGroupWorkflow(executor);
@@ -652,10 +664,10 @@ apiRoute
         async (
             Guid id,
             [FromBody] UpdateQuestionGroupCommand command,
-            [FromServices] SekibanOrleansExecutor executor) =>
+            [FromServices] ISekibanExecutor executor) =>
         {
             if (id != command.GroupId) return Results.BadRequest("ID in URL does not match ID in command");
-            var result = await executor.CommandAsync(command);
+            var result = await executor.ExecuteAsync(command);
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithOpenApi()
@@ -666,10 +678,10 @@ apiRoute
         "/questionGroups/{id}",
         async (
             Guid id,
-            [FromServices] SekibanOrleansExecutor executor) =>
+            [FromServices] ISekibanExecutor executor) =>
         {
             var command = new DeleteQuestionGroup(id);
-            var result = await executor.CommandAsync(command);
+            var result = await executor.ExecuteAsync(command);
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithOpenApi()
@@ -681,11 +693,11 @@ apiRoute
         async (
             Guid id,
             [FromBody] AddQuestionToGroup command,
-            [FromServices] SekibanOrleansExecutor executor) =>
+            [FromServices] ISekibanExecutor executor) =>
         {
             if (id != command.QuestionGroupId)
                 return Results.BadRequest("Group ID in URL does not match ID in command");
-            var result = await executor.CommandAsync(command);
+            var result = await executor.ExecuteAsync(command);
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithOpenApi()
@@ -698,10 +710,10 @@ apiRoute
             Guid groupId,
             Guid questionId,
             [FromBody] int newOrder,
-            [FromServices] SekibanOrleansExecutor executor) =>
+            [FromServices] ISekibanExecutor executor) =>
         {
             var command = new ChangeQuestionOrder(groupId, questionId, newOrder);
-            var result = await executor.CommandAsync(command);
+            var result = await executor.ExecuteAsync(command);
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithOpenApi()
@@ -713,10 +725,10 @@ apiRoute
         async (
             Guid groupId,
             Guid questionId,
-            [FromServices] SekibanOrleansExecutor executor) =>
+            [FromServices] ISekibanExecutor executor) =>
         {
             var command = new RemoveQuestionFromGroup(groupId, questionId);
-            var result = await executor.CommandAsync(command);
+            var result = await executor.ExecuteAsync(command);
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithOpenApi()
