@@ -120,7 +120,6 @@ else
     {
         try
         {
-            Console.WriteLine("Planning page initialization started");
             
             // Set up event handlers for the hub service
             HubService.ActiveUsersChanged += RefreshActiveUsers;
@@ -128,14 +127,11 @@ else
             HubService.QuestionGroupChanged += OnQuestionGroupChanged;
             HubService.ResponseAdded += OnResponseAdded;
             
-            Console.WriteLine("Hub service event handlers configured");
             
             // Initialize the hub connection
             await HubService.InitializeAsync();
-            Console.WriteLine("Hub service initialized");
             
             await HubService.JoinAdminGroup();
-            Console.WriteLine("Joined admin group");
             
             // Load initial data
             await RefreshActiveUsers();
@@ -148,19 +144,14 @@ else
                 selectedGroupId = groups.First().Id;
                 await RefreshQuestionsInGroupWithSortableUniqueId();
                 StateHasChanged();
-                Console.WriteLine($"Auto-selected first group: {selectedGroupId}");
             }
 
             StartAutoRefresh();
             
-            Console.WriteLine("Planning page initialization completed successfully");
         }
         catch (Exception ex)
         {
             var errorMessage = $"Planning page initialization failed: {ex.Message}";
-            Console.Error.WriteLine(errorMessage);
-            Console.Error.WriteLine($"Exception Type: {ex.GetType().Name}");
-            Console.Error.WriteLine($"Stack Trace: {ex.StackTrace}");
             
             // Log to browser console and show alert
             await LogErrorToBrowserAsync("OnInitializedAsync", ex);
@@ -172,17 +163,14 @@ else
     {
         try
         {
-            Console.WriteLine("OnQuestionChanged event received");
             await RefreshQuestionsInGroupWithSortableUniqueId();
             if (selectedQuestion is not null)
             {
                 await RefreshSelectedQuestion();
             }
-            Console.WriteLine("OnQuestionChanged event handled successfully");
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error in OnQuestionChanged: {ex.Message}");
             await LogErrorToBrowserAsync("OnQuestionChanged", ex);
         }
     }
@@ -191,14 +179,11 @@ else
     {
         try
         {
-            Console.WriteLine("OnQuestionGroupChanged event received");
             await RefreshGroupsWithSortableUniqueId();
             await RefreshQuestionsInGroupWithSortableUniqueId();
-            Console.WriteLine("OnQuestionGroupChanged event handled successfully");
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error in OnQuestionGroupChanged: {ex.Message}");
             await LogErrorToBrowserAsync("OnQuestionGroupChanged", ex);
         }
     }
@@ -207,18 +192,15 @@ else
     {
         try
         {
-            Console.WriteLine("Response added event received - refreshing all questions");
             await RefreshQuestionsInGroupWithSortableUniqueId();
             
             if (selectedQuestion is not null) 
             {
                  await RefreshSelectedQuestion();
             }
-            Console.WriteLine("OnResponseAdded event handled successfully");
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error in OnResponseAdded: {ex.Message}");
             await LogErrorToBrowserAsync("OnResponseAdded", ex);
         }
     }
@@ -227,15 +209,11 @@ else
     {
         try
         {
-            Console.WriteLine($"Refreshing active users with ID {activeUsersId}...");
             activeUsers = await ActiveUsersApi.GetActiveUsersAsync(activeUsersId);
-            Console.WriteLine($"Active users count: {activeUsers?.TotalCount ?? 0}");
             await InvokeAsync(() => StateHasChanged());
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.Error.WriteLine($"Error refreshing active users: {ex.Message}");
-            Console.Error.WriteLine(ex.StackTrace);
         }
     }
     
@@ -245,7 +223,6 @@ else
         {
             try
             {
-                Console.WriteLine($"Refreshing questions in group {selectedGroupId.Value} with SortableUniqueId: {sortableUniqueId}...");
                 
                 var fetchedQuestionsInGroup = await QuestionApi.GetQuestionsByGroupAsync(
                     selectedGroupId.Value,
@@ -253,12 +230,10 @@ else
                     waitForSortableUniqueId: sortableUniqueId);
                     
                 questionsInGroup = fetchedQuestionsInGroup.ToList();
-                Console.WriteLine($"Fetched {questionsInGroup.Count} questions in group with SortableUniqueId");
                 await InvokeAsync(() => StateHasChanged());
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.Error.WriteLine($"Error refreshing questions in group with SortableUniqueId: {ex.Message}");
                 questionsInGroup = new List<QuestionsQuery.QuestionDetailRecord>();
             }
         }
@@ -274,16 +249,12 @@ else
         {
             if (selectedQuestion is not null)
             {
-                Console.WriteLine($"Refreshing selected question {selectedQuestion.QuestionId}...");
                 selectedQuestion = await QuestionApi.GetQuestionByIdAsync(selectedQuestion.QuestionId);
-                Console.WriteLine("Selected question refreshed");
                 await InvokeAsync(() => StateHasChanged());
-                Console.WriteLine("State has changed for selected question");
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.Error.WriteLine($"Error refreshing selected question: {ex.Message}");
         }
     }
 
@@ -291,14 +262,11 @@ else
     {
         try
         {
-            Console.WriteLine($"Refreshing groups with SortableUniqueId: {sortableUniqueId}...");
             groups = await QuestionGroupApi.GetGroupsAsync(waitForSortableUniqueId: sortableUniqueId);
-            Console.WriteLine($"Fetched {groups?.Count ?? 0} groups with SortableUniqueId");
             await InvokeAsync(() => StateHasChanged());
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.Error.WriteLine($"Error refreshing groups with SortableUniqueId: {ex.Message}");
         }
     }
 
@@ -306,15 +274,11 @@ else
     {
         try
         {
-            Console.WriteLine($"Viewing question details for {questionId}...");
             selectedQuestion = await QuestionApi.GetQuestionByIdAsync(questionId);
-            Console.WriteLine("Question details loaded");
             await InvokeAsync(() => StateHasChanged());
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.Error.WriteLine($"Error viewing question details: {ex.Message}");
-            Console.Error.WriteLine(ex.StackTrace);
         }
     }
 
@@ -323,8 +287,7 @@ else
     {
         try {
             await JsRuntime.InvokeVoidAsync("eval", $"new bootstrap.Modal(document.getElementById('{modalId}')).show()");
-        } catch (Exception ex) {
-            Console.Error.WriteLine($"Error showing modal {modalId}: {ex.Message}");
+        } catch (Exception) {
         }
     }
 
@@ -388,15 +351,11 @@ else
             
             // StateHasChangedを呼び出してUIを更新
             await InvokeAsync(() => StateHasChanged());
-            Console.WriteLine($"Modal {modalId} close attempt completed");
-        } catch (Exception ex) {
-            Console.Error.WriteLine($"Error hiding modal {modalId}: {ex.Message}");
+        } catch (Exception) {
             try {
                 // 最終手段: ページをリロード
-                Console.WriteLine("Attempting page reload as last resort");
                 await JsRuntime.InvokeVoidAsync("eval", "window.location.reload();");
-            } catch (Exception reloadEx) {
-                Console.Error.WriteLine($"Even page reload failed: {reloadEx.Message}");
+            } catch (Exception) {
             }
         }
     }
@@ -480,7 +439,6 @@ else
                 AllowMultipleResponses = allowMultipleResponses // 複数回答フラグを設定
             };
             
-            Console.WriteLine($"Editing question {questionId} in group {questionGroupId}");
             await ShowQuestionModal();
         }
     }
@@ -496,11 +454,9 @@ else
                 return;
             }
             
-            Console.WriteLine("質問を保存中...");
             var options = questionModel.Options.Select(o => new QuestionOption(o.Id, o.Text)).ToList();
             
             var groupIdToUse = questionModel.QuestionGroupId;
-            Console.WriteLine($"選択されたグループ: {groupIdToUse}");
             
             if (isEditMode && editQuestionId.HasValue)
             {
@@ -526,11 +482,9 @@ else
                     }
                     
                     await JsRuntime.InvokeVoidAsync("alert", errorMsg);
-                    Console.Error.WriteLine($"更新エラー: {updateResult.ErrorMessage}");
                     return; // エラー発生時は処理を中断
                 }
                 
-                Console.WriteLine("質問が更新されました");
                 
                 // SortableUniqueIdを使ってデータをリフレッシュ
                 if (updateResult.Result != null)
@@ -541,7 +495,6 @@ else
                 // グループが変更された場合は移動処理
                 if (selectedGroupId != groupIdToUse)
                 {
-                    Console.WriteLine($"質問のグループを {groupIdToUse} から {selectedGroupId} に移動します");
                     
                     // 現在のグループを特定
                     Guid currentGroupId = Guid.Empty;
@@ -590,13 +543,11 @@ else
                         options, 
                         groupIdToUse, 
                         questionModel.AllowMultipleResponses);
-                    Console.WriteLine($"質問をグループ {groupIdToUse} に作成しました");
                     
                     // SortableUniqueIdを使ってデータをリフレッシュ
                     await RefreshQuestionsInGroupWithSortableUniqueId(response.LastSortableUniqueId ?? "");
                 } catch (Exception ex) {
                     await JsRuntime.InvokeVoidAsync("alert", $"質問の作成に失敗しました: {ex.Message}");
-                    Console.Error.WriteLine($"質問作成エラー: {ex.Message}");
                     return;
                 }
             }
@@ -614,7 +565,6 @@ else
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"質問保存エラー: {ex.Message}");
             await JsRuntime.InvokeVoidAsync("alert", $"質問の保存中にエラーが発生しました: {ex.Message}");
         }
     }
@@ -624,7 +574,6 @@ else
         try
         {
             var uniqueCode = groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.UniqueCode ?? "";
-            Console.WriteLine($"Starting display for question {questionId} (UniqueCode: {uniqueCode})...");
             
             if (string.IsNullOrWhiteSpace(uniqueCode))
             {
@@ -632,12 +581,10 @@ else
                 return;
             }
             var response = await QuestionApi.StartDisplayQuestionAsync(questionId);
-            Console.WriteLine($"Display started for question {questionId} with UniqueCode: {uniqueCode}");
             await RefreshQuestionsInGroupWithSortableUniqueId(response.LastSortableUniqueId ?? "");
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error starting display: {ex.Message}");
             if (IsAlreadyDisplayedConflict(ex))
             {
                 // Another client already started display. Sync UI instead of showing an error alert.
@@ -655,7 +602,6 @@ else
         try
         {
             var uniqueCode = groups?.FirstOrDefault(g => g.Id == selectedGroupId)?.UniqueCode ?? "";
-            Console.WriteLine($"Stopping display for question {questionId} (UniqueCode: {uniqueCode})...");
             
             if (string.IsNullOrWhiteSpace(uniqueCode))
             {
@@ -664,12 +610,10 @@ else
             }
             
             var response = await QuestionApi.StopDisplayQuestionAsync(questionId);
-            Console.WriteLine($"Display stopped for question {questionId} with UniqueCode: {uniqueCode}");
             await RefreshQuestionsInGroupWithSortableUniqueId(response.LastSortableUniqueId ?? "");
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error stopping display: {ex.Message}");
             await JsRuntime.InvokeVoidAsync("alert", $"質問の表示停止に失敗しました: {ex.Message}");
         }
     }
@@ -680,9 +624,7 @@ else
         {
             try
             {
-                Console.WriteLine($"Deleting question {questionId}...");
                 var response = await QuestionApi.DeleteQuestionAsync(questionId);
-                Console.WriteLine("Question deleted");
                 
                 if (selectedQuestion?.QuestionId == questionId)
                 {
@@ -694,7 +636,6 @@ else
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Error deleting question: {ex.Message}");
                 await LogErrorToBrowserAsync("DeleteQuestion", ex);
                 await ShowUserErrorAsync($"質問の削除中にエラーが発生しました: {ex.Message}");
             }
@@ -729,18 +670,15 @@ else
     {
         try
         {
-            Console.WriteLine("Saving group...");
             CommandResponseSimple response;
             
             if (isEditGroupMode && editGroupId.HasValue)
             {
                 response = await QuestionGroupApi.UpdateGroupAsync(editGroupId.Value, groupModel.Name);
-                Console.WriteLine("Group updated");
             }
             else
             {
                 response = await QuestionGroupApi.CreateGroupAsync(groupModel.Name);
-                Console.WriteLine("Group created");
             }
 
             await CloseGroupModal();
@@ -750,7 +688,6 @@ else
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error saving group: {ex.Message}");
             await LogErrorToBrowserAsync("SaveGroup", ex);
             await ShowUserErrorAsync($"グループの保存中にエラーが発生しました: {ex.Message}");
         }
@@ -762,9 +699,7 @@ else
         {
             try
             {
-                Console.WriteLine($"Deleting group {groupId}...");
                 var response = await QuestionGroupApi.DeleteGroupAsync(groupId);
-                Console.WriteLine($"Group deleted. Result: {response}");
 
                 // 削除したグループが選択中のグループだった場合、選択を解除
                 if (selectedGroupId == groupId)
@@ -780,19 +715,15 @@ else
                 // 強制的にUIを更新
                 await InvokeAsync(StateHasChanged);
                 
-                Console.WriteLine($"Group deletion processing completed for group {groupId}");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.Error.WriteLine($"Error deleting group: {ex.Message}");
-                Console.Error.WriteLine(ex.StackTrace);
             }
         }
     }
 
     private async Task SelectGroup(Guid groupId)
     {
-        Console.WriteLine($"Selecting group {groupId}...");
         selectedGroupId = groupId;
         selectedQuestion = null;
         await RefreshQuestionsInGroupWithSortableUniqueId();
@@ -851,7 +782,6 @@ else
             
         try
         {
-            Console.WriteLine($"Changing order for question {questionId} to {newOrder}");
             await QuestionGroupApi.ChangeQuestionOrderAsync(selectedGroupId.Value, questionId, newOrder);
             
             await RefreshGroupsWithSortableUniqueId();
@@ -859,7 +789,6 @@ else
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error changing question order: {ex.Message}");
             await LogErrorToBrowserAsync("ChangeQuestionOrder", ex);
             await ShowUserErrorAsync($"質問の順序変更中にエラーが発生しました: {ex.Message}");
         }
@@ -891,15 +820,9 @@ else
             await JsRuntime.InvokeVoidAsync("console.error", $"[AdminWeb Error] {methodName}:", jsonError);
             
             // サーバーログにも出力
-            Console.Error.WriteLine($"[AdminWeb Error] Method: {methodName}");
-            Console.Error.WriteLine($"ErrorType: {ex.GetType().Name}");
-            Console.Error.WriteLine($"Message: {ex.Message}");
-            Console.Error.WriteLine($"StackTrace: {ex.StackTrace}");
-            Console.Error.WriteLine($"Url: {NavigationManager.Uri}");
         }
-        catch (Exception logEx)
+        catch (Exception)
         {
-            Console.Error.WriteLine($"Failed to log error: {logEx.Message}");
         }
     }
 
@@ -912,9 +835,8 @@ else
         {
             await JsRuntime.InvokeVoidAsync("alert", message);
         }
-        catch (Exception alertEx)
+        catch (Exception)
         {
-            Console.Error.WriteLine($"Failed to show user alert: {alertEx.Message}");
         }
     }
 
@@ -961,9 +883,8 @@ else
             {
                 break;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.Error.WriteLine($"Auto refresh loop error: {ex.Message}");
             }
             finally
             {
@@ -996,9 +917,8 @@ else
             // HubServiceのDisposeを呼び出す
             await HubService.DisposeAsync();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.Error.WriteLine($"Error during disposal: {ex.Message}");
         }
     }
 }

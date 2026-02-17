@@ -87,7 +87,8 @@ public class AdminUserIntegrationTests : BaseTest
         var nameInput = userPage.Locator("#participantName");
         if (await nameInput.CountAsync() == 0)
         {
-            await userPage.GetByRole(AriaRole.Button, new() { Name = "Change" }).ClickAsync();
+            var editNameButton = userPage.GetByRole(AriaRole.Button, new() { NameRegex = new System.Text.RegularExpressions.Regex("^(Change|Set name)$") });
+            await editNameButton.First.ClickAsync();
             nameInput = userPage.Locator("#participantName");
         }
 
@@ -105,7 +106,8 @@ public class AdminUserIntegrationTests : BaseTest
         await WaitForAdminResponseCount(adminPage, questionText, expectedCount: 1);
 
         await userPage.Locator("#comment").FillAsync(comment);
-        await userPage.GetByRole(AriaRole.Button, new() { Name = "Post Comment" }).ClickAsync();
+        var submitCommentButton = userPage.GetByRole(AriaRole.Button, new() { NameRegex = new System.Text.RegularExpressions.Regex("^(Post Comment|Submit Comment)$") });
+        await submitCommentButton.First.ClickAsync();
         await EnsureCommentSubmissionSucceeded(userPage);
         await WaitForApiComment(uniqueCode, comment);
 
