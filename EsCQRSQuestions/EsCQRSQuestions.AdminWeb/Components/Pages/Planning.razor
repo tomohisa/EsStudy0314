@@ -112,6 +112,9 @@ else
     private bool isEditGroupMode = false;
     private Guid? editGroupId;
     private readonly Guid activeUsersId = Guid.Parse("0195a6f7-dfff-75a7-b99f-36a0552a8eca");
+    private CancellationTokenSource? autoRefreshCts;
+    private Task? autoRefreshTask;
+    private volatile bool isAutoRefreshing;
 
     protected override async Task OnInitializedAsync()
     {
@@ -147,6 +150,8 @@ else
                 StateHasChanged();
                 Console.WriteLine($"Auto-selected first group: {selectedGroupId}");
             }
+
+            StartAutoRefresh();
             
             Console.WriteLine("Planning page initialization completed successfully");
         }
@@ -800,10 +805,17 @@ else
 
     private int GetResponseCountForQuestion(Guid questionId)
     {
+        var summary = questionsInGroup?.FirstOrDefault(q => q.QuestionId == questionId);
+        if (summary is not null)
+        {
+            return summary.ResponseCount;
+        }
+
         if (selectedQuestion?.QuestionId == questionId && selectedQuestion.Responses != null)
         {
             return selectedQuestion.Responses.Count(); 
         }
+
         return 0; 
     }
 
@@ -899,10 +911,65 @@ else
         }
     }
 
+    private void StartAutoRefresh()
+    {
+        autoRefreshCts?.Cancel();
+        autoRefreshCts = new CancellationTokenSource();
+        autoRefreshTask = Task.Run(() => AutoRefreshLoop(autoRefreshCts.Token));
+    }
+
+    private async Task AutoRefreshLoop(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+                if (cancellationToken.IsCancellationRequested || selectedGroupId is null || isAutoRefreshing)
+                {
+                    continue;
+                }
+
+                isAutoRefreshing = true;
+                await InvokeAsync(async () =>
+                {
+                    await RefreshQuestionsInGroupWithSortableUniqueId();
+                    if (selectedQuestion is not null)
+                    {
+                        await RefreshSelectedQuestion();
+                    }
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Auto refresh loop error: {ex.Message}");
+            }
+            finally
+            {
+                isAutoRefreshing = false;
+            }
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         try
         {
+            if (autoRefreshCts is not null)
+            {
+                await autoRefreshCts.CancelAsync();
+                autoRefreshCts.Dispose();
+                autoRefreshCts = null;
+            }
+            if (autoRefreshTask is not null)
+            {
+                await autoRefreshTask;
+            }
+
             // Unsubscribe from events
             HubService.ActiveUsersChanged -= RefreshActiveUsers;
             HubService.QuestionChanged -= OnQuestionChanged;

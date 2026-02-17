@@ -16,7 +16,9 @@ using EsCQRSQuestions.Domain.Projections.Questions;
 using EsCQRSQuestions.Domain.Services;
 using EsCQRSQuestions.Domain.Workflows;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Orleans.Configuration;
+using Orleans.Runtime;
 using Orleans.Storage;
 using ResultBoxes;
 using Scalar.AspNetCore;
@@ -267,7 +269,7 @@ else
 {
     builder.Services.AddSingleton<Sekiban.Dcb.ServiceId.IServiceIdProvider, Sekiban.Dcb.ServiceId.DefaultServiceIdProvider>();
     builder.Services.AddSingleton<IEventStore, PostgresEventStore>();
-    builder.Services.AddSekibanDcbPostgresWithAspire();
+    builder.Services.AddSekibanDcbPostgresWithAspire("SekibanPostgres");
     builder.Services.AddSingleton<IMultiProjectionStateStore, Sekiban.Dcb.Postgres.PostgresMultiProjectionStateStore>();
 }
 
@@ -323,6 +325,38 @@ var app = builder.Build();
 var apiRoute = app
     .MapGroup("/api")
     .AddEndpointFilter<ExceptionEndpointFilter>();
+
+static bool IsTransientQuestionGroupError(Exception ex)
+{
+    if (ex is DbUpdateException || ex is OrleansException)
+    {
+        return true;
+    }
+
+    if (ex.InnerException is not null)
+    {
+        return IsTransientQuestionGroupError(ex.InnerException);
+    }
+
+    var message = ex.Message ?? string.Empty;
+    return message.Contains("duplicate key value", StringComparison.OrdinalIgnoreCase)
+           || message.Contains("Stream type mismatch", StringComparison.OrdinalIgnoreCase);
+}
+
+static async Task<T> RetryTransientAsync<T>(Func<Task<T>> action, int maxAttempts = 5)
+{
+    for (var attempt = 1; ; attempt++)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (Exception ex) when (attempt < maxAttempts && IsTransientQuestionGroupError(ex))
+        {
+            await Task.Delay(100 * attempt * attempt);
+        }
+    }
+}
 
 // Configure the HTTP request pipeline.
 app.UseExceptionHandler();
@@ -527,26 +561,63 @@ apiRoute
         {
             var commandResult = await executor.ExecuteAsync(command);
             var response = commandResult.UnwrapBox();
+            var notificationPayload = new
+            {
+                AggregateId = command.QuestionId,
+                ResponseId = (commandResult.GetValue().Events.FirstOrDefault()?.Payload as ResponseAdded)?.ResponseId ?? Guid.Empty,
+                command.ParticipantName,
+                command.SelectedOptionId,
+                command.Comment,
+                (commandResult.GetValue().Events.FirstOrDefault()?.Payload as ResponseAdded)?.Timestamp,
+                command.ClientId
+            };
+
             await executor.QueryAsync(new QuestionDetailQuery(command.QuestionId))
                 .Remap(response => response.QuestionGroupId)
                 .Conveyor(groupId => executor.QueryAsync(new GetQuestionGroupByGroupIdQuery(groupId)))
                 .Remap(group => group.UniqueCode)
-                .Do(uniquecode =>
+                .Do(async uniqueCode =>
                 {
-                    notificationService.NotifyUniqueCodeGroupAsync(uniquecode, "ResponseAdded", new
-                    {
-                        AggregateId = command.QuestionId,
-                        ResponseId = (commandResult.GetValue().Events.FirstOrDefault()?.Payload as ResponseAdded)?.ResponseId ?? Guid.Empty,
-                        command.ParticipantName,
-                        command.SelectedOptionId,
-                        command.Comment,
-                        (commandResult.GetValue().Events.FirstOrDefault()?.Payload as ResponseAdded)?.Timestamp,
-                        command.ClientId // クライアントIDを通知に含める
-                    });
+                    await Task.WhenAll(
+                        notificationService.NotifyUniqueCodeGroupAsync(uniqueCode, "ResponseAdded", notificationPayload),
+                        notificationService.NotifyAdminsAsync("ResponseAdded", notificationPayload));
                 }).UnwrapBox();
             return commandResult.ToSimpleCommandResponse().UnwrapBox();
         })
     .WithName("AddResponse");
+
+apiRoute
+    .MapPost(
+        "/questions/updateResponseComment",
+        async (
+            [FromBody] UpdateResponseCommentCommand command,
+            [FromServices] ISekibanExecutor executor,
+            [FromServices] IHubNotificationService notificationService) =>
+        {
+            var commandResult = await executor.ExecuteAsync(command);
+            var response = commandResult.UnwrapBox();
+            var notificationPayload = new
+            {
+                AggregateId = command.QuestionId,
+                command.ClientId,
+                command.Comment,
+                Timestamp = (commandResult.GetValue().Events.FirstOrDefault()?.Payload as ResponseCommentUpdated)?.Timestamp
+            };
+
+            await executor.QueryAsync(new QuestionDetailQuery(command.QuestionId))
+                .Remap(result => result.QuestionGroupId)
+                .Conveyor(groupId => executor.QueryAsync(new GetQuestionGroupByGroupIdQuery(groupId)))
+                .Remap(group => group.UniqueCode)
+                .Do(async uniqueCode =>
+                {
+                    await Task.WhenAll(
+                        notificationService.NotifyUniqueCodeGroupAsync(uniqueCode, "ResponseCommentUpdated", notificationPayload),
+                        notificationService.NotifyAdminsAsync("ResponseCommentUpdated", notificationPayload));
+                }).UnwrapBox();
+
+            return commandResult.ToSimpleCommandResponse().UnwrapBox();
+        })
+    .WithName("UpdateResponseComment");
 
 apiRoute
     .MapPost(
@@ -583,7 +654,7 @@ apiRoute.MapGet("/questionGroups",
             {
                 WaitForSortableUniqueId = waitForSortableUniqueId
             };
-            var list = await executor.QueryAsync(query).UnwrapBox();
+            var list = await RetryTransientAsync(async () => await executor.QueryAsync(query).UnwrapBox());
             return list.Items;
         })
     .WithName("GetQuestionGroups");
@@ -595,7 +666,7 @@ apiRoute.MapGet("/questionGroups/{id}",
             {
                 WaitForSortableUniqueId = waitForSortableUniqueId
             };
-            var groups = await executor.QueryAsync(query).UnwrapBox();
+            var groups = await RetryTransientAsync(async () => await executor.QueryAsync(query).UnwrapBox());
             var group = groups.Items.FirstOrDefault(g => g.Id == id);
             if (group == null) return Results.NotFound();
             return Results.Ok(group);
@@ -609,7 +680,7 @@ apiRoute.MapGet("/questionGroups/{id}/questions",
             {
                 WaitForSortableUniqueId = waitForSortableUniqueId
             };
-            var questions = await executor.QueryAsync(query).UnwrapBox();
+            var questions = await RetryTransientAsync(async () => await executor.QueryAsync(query).UnwrapBox());
             return questions.Items;
         })
     .WithName("GetQuestionsByGroupId");
@@ -618,10 +689,10 @@ apiRoute.MapGet("/questionGroups/{id}/questions",
 apiRoute
     .MapPost(
         "/questionGroups",
-        (
+        async (
                 [FromBody] CreateQuestionGroup command,
                 [FromServices] ISekibanExecutor executor) =>
-            executor.ExecuteAsync(command).ToSimpleCommandResponse().UnwrapBox())
+            await RetryTransientAsync(async () => await executor.ExecuteAsync(command).ToSimpleCommandResponse().UnwrapBox()))
     .WithName("CreateQuestionGroup");
 
 // 重複チェック機能を持つエンドポイント
@@ -648,7 +719,7 @@ apiRoute
             [FromServices] ISekibanExecutor executor) =>
         {
             if (id != command.GroupId) return Results.BadRequest("ID in URL does not match ID in command");
-            var result = await executor.ExecuteAsync(command);
+            var result = await RetryTransientAsync(async () => await executor.ExecuteAsync(command));
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithName("UpdateQuestionGroup");
@@ -661,7 +732,7 @@ apiRoute
             [FromServices] ISekibanExecutor executor) =>
         {
             var command = new DeleteQuestionGroup(id);
-            var result = await executor.ExecuteAsync(command);
+            var result = await RetryTransientAsync(async () => await executor.ExecuteAsync(command));
             return Results.Ok(result.ToSimpleCommandResponse().UnwrapBox());
         })
     .WithName("DeleteQuestionGroup");

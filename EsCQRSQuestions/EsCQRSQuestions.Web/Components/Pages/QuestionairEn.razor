@@ -162,84 +162,55 @@
                                 @if (activeQuestion.AllowMultipleResponses)
                                 {
                                     <div class="alert alert-info mb-3">
-                                        <i class="bi bi-info-circle me-2"></i>You can select multiple options
+                                        <i class="bi bi-info-circle me-2"></i>You can register multiple options one by one.
                                     </div>
-                                    
-                                    @foreach (var option in activeQuestion.Options)
-                                    {
-                                        <div class="form-check mb-2">
-                                            <input class="form-check-input" type="checkbox" name="questionOptions" 
-                                                   id="option-@option.Id" value="@option.Id" 
-                                                   checked="@(selectedOptionIds.Contains(option.Id))"
-                                                   @onchange="(e) => UpdateSelectedOptions(option.Id, e.Value is bool checkedValue && checkedValue)" />
-                                            <label class="form-check-label" for="option-@option.Id">
-                                                @option.Text
-                                            </label>
-                                        </div>
-                                    }
                                 }
                                 else
                                 {
-                                    @foreach (var option in activeQuestion.Options)
-                                    {
-                                        <div class="form-check mb-2">
-                                            <input class="form-check-input" type="radio" name="questionOptions" 
-                                                   id="option-@option.Id" value="@option.Id" 
-                                                   checked="@(selectedOptionIds.Contains(option.Id))"
-                                                   @onchange="(e) => SelectSingleOption(option.Id)" />
-                                            <label class="form-check-label" for="option-@option.Id">
-                                                @option.Text
-                                            </label>
-                                        </div>
-                                    }
+                                    <div class="alert alert-info mb-3">
+                                        <i class="bi bi-info-circle me-2"></i>Please register one option.
+                                    </div>
                                 }
-                                
+
+                                @foreach (var option in activeQuestion.Options)
+                                {
+                                    var isRegistered = HasRegisteredOption(option.Id);
+                                    var disabled = isSubmittingOption || (!activeQuestion.AllowMultipleResponses && hasSubmitted && !isRegistered);
+                                    <div class="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
+                                        <span>@option.Text</span>
+                                        <button class="btn btn-sm @(isRegistered ? "btn-outline-success" : "btn-primary")"
+                                                @onclick="() => RegisterOption(option.Id)"
+                                                disabled="@disabled">
+                                            @if (isRegistered)
+                                            {
+                                                <span>Registered</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Register</span>
+                                            }
+                                        </button>
+                                    </div>
+                                }
+
                                 @if (!string.IsNullOrEmpty(optionError))
                                 {
                                     <div class="text-danger mt-2">@optionError</div>
                                 }
                             </div>
-                            
-                            <div class="mb-4">
-                                @if (selectedOptionIds.Any())
-                                {
-                                    <label for="comment" class="form-label">Comment (Optional)</label>
-                                    <textarea class="form-control" id="comment" rows="3" 
-                                              @bind="comment" placeholder="Enter your comment"></textarea>
-                                }
-                                else
-                                {
-                                    <div class="alert alert-info">
-                                        Please select an answer!
-                                    </div>
-                                }
-                            </div>
-                            
-                            <button class="@GetButtonClass() submit-button @GetButtonAnimation()" 
-                                    @onclick="SubmitResponse" 
-                                    disabled="@(buttonState == SubmitButtonState.Submitting)"
-                                    aria-live="polite">
-                                <div class="d-flex align-items-center justify-content-center">
-                                    @switch (buttonState)
-                                    {
-                                        case SubmitButtonState.Ready:
-                                            <span>Submit Response</span>
-                                            break;
-                                        case SubmitButtonState.Submitting:
-                                            <div class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></div>
-                                            <span>Submitting...</span>
-                                            break;
-                                        case SubmitButtonState.Success:
-                                            <i class="bi bi-check-circle-fill me-2"></i>
-                                            <span>Submitted!</span>
-                                            break;
-                                        case SubmitButtonState.Error:
-                                            <i class="bi bi-exclamation-circle-fill me-2"></i>
-                                            <span>Error - Retry</span>
-                                            break;
-                                    }
+
+                            <div class="mb-3">
+                                <label for="comment" class="form-label">Comment (Optional)</label>
+                                <textarea class="form-control" id="comment" rows="3"
+                                          @bind="comment" placeholder="Enter your comment"></textarea>
+                                <div class="mt-2">
+                                    <button class="btn btn-outline-primary"
+                                            @onclick="SubmitCommentOnly"
+                                            disabled="@isSubmittingComment">
+                                        @(isSubmittingComment ? "Sending comment..." : "Send Comment")
+                                    </button>
                                 </div>
-                            </button>
+                            </div>
                         </div>
 
                         @if (activeQuestion.Responses.Any())
@@ -315,12 +286,13 @@
     private HubConnection hubConnection = default!;
     private ActiveQuestionQuery.ActiveQuestionRecord? activeQuestion;
     private string participantName = "";
-    private List<string> selectedOptionIds = new List<string>(); // Multiple selections support
     private string comment = "";
     private string errorMessage = "";
     private string optionError = "";
     private bool showResponses = false;
     private bool hasSubmitted = false;
+    private bool isSubmittingOption = false;
+    private bool isSubmittingComment = false;
     private string inputUniqueCode = "";
     private bool isValidating = false;
     
@@ -330,34 +302,30 @@
     // Previous UniqueCode to track changes
     private string? previousUniqueCode;
     
-    // Button state enum
-    private enum SubmitButtonState
-    {
-        Ready,      // Ready to submit
-        Submitting, // Submitting
-        Success,    // Submission successful
-        Error       // Submission failed
-    }
-    
-    // Current button state
-    private SubmitButtonState buttonState = SubmitButtonState.Ready;
-    
-    // Timer variable (to reset state after showing success/error)
-    private Timer? stateResetTimer;
-
     // JS interop function
     [JSInvokable]
     public void SetClientId(string id)
     {
-        clientId = id;
-        Console.WriteLine($"Client ID set: {clientId}");
-        StateHasChanged();
+        if (string.IsNullOrWhiteSpace(clientId) && !string.IsNullOrWhiteSpace(id))
+        {
+            clientId = id;
+            Console.WriteLine($"Client ID set from callback: {clientId}");
+            StateHasChanged();
+        }
     }
 
     protected override async Task OnInitializedAsync()
     {
-        // Get or create client ID
-        await JsRuntime.InvokeVoidAsync("getOrCreateClientId");
+        // Get or create client ID up-front to avoid race conditions in headless execution.
+        try
+        {
+            clientId = await JsRuntime.InvokeAsync<string>("getOrCreateClientId") ?? "";
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error getting client ID from JS: {ex.Message}");
+            clientId = "";
+        }
         
         // Set up SignalR connection with improved timeout and resilience settings
         hubConnection = new HubConnectionBuilder()
@@ -451,7 +419,6 @@
             Console.WriteLine($"QuestionDisplayStarted event received: {System.Text.Json.JsonSerializer.Serialize(data)}");
             await RefreshActiveQuestion();
             hasSubmitted = false;
-            selectedOptionIds.Clear();
             comment = "";
             errorMessage = "";
             await InvokeAsync(StateHasChanged);
@@ -461,7 +428,6 @@
         {
             activeQuestion = null;
             hasSubmitted = false;
-            selectedOptionIds.Clear();
             comment = "";
             await InvokeAsync(StateHasChanged);
         });
@@ -474,6 +440,15 @@
                 await RefreshActiveQuestion();
                 await InvokeAsync(() => StateHasChanged());
                 Console.WriteLine("Question refreshed after response added");
+            }
+        });
+
+        hubConnection.On<object>("ResponseCommentUpdated", async _ =>
+        {
+            if (activeQuestion != null)
+            {
+                await RefreshActiveQuestion();
+                await InvokeAsync(() => StateHasChanged());
             }
         });
 
@@ -669,61 +644,31 @@
         showResponses = !showResponses;
     }
 
-    private void UpdateSelectedOptions(string optionId, bool isSelected)
-    {
-        if (isSelected)
-        {
-            if (!selectedOptionIds.Contains(optionId))
-            {
-                selectedOptionIds.Add(optionId);
-            }
-        }
-        else
-        {
-            selectedOptionIds.Remove(optionId);
-        }
-    }
+    private bool HasRegisteredOption(string optionId) =>
+        activeQuestion?.Responses.Any(r => r.ClientId == clientId && r.SelectedOptionId == optionId) == true;
 
-    private void SelectSingleOption(string optionId)
+    private async Task RegisterOption(string optionId)
     {
-        selectedOptionIds.Clear();
-        selectedOptionIds.Add(optionId);
-    }
-
-    private async Task SubmitResponse()
-    {
-        // Input validation
-        if (!selectedOptionIds.Any())
-        {
-            optionError = "Please select at least one option";
-            return;
-        }
-        else
-        {
-            optionError = "";
-        }
-
         if (activeQuestion == null)
         {
             errorMessage = "No question to answer";
             return;
         }
 
-        if (hasSubmitted)
-        {
-            errorMessage = "You have already answered this question";
-            return;
-        }
-
-        // If client ID is empty, try to regenerate
+        // If client ID is empty, try to regenerate deterministically.
         if (string.IsNullOrEmpty(clientId))
         {
-            await JsRuntime.InvokeVoidAsync("getOrCreateClientId");
-            await Task.Delay(500); // Wait a bit for ID to be set
-            
+            try
+            {
+                clientId = await JsRuntime.InvokeAsync<string>("getOrCreateClientId") ?? "";
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error regenerating client ID from JS: {ex.Message}");
+            }
+
             if (string.IsNullOrEmpty(clientId))
             {
-                // If still can't get it, generate temporary ID
                 clientId = Guid.NewGuid().ToString();
                 Console.WriteLine($"Generated temporary client ID: {clientId}");
             }
@@ -731,108 +676,121 @@
 
         try
         {
-            // Set to submitting state
-            buttonState = SubmitButtonState.Submitting;
-            
+            optionError = "";
+            errorMessage = "";
+            isSubmittingOption = true;
+
+            // Refresh state right before submit to avoid sending answers for ended questions.
+            await RefreshActiveQuestion();
+            if (activeQuestion == null || activeQuestion.QuestionId == Guid.Empty)
+            {
+                errorMessage = "This question is no longer active. Please wait for the next displayed question.";
+                return;
+            }
+
+            if (!activeQuestion.AllowMultipleResponses && hasSubmitted)
+            {
+                errorMessage = "You have already answered this question";
+                return;
+            }
+
+            if (HasRegisteredOption(optionId))
+            {
+                optionError = "This option is already registered.";
+                return;
+            }
+
             // Update participant name if changed
-            if (!string.IsNullOrEmpty(participantName))
+            if (!string.IsNullOrEmpty(participantName) && hubConnection.State == HubConnectionState.Connected)
             {
                 await hubConnection.InvokeAsync("SetParticipantName", participantName);
             }
-            
-            // Submit response with client ID
+
             await QuestionApi.AddResponseAsync(
                 activeQuestion.QuestionId,
                 participantName,
-                selectedOptionIds,
-                comment,
+                optionId,
+                null,
                 clientId);
-            
-            // Set to success state
-            buttonState = SubmitButtonState.Success;
-            
-            // Reset to ready state after 3 seconds
-            SetupStateResetTimer();
-            
-            // Mark as submitted and show responses
-            hasSubmitted = true;
-            showResponses = true;
-            
-            // Refresh to see updated responses
+
             await RefreshActiveQuestion();
-            
-            errorMessage = "";
+            optionError = "Option registered.";
+        }
+        catch (QuestionApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            if (ex.Message.Contains("not being displayed", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = "This question is no longer active, so your response was not saved.";
+            }
+            else if (ex.Message.Contains("Multiple responses are not allowed", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = "You have already answered this question.";
+            }
+            else
+            {
+                errorMessage = $"Could not save response: {ex.Message}";
+            }
+
+            await RefreshActiveQuestion();
+            Console.Error.WriteLine(errorMessage);
         }
         catch (Exception ex)
         {
-            // Set to error state
-            buttonState = SubmitButtonState.Error;
-            
-            // Reset to ready state after 5 seconds
-            SetupStateResetTimer(5000);
-            
             errorMessage = $"Error submitting response: {ex.Message}";
             Console.Error.WriteLine(errorMessage);
         }
         finally
         {
+            isSubmittingOption = false;
+        }
+    }
+
+    private async Task SubmitCommentOnly()
+    {
+        await RefreshActiveQuestion();
+        if (activeQuestion == null || activeQuestion.QuestionId == Guid.Empty)
+        {
+            errorMessage = "No active question.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(comment))
+        {
+            errorMessage = "Please enter a comment before sending.";
+            return;
+        }
+
+        var hasRegisteredResponse = activeQuestion.Responses.Any(r => r.ClientId == clientId);
+        hasSubmitted = hasRegisteredResponse;
+        if (!hasRegisteredResponse)
+        {
+            errorMessage = "Please register an option first, then send comment.";
+            return;
+        }
+
+        try
+        {
+            isSubmittingComment = true;
+            errorMessage = "";
+            await QuestionApi.UpdateResponseCommentAsync(activeQuestion.QuestionId, clientId, comment);
+            await RefreshActiveQuestion();
+            optionError = "Comment sent.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error sending comment: {ex.Message}";
+        }
+        finally
+        {
+            isSubmittingComment = false;
         }
     }
 
     public async ValueTask DisposeAsync()
     {
-        // Dispose timer
-        stateResetTimer?.Dispose();
-        
         if (hubConnection is not null)
         {
             await hubConnection.DisposeAsync();
         }
-    }
-    
-    /// <summary>
-    /// Helper method to get button style class
-    /// </summary>
-    private string GetButtonClass()
-    {
-        return buttonState switch
-        {
-            SubmitButtonState.Ready => "btn btn-primary",
-            SubmitButtonState.Submitting => "btn btn-warning",
-            SubmitButtonState.Success => "btn btn-success",
-            SubmitButtonState.Error => "btn btn-danger",
-            _ => "btn btn-primary"
-        };
-    }
-    
-    /// <summary>
-    /// Helper method to get button animation class
-    /// </summary>
-    private string GetButtonAnimation()
-    {
-        return buttonState switch
-        {
-            SubmitButtonState.Ready => "",
-            SubmitButtonState.Submitting => "submit-pulse submit-progress",
-            SubmitButtonState.Success => "submit-success",
-            SubmitButtonState.Error => "submit-error",
-            _ => ""
-        };
-    }
-    
-    /// <summary>
-    /// Helper method to set up state reset timer
-    /// </summary>
-    private void SetupStateResetTimer(int milliseconds = 3000)
-    {
-        // Clear existing timer
-        stateResetTimer?.Dispose();
-        
-        // Set up new timer
-        stateResetTimer = new Timer(_ => 
-        {
-            buttonState = SubmitButtonState.Ready;
-            InvokeAsync(StateHasChanged);
-        }, null, milliseconds, Timeout.Infinite);
     }
 }

@@ -44,7 +44,7 @@ var apiService = builder.AddProject<EsCQRSQuestions_ApiService>("apiservice")
 
 
 // User web frontend
-builder.AddProject<Projects.EsCQRSQuestions_Web>("webfrontend")
+var webFrontend = builder.AddProject<Projects.EsCQRSQuestions_Web>("webfrontend")
     .WithExternalHttpEndpoints()
     .WithReference(apiService)
     .WaitFor(apiService);
@@ -52,6 +52,7 @@ builder.AddProject<Projects.EsCQRSQuestions_Web>("webfrontend")
 // Admin web frontend
 builder.AddProject<Projects.EsCQRSQuestions_AdminWeb>("adminwebfrontend")
     .WithExternalHttpEndpoints()
+    .WithReference(webFrontend)
     .WithReference(apiService)
     .WaitFor(apiService);
 

@@ -3,6 +3,8 @@ using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
 using Microsoft.AspNetCore.SignalR.Client;
 using Sekiban.Pure.Command.Executor;
+using System.Net;
+using System.Text.Json;
 
 namespace EsCQRSQuestions.Web;
 
@@ -75,7 +77,7 @@ public class QuestionApiClient(HttpClient httpClient)
     {
         var command = new AddResponseCommand(questionId, participantName, selectedOptionId, comment, clientId);
         var response = await httpClient.PostAsJsonAsync("/api/questions/addResponse", command, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
                ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
@@ -96,7 +98,7 @@ public class QuestionApiClient(HttpClient httpClient)
         {
             var command = new AddResponseCommand(questionId, participantName, optionId, comment, clientId);
             var response = await httpClient.PostAsJsonAsync("/api/questions/addResponse", command, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            await EnsureSuccessOrThrowAsync(response, cancellationToken);
             var result = await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
                         ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
             results.Add(result);
@@ -117,6 +119,59 @@ public class QuestionApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken) 
                ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
     }
+
+    public async Task<CommandResponseSimple> UpdateResponseCommentAsync(
+        Guid questionId,
+        string clientId,
+        string? comment,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new UpdateResponseCommentCommand(questionId, clientId, comment);
+        var response = await httpClient.PostAsJsonAsync("/api/questions/updateResponseComment", command, cancellationToken);
+        await EnsureSuccessOrThrowAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<CommandResponseSimple>(cancellationToken)
+               ?? throw new InvalidOperationException("Failed to deserialize CommandResponse");
+    }
+
+    private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        string? detail = null;
+        string? title = null;
+
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("detail", out var detailProperty))
+                {
+                    detail = detailProperty.GetString();
+                }
+                if (doc.RootElement.TryGetProperty("title", out var titleProperty))
+                {
+                    title = titleProperty.GetString();
+                }
+            }
+            catch (JsonException)
+            {
+                // Ignore parse failure and fallback to raw body.
+            }
+        }
+
+        var message = detail ?? title ?? body ?? $"HTTP {(int)response.StatusCode}";
+        throw new QuestionApiException(response.StatusCode, message);
+    }
+}
+
+public sealed class QuestionApiException(HttpStatusCode statusCode, string message) : Exception(message)
+{
+    public HttpStatusCode StatusCode { get; } = statusCode;
 }
 
 public static class HubConnectionExtensions
