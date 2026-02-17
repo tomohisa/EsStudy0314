@@ -148,6 +148,9 @@
     .option-feedback {
         margin-top: 0.5rem;
         font-weight: 600;
+        padding: 0.45rem 0.65rem;
+        border-radius: 8px;
+        background: #f5f9ff;
     }
 
     .progress {
@@ -188,6 +191,36 @@
         gap: 0.5rem;
         flex-wrap: wrap;
         justify-content: flex-end;
+    }
+
+    .comment-composer {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.6rem;
+        align-items: end;
+    }
+
+    .comment-input {
+        min-height: 2.75rem;
+        max-height: 7rem;
+        resize: vertical;
+        line-height: 1.35;
+    }
+
+    .comment-submit-btn {
+        min-width: 150px;
+        height: 2.75rem;
+        font-weight: 600;
+    }
+
+    @@media (max-width: 576px) {
+        .comment-composer {
+            grid-template-columns: 1fr;
+        }
+
+        .comment-submit-btn {
+            width: 100%;
+        }
     }
 </style>
 
@@ -325,39 +358,15 @@
 
                                 <hr class="my-3" />
                                 <label for="comment" class="form-label">この質問へのコメント（任意）</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control" id="comment"
-                                           @bind="comment" placeholder="質問に関するコメントを入力" />
-                                    <button class="btn btn-outline-primary"
+                                <div class="comment-composer">
+                                    <textarea class="form-control comment-input" id="comment" rows="2"
+                                              @bind="comment" placeholder="質問に関するコメントを入力"></textarea>
+                                    <button class="btn btn-outline-primary comment-submit-btn"
                                             @onclick="SubmitCommentOnly"
                                             disabled="@isSubmittingComment">
                                         @(isSubmittingComment ? "コメント送信中..." : "コメント送信")
                                     </button>
                                 </div>
-
-                                <h5 class="recent-comments-title">この質問へのコメント一覧</h5>
-                                @if (activeQuestion.Responses.Any(r => !string.IsNullOrEmpty(r.Comment)))
-                                {
-                                    <div class="list-group">
-                                        @foreach (var response in activeQuestion.Responses
-                                            .Where(r => !string.IsNullOrEmpty(r.Comment))
-                                            .OrderByDescending(r => r.Timestamp)
-                                            .Take(5))
-                                        {
-                                            <div class="list-group-item">
-                                                <div class="d-flex w-100 justify-content-between">
-                                                    <h6 class="mb-1">@(string.IsNullOrEmpty(response.ParticipantName) ? "匿名" : response.ParticipantName)</h6>
-                                                    <small>@response.Timestamp.ToString("g")</small>
-                                                </div>
-                                                <p class="mb-1">@response.Comment</p>
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                                else
-                                {
-                                    <p class="mb-0">この質問へのコメントはまだありません。</p>
-                                }
                             </div>
 
                             <div class="survey-section">
@@ -395,6 +404,30 @@
                                             </div>
                                         }
                                     </div>
+
+                                    <h5 class="recent-comments-title">この質問へのコメント一覧</h5>
+                                    @if (activeQuestion.Responses.Any(r => !string.IsNullOrEmpty(r.Comment)))
+                                    {
+                                        <div class="list-group">
+                                            @foreach (var response in activeQuestion.Responses
+                                                .Where(r => !string.IsNullOrEmpty(r.Comment))
+                                                .OrderByDescending(r => r.Timestamp)
+                                                .Take(5))
+                                            {
+                                                <div class="list-group-item">
+                                                    <div class="d-flex w-100 justify-content-between">
+                                                        <h6 class="mb-1">@(string.IsNullOrEmpty(response.ParticipantName) ? "匿名" : response.ParticipantName)</h6>
+                                                        <small>@response.Timestamp.ToString("g")</small>
+                                                    </div>
+                                                    <p class="mb-1">@response.Comment</p>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <p class="mb-0">この質問へのコメントはまだありません。</p>
+                                    }
                                 }
                                 else
                                 {
