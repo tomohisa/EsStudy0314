@@ -4,8 +4,8 @@
 
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
-using Sekiban.Pure.Orleans;
-using Sekiban.Pure.Orleans.Parts;
+using Sekiban.Dcb;
+using Sekiban.Dcb.Orleans;
 
 namespace EsCQRSQuestions.ApiService;
 
@@ -37,7 +37,7 @@ public class InitialQuestionsService : IHostedService
 #endif
         // Use a scope to get the required services
         using var scope = _serviceProvider.CreateScope();
-        var executor = scope.ServiceProvider.GetRequiredService<SekibanOrleansExecutor>();
+        var executor = scope.ServiceProvider.GetRequiredService<ISekibanExecutor>();
 
         try
         {
@@ -117,7 +117,7 @@ public class InitialQuestionsService : IHostedService
     }
 
     private async Task CreateQuestionIfNotExists(
-        SekibanOrleansExecutor executor,
+        ISekibanExecutor executor,
         string text,
         List<QuestionOption> options,
         CancellationToken cancellationToken)
@@ -134,7 +134,7 @@ public class InitialQuestionsService : IHostedService
                 
                 // Create the question with the required QuestionGroupId parameter
                 var command = new CreateQuestionCommand(text, options, questionGroupId);
-                await executor.CommandAsync(command);
+                await executor.ExecuteAsync(command);
                 _logger.LogInformation("Created question: {Text}", text);
                 return; // Success, exit the method
             }
