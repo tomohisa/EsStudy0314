@@ -80,6 +80,148 @@
         50% { width: 100%; }
         100% { width: 0; }
     }
+
+    .question-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .question-title {
+        margin-bottom: 0.25rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
+
+    .survey-section {
+        border: 1px solid #dbe4f0;
+        border-radius: 12px;
+        padding: 1rem;
+        background: linear-gradient(180deg, #fcfdff 0%, #f8fbff 100%);
+        box-shadow: 0 1px 3px rgba(13, 38, 76, 0.05);
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e9eef6;
+    }
+
+    .section-header h4 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    .section-note {
+        color: #5c6f86;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .option-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        border: 1px solid #d5deea;
+        border-radius: 10px;
+        padding: 0.6rem 0.75rem;
+        margin-bottom: 0.5rem;
+        background: #fff;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .option-row:hover {
+        border-color: #b7c7dc;
+        box-shadow: 0 1px 2px rgba(15, 41, 79, 0.06);
+    }
+
+    .option-row > span {
+        word-break: break-word;
+        padding-right: 0.5rem;
+    }
+
+    .option-feedback {
+        margin-top: 0.5rem;
+        font-weight: 600;
+        padding: 0.45rem 0.65rem;
+        border-radius: 8px;
+        background: #f5f9ff;
+    }
+
+    .progress {
+        height: 1.1rem;
+        border-radius: 8px;
+        background: #eef3f9;
+    }
+
+    .progress-bar {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .recent-comments-title {
+        margin-top: 1rem;
+        margin-bottom: 0.6rem;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #334a66;
+    }
+
+    .settings-inline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .settings-code {
+        font-size: 0.95rem;
+        color: #334a66;
+    }
+
+    .settings-name {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .comment-composer {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.6rem;
+        align-items: end;
+    }
+
+    .comment-input {
+        min-height: 2.75rem;
+        max-height: 7rem;
+        resize: vertical;
+        line-height: 1.35;
+    }
+
+    .comment-submit-btn {
+        min-width: 150px;
+        height: 2.75rem;
+        font-weight: 600;
+    }
+
+    @@media (max-width: 576px) {
+        .comment-composer {
+            grid-template-columns: 1fr;
+        }
+
+        .comment-submit-btn {
+            width: 100%;
+        }
+    }
 </style>
 
 <div class="container">
@@ -90,13 +232,7 @@
                     <h2 class="mb-0">リアルタイムアンケート</h2>
                 </div>
                 <div class="card-body">
-                    @if (!string.IsNullOrEmpty(UniqueCode))
-                    {
-                        <div class="alert alert-info mb-3">
-                            <small>アンケートコード: <strong>@UniqueCode</strong></small>
-                        </div>
-                    }
-                    else
+                    @if (string.IsNullOrEmpty(UniqueCode))
                     {
                         <div class="mb-3">
                             <label for="uniqueCode" class="form-label">アンケートコードを入力</label>
@@ -117,6 +253,34 @@
                             </div>
                         </div>
                     }
+                    else
+                    {
+                        <div class="survey-section mb-3">
+                            <div class="settings-inline">
+                                <div class="settings-code">
+                                    アンケートコード: <strong>@UniqueCode</strong>
+                                </div>
+                                <div class="settings-name">
+                                    @if (isEditingParticipantName)
+                                    {
+                                        <input type="text" class="form-control form-control-sm" id="participantName"
+                                               @bind="editingParticipantName" placeholder="お名前" style="min-width: 180px;" />
+                                        <button class="btn btn-sm btn-primary" @onclick="SaveParticipantNameAsync">保存</button>
+                                        @if (!string.IsNullOrWhiteSpace(participantName))
+                                        {
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="CancelParticipantNameEdit">キャンセル</button>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-secondary small">表示名: <strong>@participantName</strong></span>
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="StartParticipantNameEdit">変更</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="ClearParticipantNameAsync">クリア</button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
                     
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
@@ -124,12 +288,6 @@
                             @errorMessage
                         </div>
                     }
-
-                    <div class="mb-3">
-                        <label for="participantName" class="form-label">お名前（任意）</label>
-                        <input type="text" class="form-control" id="participantName" 
-                               @bind="participantName" placeholder="お名前を入力してください" />
-                    </div>
 
                     @if (activeQuestion == null)
                     {
@@ -156,9 +314,9 @@
                     else
                     {
                         <div class="question-container">
-                            <h3 class="mb-4">@activeQuestion.Text</h3>
-                            
-                            <div class="mb-4">
+                            <h3 class="question-title">@activeQuestion.Text</h3>
+
+                            <div class="survey-section">
                                 @if (activeQuestion.AllowMultipleResponses)
                                 {
                                     <div class="alert alert-info mb-3">
@@ -176,7 +334,7 @@
                                 {
                                     var isRegistered = HasRegisteredOption(option.Id);
                                     var disabled = isSubmittingOption || (!activeQuestion.AllowMultipleResponses && hasSubmitted && !isRegistered);
-                                    <div class="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
+                                    <div class="option-row">
                                         <span>@option.Text</span>
                                         <button class="btn btn-sm @(isRegistered ? "btn-outline-success" : "btn-primary")"
                                                 @onclick="() => RegisterOption(option.Id)"
@@ -195,58 +353,59 @@
 
                                 @if (!string.IsNullOrEmpty(optionMessage))
                                 {
-                                    <div class="@(isOptionMessageError ? "text-danger" : "text-success") mt-2">@optionMessage</div>
+                                    <div class="option-feedback @(isOptionMessageError ? "text-danger" : "text-success")">@optionMessage</div>
                                 }
-                            </div>
 
-                            <div class="mb-3">
-                                <label for="comment" class="form-label">コメント（任意）</label>
-                                <textarea class="form-control" id="comment" rows="3"
-                                          @bind="comment" placeholder="コメントを入力してください"></textarea>
-                                <div class="mt-2">
-                                    <button class="btn btn-outline-primary"
+                                <hr class="my-3" />
+                                <label for="comment" class="form-label">この質問へのコメント（任意）</label>
+                                <div class="comment-composer">
+                                    <textarea class="form-control comment-input" id="comment" rows="2"
+                                              @bind="comment" placeholder="質問に関するコメントを入力"></textarea>
+                                    <button class="btn btn-outline-primary comment-submit-btn"
                                             @onclick="SubmitCommentOnly"
                                             disabled="@isSubmittingComment">
-                                        @(isSubmittingComment ? "コメント送信中..." : "コメントを送信")
+                                        @(isSubmittingComment ? "コメント送信中..." : "コメント送信")
                                     </button>
                                 </div>
                             </div>
-                        </div>
 
-                        @if (activeQuestion.Responses.Any())
-                        {
-                            <div class="mt-5">
-                                <h4>回答統計</h4>
-                                <div class="row">
-                                    @foreach (var option in activeQuestion.Options)
-                                    {
-                                        var count = activeQuestion.Responses.Count(r => r.SelectedOptionId == option.Id);
-                                        
-                                        // ユニークな回答者数を取得（クライアントIDでグループ化）
-                                        var uniqueRespondents = activeQuestion.Responses
-                                            .Select(r => r.ClientId)
-                                            .Distinct()
-                                            .Count();
-                                        
-                                        // 安全なパーセンテージ計算（ゼロ除算対策）
-                                        var percentage = uniqueRespondents > 0 
-                                            ? (count * 100.0 / uniqueRespondents)
-                                            : 0;
-                                        
-                                        <div class="col-md-6 mb-3">
-                                            <div>@option.Text</div>
-                                            <div class="progress">
-                                                <div class="progress-bar" role="progressbar" style="width: @percentage%;" 
-                                                     aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">
-                                                    @count (@percentage.ToString("0.0")%)
+                            <div class="survey-section">
+                                <div class="section-header">
+                                    <h4>回答統計</h4>
+                                    <span class="section-note">リアルタイム更新</span>
+                                </div>
+
+                                @if (activeQuestion.Responses.Any())
+                                {
+                                    <div class="row">
+                                        @foreach (var option in activeQuestion.Options)
+                                        {
+                                            var count = activeQuestion.Responses.Count(r => r.SelectedOptionId == option.Id);
+                                            
+                                            // ユニークな回答者数を取得（クライアントIDでグループ化）
+                                            var uniqueRespondents = activeQuestion.Responses
+                                                .Select(r => r.ClientId)
+                                                .Distinct()
+                                                .Count();
+                                            
+                                            // 安全なパーセンテージ計算（ゼロ除算対策）
+                                            var percentage = uniqueRespondents > 0
+                                                ? (count * 100.0 / uniqueRespondents)
+                                                : 0;
+
+                                            <div class="col-md-6 mb-3">
+                                                <div>@option.Text</div>
+                                                <div class="progress">
+                                                    <div class="progress-bar" role="progressbar" style="width: @percentage%;"
+                                                         aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">
+                                                        @count (@percentage.ToString("0.0")%)
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    }
-                                </div>
-                                
-                                <div class="mt-4">
-                                    <h5>最近のコメント</h5>
+                                        }
+                                    </div>
+
+                                    <h5 class="recent-comments-title">この質問へのコメント一覧</h5>
                                     @if (activeQuestion.Responses.Any(r => !string.IsNullOrEmpty(r.Comment)))
                                     {
                                         <div class="list-group">
@@ -267,11 +426,18 @@
                                     }
                                     else
                                     {
-                                        <p>まだコメントはありません。</p>
+                                        <p class="mb-0">この質問へのコメントはまだありません。</p>
                                     }
-                                </div>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-secondary mb-0">
+                                        最初の回答が登録されると、ここに統計が表示されます。
+                                    </div>
+                                }
                             </div>
-                        }
+
+                        </div>
                     }
                 </div>
             </div>
@@ -286,6 +452,8 @@
     private HubConnection hubConnection = default!;
     private ActiveQuestionQuery.ActiveQuestionRecord? activeQuestion;
     private string participantName = "";
+    private string editingParticipantName = "";
+    private bool isEditingParticipantName = true;
     private string comment = "";
     private string errorMessage = "";
     private string optionMessage = "";
@@ -330,6 +498,8 @@
             Console.Error.WriteLine($"Error getting client ID from JS: {ex.Message}");
             clientId = "";
         }
+
+        await LoadParticipantNameAsync();
         
         // Set up SignalR connection with improved timeout and resilience settings
         hubConnection = new HubConnectionBuilder()
@@ -460,6 +630,8 @@
         hubConnection.On("NameSet", (string name) =>
         {
             participantName = name;
+            editingParticipantName = name;
+            isEditingParticipantName = string.IsNullOrWhiteSpace(name);
             InvokeAsync(StateHasChanged);
         });
 
@@ -525,6 +697,55 @@
         }
         
         await base.OnParametersSetAsync();
+    }
+
+    private async Task LoadParticipantNameAsync()
+    {
+        try
+        {
+            participantName = await JsRuntime.InvokeAsync<string>("getStoredParticipantName") ?? "";
+        }
+        catch
+        {
+            participantName = "";
+        }
+
+        editingParticipantName = participantName;
+        isEditingParticipantName = string.IsNullOrWhiteSpace(participantName);
+    }
+
+    private async Task SaveParticipantNameAsync()
+    {
+        participantName = (editingParticipantName ?? string.Empty).Trim();
+        editingParticipantName = participantName;
+        isEditingParticipantName = string.IsNullOrWhiteSpace(participantName);
+
+        await JsRuntime.InvokeVoidAsync("setStoredParticipantName", participantName);
+
+        if (!string.IsNullOrEmpty(participantName) && hubConnection.State == HubConnectionState.Connected)
+        {
+            await hubConnection.InvokeAsync("SetParticipantName", participantName);
+        }
+    }
+
+    private void StartParticipantNameEdit()
+    {
+        editingParticipantName = participantName;
+        isEditingParticipantName = true;
+    }
+
+    private void CancelParticipantNameEdit()
+    {
+        editingParticipantName = participantName;
+        isEditingParticipantName = string.IsNullOrWhiteSpace(participantName);
+    }
+
+    private async Task ClearParticipantNameAsync()
+    {
+        participantName = "";
+        editingParticipantName = "";
+        isEditingParticipantName = true;
+        await JsRuntime.InvokeVoidAsync("clearStoredParticipantName");
     }
 
     private async Task RefreshActiveQuestion()
