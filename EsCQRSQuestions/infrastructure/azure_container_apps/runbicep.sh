@@ -1,0 +1,27 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ -z "${1:-}" ] || [ -z "${2:-}" ]; then
+  echo "Usage: $0 <environment-name> <path-to-bicep-file>"
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/_common.sh"
+
+load_config "$1"
+BICEP_FILE="$2"
+
+if [ ! -f "$SCRIPT_DIR/$BICEP_FILE" ] && [ ! -f "$BICEP_FILE" ]; then
+  echo "Error: bicep file not found: $BICEP_FILE"
+  exit 1
+fi
+
+TEMPLATE_PATH="$BICEP_FILE"
+if [ -f "$SCRIPT_DIR/$BICEP_FILE" ]; then
+  TEMPLATE_PATH="$SCRIPT_DIR/$BICEP_FILE"
+fi
+
+az deployment group create \
+  --resource-group "$RESOURCE_GROUP" \
+  --template-file "$TEMPLATE_PATH"
