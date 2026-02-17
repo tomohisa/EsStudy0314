@@ -10,12 +10,20 @@
 
     <ItemGroup>
       <PackageReference Include="Microsoft.Orleans.Server" Version="9.2.1" />
-      <PackageReference Include="Sekiban.Pure" Version="1.0.1-preview24" />
-      <PackageReference Include="Sekiban.Pure.SourceGenerator" Version="1.0.1-preview24" />
+      <PackageReference Include="Sekiban.Dcb.WithResult" Version="10.1.0-preview02" />
     </ItemGroup>
 
     <ItemGroup>
       <Folder Include="ValueObjects\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Remove="Aggregates/**/*.cs" />
+      <Compile Remove="Projections/**/*.cs" />
+      <Compile Remove="Workflows/**/*.cs" />
+      <Compile Remove="Services/**/*.cs" />
+      <Compile Remove="EsCQRSQuestionsDomainEventsJsonContext.cs" />
+      <Compile Remove="WeatherForecastQuery.cs" />
     </ItemGroup>
 
 </Project>

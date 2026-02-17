@@ -1,17 +1,12 @@
 using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Events;
-using EsCQRSQuestions.Domain.Aggregates.QuestionGroups;
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Events;
-using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
-using EsCQRSQuestions.Domain.Aggregates.Questions;
+using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Events;
-using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
+using EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
+using EsCQRSQuestions.Domain.DcbTags;
 using Orleans.Streams;
-using ResultBoxes;
-using Sekiban.Pure.Documents;
-using Sekiban.Pure.Events;
-using Sekiban.Pure.Orleans;
-
-// Added using for QuestionGroup events
+using Sekiban.Dcb;
+using Sekiban.Dcb.Events;
 
 namespace EsCQRSQuestions.ApiService;
 
@@ -19,41 +14,42 @@ public class OrleansStreamBackgroundService : BackgroundService
 {
     private readonly IClusterClient _orleansClient;
     private readonly IHubNotificationService _hubService;
-    private readonly SekibanOrleansExecutor _sekibanOrleansExecutor;
-    private IAsyncStream<IEvent>? _stream;
-    private StreamSubscriptionHandle<IEvent>? _subscriptionHandle;
+    private readonly ISekibanExecutor _executor;
+    private readonly DcbDomainTypes _domainTypes;
+    private IAsyncStream<Event>? _stream;
+    private StreamSubscriptionHandle<Event>? _subscriptionHandle;
 
     public OrleansStreamBackgroundService(
         IClusterClient orleansClient,
         IHubNotificationService hubService,
-        SekibanOrleansExecutor sekibanOrleansExecutor)
+        ISekibanExecutor executor,
+        DcbDomainTypes domainTypes)
     {
         _orleansClient = orleansClient;
         _hubService = hubService;
-        _sekibanOrleansExecutor = sekibanOrleansExecutor;
+        _executor = executor;
+        _domainTypes = domainTypes;
     }
 
-    public async Task OnNextAsync(IEvent item, StreamSequenceToken? token)
+    public async Task OnNextAsync(Event item, StreamSequenceToken? token)
     {
-        var eventType = item.GetPayload().GetType().Name;
-        var aggregateId = item.PartitionKeys.AggregateId;
+        var questionId = GetQuestionId(item);
+        var groupId = GetGroupId(item);
 
-        // Handle different event types
-        switch (item.GetPayload())
+        switch (item.Payload)
         {
-            // Question events
             case QuestionCreated:
-                await _hubService.NotifyAdminsAsync("QuestionCreated", new { AggregateId = aggregateId });
+                await _hubService.NotifyAdminsAsync("QuestionCreated", new { AggregateId = questionId });
                 break;
 
             case QuestionUpdated:
-                await _hubService.NotifyAdminsAsync("QuestionUpdated", new { AggregateId = aggregateId });
+                await _hubService.NotifyAdminsAsync("QuestionUpdated", new { AggregateId = questionId });
                 break;
+
             case ResponseAdded responseAdded:
-                // Notify both admins and participants when a response is added
                 await _hubService.NotifyAdminsAsync("ResponseAdded", new
                 {
-                    AggregateId = aggregateId,
+                    AggregateId = questionId,
                     responseAdded.ResponseId,
                     responseAdded.ParticipantName,
                     responseAdded.SelectedOptionId,
@@ -63,18 +59,17 @@ public class OrleansStreamBackgroundService : BackgroundService
                 break;
 
             case QuestionDeleted:
-                await _hubService.NotifyAdminsAsync("QuestionDeleted", new { AggregateId = aggregateId });
+                await _hubService.NotifyAdminsAsync("QuestionDeleted", new { AggregateId = questionId });
                 break;
 
-            // ActiveUsers events
             case ActiveUsersCreated:
-                await _hubService.NotifyAdminsAsync("ActiveUsersCreated", new { AggregateId = aggregateId });
+                await _hubService.NotifyAdminsAsync("ActiveUsersCreated", new { AggregateId = item.Id });
                 break;
 
             case UserConnected userConnected:
                 await _hubService.NotifyAdminsAsync("UserConnected", new
                 {
-                    AggregateId = aggregateId,
+                    AggregateId = item.Id,
                     userConnected.ConnectionId,
                     userConnected.Name,
                     userConnected.ConnectedAt
@@ -84,7 +79,7 @@ public class OrleansStreamBackgroundService : BackgroundService
             case UserDisconnected userDisconnected:
                 await _hubService.NotifyAdminsAsync("UserDisconnected", new
                 {
-                    AggregateId = aggregateId,
+                    AggregateId = item.Id,
                     userDisconnected.ConnectionId,
                     userDisconnected.DisconnectedAt
                 });
@@ -93,116 +88,126 @@ public class OrleansStreamBackgroundService : BackgroundService
             case UserNameUpdated userNameUpdated:
                 await _hubService.NotifyAdminsAsync("UserNameUpdated", new
                 {
-                    AggregateId = aggregateId,
+                    AggregateId = item.Id,
                     userNameUpdated.ConnectionId,
                     userNameUpdated.Name,
                     userNameUpdated.UpdatedAt
                 });
                 break;
 
-            // QuestionGroup events
             case QuestionGroupCreated groupCreated:
-                await _hubService.NotifyAdminsAsync("QuestionGroupCreated",
-                    new { AggregateId = aggregateId, groupCreated.Name });
+                await _hubService.NotifyAdminsAsync("QuestionGroupCreated", new
+                    { AggregateId = groupCreated.GroupId, groupCreated.Name });
                 break;
 
             case QuestionGroupUpdated groupUpdated:
-                await _hubService.NotifyAdminsAsync("QuestionGroupUpdated",
-                    new { AggregateId = aggregateId, groupUpdated.NewName });
+                await _hubService.NotifyAdminsAsync("QuestionGroupUpdated", new
+                    { AggregateId = groupUpdated.GroupId, groupUpdated.NewName });
                 break;
 
             case QuestionGroupDeleted groupDeleted:
-                Console.WriteLine($"QuestionGroupDeleted event received for group ID: {aggregateId}");
-                await _hubService.NotifyAdminsAsync("QuestionGroupDeleted", new { AggregateId = aggregateId });
-
-                // 削除通知を2回送信して確実にクライアントに到達するようにする
-                await Task.Delay(500); // 少し待機して最初の通知が処理される時間を確保
-                Console.WriteLine($"Sending second notification for QuestionGroupDeleted: {aggregateId}");
+                await _hubService.NotifyAdminsAsync("QuestionGroupDeleted", new { AggregateId = groupDeleted.GroupId });
+                await Task.Delay(500);
                 await _hubService.NotifyAdminsAsync("QuestionGroupDeleted",
-                    new { AggregateId = aggregateId, Timestamp = DateTime.UtcNow.Ticks });
+                    new { AggregateId = groupDeleted.GroupId, Timestamp = DateTime.UtcNow.Ticks });
                 break;
 
             case QuestionAddedToGroup questionAdded:
                 await _hubService.NotifyAdminsAsync("QuestionAddedToGroup",
-                    new { AggregateId = aggregateId, questionAdded.QuestionId, questionAdded.Order });
+                    new { AggregateId = questionAdded.GroupId, questionAdded.QuestionId, questionAdded.Order });
                 break;
 
             case QuestionRemovedFromGroup questionRemoved:
                 await _hubService.NotifyAdminsAsync("QuestionRemovedFromGroup",
-                    new { AggregateId = aggregateId, questionRemoved.QuestionId });
+                    new { AggregateId = questionRemoved.GroupId, questionRemoved.QuestionId });
                 break;
 
             case QuestionOrderChanged orderChanged:
                 await _hubService.NotifyAdminsAsync("QuestionOrderChanged",
-                    new { AggregateId = aggregateId, orderChanged.QuestionId, orderChanged.NewOrder });
+                    new { AggregateId = orderChanged.GroupId, orderChanged.QuestionId, orderChanged.NewOrder });
                 break;
 
-            case QuestionDisplayStarted displayStarted:
-                await _sekibanOrleansExecutor.LoadAggregateAsync<QuestionProjector>(item.PartitionKeys)
-                    .Conveyor(aggregate => aggregate.ToTypedPayload<Question>())
-                    .Combine(aggregate =>
-                        _sekibanOrleansExecutor
-                            .LoadAggregateAsync<QuestionGroupProjector>(
-                                PartitionKeys.Existing<QuestionGroupProjector>(aggregate.Payload.QuestionGroupId))
-                            .Conveyor(group => group.ToTypedPayload<QuestionGroup>()))
-                    .Do(async (question, group) =>
-                    {
-                        await _hubService.NotifyUniqueCodeGroupAsync(group.Payload.UniqueCode, "QuestionDisplayStarted",
-                            new { QuestionId = question.PartitionKeys.AggregateId });
-                    });
+            case QuestionDisplayStarted:
+                await NotifyDisplayEventAsync(questionId, "QuestionDisplayStarted");
                 break;
 
-            case QuestionDisplayStopped displayStopped:
-                await _sekibanOrleansExecutor.LoadAggregateAsync<QuestionProjector>(item.PartitionKeys)
-                    .Conveyor(aggregate => aggregate.ToTypedPayload<Question>())
-                    .Combine(questionPayload =>
-                        _sekibanOrleansExecutor
-                            .LoadAggregateAsync<QuestionGroupProjector>(
-                                PartitionKeys.Existing<QuestionGroupProjector>(questionPayload.Payload.QuestionGroupId))
-                            .Conveyor(groupAggregate => groupAggregate.ToTypedPayload<QuestionGroup>())
-                    )
-                    .Do(async (question, group) =>
-                    {
-                        await _hubService.NotifyUniqueCodeGroupAsync(
-                            group.Payload.UniqueCode,
-                            "QuestionDisplayStopped",
-                            new { QuestionId = question.PartitionKeys.AggregateId }
-                        );
-                    });
+            case QuestionDisplayStopped:
+                await NotifyDisplayEventAsync(questionId, "QuestionDisplayStopped");
                 break;
 
             default:
-                // For other event types, just log the event type
-                Console.WriteLine($"Received event: {eventType} for aggregate {aggregateId}");
+                Console.WriteLine($"Received event: {item.Payload.GetType().Name} questionId={questionId} groupId={groupId}");
                 break;
         }
     }
 
+    private async Task NotifyDisplayEventAsync(Guid questionId, string eventName)
+    {
+        if (questionId == Guid.Empty)
+        {
+            return;
+        }
+
+        var questionResult = await _executor.QueryAsync(new QuestionDetailQuery(questionId));
+        if (!questionResult.IsSuccess)
+        {
+            return;
+        }
+
+        var groupId = questionResult.GetValue().QuestionGroupId;
+        if (groupId == Guid.Empty)
+        {
+            return;
+        }
+
+        var groupResult = await _executor.QueryAsync(new GetQuestionGroupByGroupIdQuery(groupId));
+        if (!groupResult.IsSuccess)
+        {
+            return;
+        }
+
+        await _hubService.NotifyUniqueCodeGroupAsync(groupResult.GetValue().UniqueCode, eventName, new { QuestionId = questionId });
+    }
+
+    private Guid GetQuestionId(Event item)
+    {
+        return item.Tags
+            .Select(tag => _domainTypes.TagTypes.GetTag(tag))
+            .OfType<QuestionTag>()
+            .Select(tag => tag.QuestionId)
+            .FirstOrDefault();
+    }
+
+    private Guid GetGroupId(Event item)
+    {
+        return item.Tags
+            .Select(tag => _domainTypes.TagTypes.GetTag(tag))
+            .OfType<QuestionGroupTag>()
+            .Select(tag => tag.GroupId)
+            .FirstOrDefault();
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Get Orleans stream provider
         var streamProvider = _orleansClient.GetStreamProvider("EventStreamProvider");
+        _stream = streamProvider.GetStream<Event>(StreamId.Create("AllEvents", Guid.Empty));
 
-        // Get stream with fixed StreamId
-        _stream = streamProvider.GetStream<IEvent>(StreamId.Create("AllEvents", Guid.Empty));
-
-        // Subscribe to the stream
         _subscriptionHandle = await _stream.SubscribeAsync(OnNextAsync, async ex =>
         {
-            await _hubService.NotifyAdminsAsync("Error", new
-            {
-                Type = ex.GetType().Name, ex.Message
-            });
+            await _hubService.NotifyAdminsAsync("Error", new { Type = ex.GetType().Name, ex.Message });
             await Task.CompletedTask;
         });
 
-        // Wait until the service is cancelled
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        if (_subscriptionHandle != null) await _subscriptionHandle.UnsubscribeAsync();
+        if (_subscriptionHandle != null)
+        {
+            await _subscriptionHandle.UnsubscribeAsync();
+        }
+
         await base.StopAsync(cancellationToken);
     }
 }

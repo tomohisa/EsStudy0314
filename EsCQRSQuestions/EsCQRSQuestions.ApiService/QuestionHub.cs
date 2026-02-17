@@ -2,14 +2,14 @@ using EsCQRSQuestions.Domain.Aggregates.ActiveUsers.Commands;
 using EsCQRSQuestions.Domain.Aggregates.Questions.Commands;
 using EsCQRSQuestions.Domain.Workflows;
 using Microsoft.AspNetCore.SignalR;
-using Sekiban.Pure.Orleans;
-using Sekiban.Pure.Orleans.Parts;
+using Sekiban.Dcb;
+using Sekiban.Dcb.Orleans;
 
 namespace EsCQRSQuestions.ApiService;
 
 public class QuestionHub : Hub
 {
-    private readonly SekibanOrleansExecutor _executor;
+    private readonly ISekibanExecutor _executor;
     private readonly IHubNotificationService _notificationService;
     private readonly ILogger<QuestionHub> _logger;
     
@@ -23,7 +23,7 @@ public class QuestionHub : Hub
     private const string ParticipantGroup = "Participants";
 
     public QuestionHub(
-        SekibanOrleansExecutor executor, 
+        ISekibanExecutor executor, 
         IHubNotificationService notificationService,
         ILogger<QuestionHub> logger)
     {
@@ -58,7 +58,7 @@ public class QuestionHub : Hub
         try
         {
             // Track the user disconnection - only if already in ActiveUsers
-            await _executor.CommandAsync(new UserDisconnectedCommand(
+            await _executor.ExecuteAsync(new UserDisconnectedCommand(
                 _activeUsersId,
                 Context.ConnectionId));
             
@@ -85,7 +85,7 @@ public class QuestionHub : Hub
             if (!_activeUsersCreated)
             {
                 // Create the ActiveUsers aggregate with the fixed ID if it doesn't exist
-                await _executor.CommandAsync(new CreateActiveUsersCommand());
+                await _executor.ExecuteAsync(new CreateActiveUsersCommand());
                 _activeUsersCreated = true;
             }
         }
@@ -108,7 +108,7 @@ public class QuestionHub : Hub
                 name = nameStr;
             }
             
-            await _executor.CommandAsync(new UserConnectedCommand(
+            await _executor.ExecuteAsync(new UserConnectedCommand(
                 _activeUsersId,
                 Context.ConnectionId,
                 name));
@@ -127,7 +127,7 @@ public class QuestionHub : Hub
         // 管理者グループに参加したユーザーはActiveUsersから削除
         try
         {
-            await _executor.CommandAsync(new UserDisconnectedCommand(
+            await _executor.ExecuteAsync(new UserDisconnectedCommand(
                 _activeUsersId,
                 Context.ConnectionId));
         }
@@ -185,7 +185,7 @@ public async Task JoinAsSurveyParticipant(string uniqueCode)
         {
             try
             {
-                await _executor.CommandAsync(new UpdateUserNameCommand(
+                await _executor.ExecuteAsync(new UpdateUserNameCommand(
                     _activeUsersId,
                     Context.ConnectionId,
                     name));
