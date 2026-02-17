@@ -189,8 +189,13 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         justify-content: flex-end;
+    }
+
+    .settings-name-input {
+        width: 220px;
+        max-width: 220px;
     }
 
     .comment-composer {
@@ -201,9 +206,7 @@
     }
 
     .comment-input {
-        min-height: 2.75rem;
-        max-height: 7rem;
-        resize: vertical;
+        height: 2.75rem;
         line-height: 1.35;
     }
 
@@ -214,6 +217,16 @@
     }
 
     @@media (max-width: 576px) {
+        .settings-name {
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+
+        .settings-name-input {
+            width: 100%;
+            max-width: 100%;
+        }
+
         .comment-composer {
             grid-template-columns: 1fr;
         }
@@ -263,8 +276,8 @@
                                 <div class="settings-name">
                                     @if (isEditingParticipantName)
                                     {
-                                        <input type="text" class="form-control form-control-sm" id="participantName"
-                                               @bind="editingParticipantName" placeholder="お名前" style="min-width: 180px;" />
+                                        <input type="text" class="form-control form-control-sm settings-name-input" id="participantName"
+                                               @bind="editingParticipantName" placeholder="お名前" />
                                         <button class="btn btn-sm btn-primary" @onclick="SaveParticipantNameAsync">保存</button>
                                         @if (!string.IsNullOrWhiteSpace(participantName))
                                         {
@@ -359,14 +372,19 @@
                                 <hr class="my-3" />
                                 <label for="comment" class="form-label">この質問へのコメント（任意）</label>
                                 <div class="comment-composer">
-                                    <textarea class="form-control comment-input" id="comment" rows="2"
-                                              @bind="comment" placeholder="質問に関するコメントを入力"></textarea>
+                                    <input type="text" class="form-control comment-input" id="comment"
+                                           @bind="comment" @onkeydown="HandleCommentKeyDown"
+                                           placeholder="質問に関するコメントを入力" />
                                     <button class="btn btn-outline-primary comment-submit-btn"
                                             @onclick="SubmitCommentOnly"
                                             disabled="@isSubmittingComment">
                                         @(isSubmittingComment ? "コメント送信中..." : "コメント送信")
                                     </button>
                                 </div>
+                                @if (!string.IsNullOrEmpty(commentStatusMessage))
+                                {
+                                    <div class="option-feedback @(isCommentStatusError ? "text-danger" : "text-success") mt-2">@commentStatusMessage</div>
+                                }
                             </div>
 
                             <div class="survey-section">
@@ -458,6 +476,8 @@
     private string errorMessage = "";
     private string optionMessage = "";
     private bool isOptionMessageError = false;
+    private string commentStatusMessage = "";
+    private bool isCommentStatusError = false;
     private bool showResponses = false;
     private bool hasSubmitted = false;
     private bool isSubmittingOption = false;
@@ -923,6 +943,8 @@
         {
             optionMessage = "";
             isOptionMessageError = false;
+            commentStatusMessage = "";
+            isCommentStatusError = false;
             errorMessage = "";
             isSubmittingOption = true;
 
@@ -996,12 +1018,16 @@
         if (activeQuestion == null || activeQuestion.QuestionId == Guid.Empty)
         {
             errorMessage = "コメントを送信できる質問がありません。";
+            commentStatusMessage = "コメント送信に失敗しました。";
+            isCommentStatusError = true;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(comment))
         {
             errorMessage = "コメントを入力してから送信してください。";
+            commentStatusMessage = "コメント送信に失敗しました: コメント未入力。";
+            isCommentStatusError = true;
             return;
         }
 
@@ -1010,6 +1036,8 @@
         if (!hasRegisteredResponse)
         {
             errorMessage = "先に選択肢を登録してからコメントを送信してください。";
+            commentStatusMessage = "コメント送信に失敗しました: 先に選択肢を登録してください。";
+            isCommentStatusError = true;
             return;
         }
 
@@ -1017,19 +1045,30 @@
         {
             isSubmittingComment = true;
             errorMessage = "";
+            commentStatusMessage = "";
+            isCommentStatusError = false;
             await QuestionApi.UpdateResponseCommentAsync(activeQuestion.QuestionId, clientId, comment);
             await RefreshActiveQuestion();
-            optionMessage = "コメントを送信しました。";
-            isOptionMessageError = false;
+            commentStatusMessage = "送信に成功しました。";
+            isCommentStatusError = false;
         }
         catch (Exception ex)
         {
             errorMessage = $"コメント送信中にエラーが発生しました: {ex.Message}";
-            isOptionMessageError = true;
+            commentStatusMessage = $"コメント送信に失敗しました: {ex.Message}";
+            isCommentStatusError = true;
         }
         finally
         {
             isSubmittingComment = false;
+        }
+    }
+
+    private async Task HandleCommentKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !isSubmittingComment)
+        {
+            await SubmitCommentOnly();
         }
     }
 
