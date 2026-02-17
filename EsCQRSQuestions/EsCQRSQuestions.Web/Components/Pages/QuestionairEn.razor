@@ -373,7 +373,7 @@
                                 <label for="comment" class="form-label">Question Comment (Optional)</label>
                                 <div class="comment-composer">
                                     <input type="text" class="form-control comment-input" id="comment"
-                                           @bind="comment" @onkeydown="HandleCommentKeyDown"
+                                           @bind="comment" @bind:event="oninput" @onkeydown="HandleCommentKeyDown"
                                            @oncompositionstart="OnCommentCompositionStart"
                                            @oncompositionend="OnCommentCompositionEnd"
                                            placeholder="Write a comment about this question" />
@@ -1081,7 +1081,7 @@
             return;
         }
 
-        if (e.Key == "Enter" && !isSubmittingComment && !string.IsNullOrWhiteSpace(comment))
+        if (e.Key == "Enter" && !isSubmittingComment)
         {
             await SubmitCommentOnly();
         }
