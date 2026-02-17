@@ -374,6 +374,8 @@
                                 <div class="comment-composer">
                                     <input type="text" class="form-control comment-input" id="comment"
                                            @bind="comment" @onkeydown="HandleCommentKeyDown"
+                                           @oncompositionstart="OnCommentCompositionStart"
+                                           @oncompositionend="OnCommentCompositionEnd"
                                            placeholder="質問に関するコメントを入力" />
                                     <button class="btn btn-outline-primary comment-submit-btn"
                                             @onclick="SubmitCommentOnly"
@@ -482,6 +484,7 @@
     private bool hasSubmitted = false;
     private bool isSubmittingOption = false;
     private bool isSubmittingComment = false;
+    private bool isCommentComposing = false;
     private string inputUniqueCode = "";
     private bool isValidating = false;
     
@@ -1066,10 +1069,26 @@
 
     private async Task HandleCommentKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !isSubmittingComment)
+        // 日本語IME変換中(確定前)はEnterを送信扱いにしない
+        if (isCommentComposing || e.IsComposing || string.Equals(e.Key, "Process", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (e.Key == "Enter" && !isSubmittingComment && !string.IsNullOrWhiteSpace(comment))
         {
             await SubmitCommentOnly();
         }
+    }
+
+    private void OnCommentCompositionStart()
+    {
+        isCommentComposing = true;
+    }
+
+    private void OnCommentCompositionEnd()
+    {
+        isCommentComposing = false;
     }
 
     private void StartAutoRefresh()
