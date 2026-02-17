@@ -267,7 +267,7 @@ else
 {
     builder.Services.AddSingleton<Sekiban.Dcb.ServiceId.IServiceIdProvider, Sekiban.Dcb.ServiceId.DefaultServiceIdProvider>();
     builder.Services.AddSingleton<IEventStore, PostgresEventStore>();
-    builder.Services.AddSekibanDcbPostgresWithAspire();
+    builder.Services.AddSekibanDcbPostgresWithAspire("SekibanPostgres");
     builder.Services.AddSingleton<IMultiProjectionStateStore, Sekiban.Dcb.Postgres.PostgresMultiProjectionStateStore>();
 }
 
