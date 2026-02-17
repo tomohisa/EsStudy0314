@@ -24,4 +24,13 @@ fi
 
 az deployment group create \
   --resource-group "$RESOURCE_GROUP" \
-  --template-file "$TEMPLATE_PATH"
+  --template-file "$TEMPLATE_PATH" \
+  --parameters \
+    logRetentionInDays="$LOG_RETENTION_IN_DAYS" \
+    logDailyQuotaGb="$LOG_DAILY_QUOTA_GB" \
+    backendMinReplicas="$BACKEND_MIN_REPLICAS" \
+    backendMaxReplicas="$BACKEND_MAX_REPLICAS" \
+    frontendMinReplicas="$FRONTEND_MIN_REPLICAS" \
+    frontendMaxReplicas="$FRONTEND_MAX_REPLICAS" \
+    adminwebMinReplicas="$ADMINWEB_MIN_REPLICAS" \
+    adminwebMaxReplicas="$ADMINWEB_MAX_REPLICAS"

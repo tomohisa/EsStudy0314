@@ -21,6 +21,14 @@ Required keys:
   "backendRelativePath": "../../EsCQRSQuestions.ApiService",
   "frontendRelativePath": "../../EsCQRSQuestions.Web",
   "adminwebRelativePath": "../../EsCQRSQuestions.AdminWeb",
+  "logRetentionInDays": 30,
+  "logDailyQuotaGb": "0.1",
+  "backendMinReplicas": 1,
+  "backendMaxReplicas": 3,
+  "frontendMinReplicas": 0,
+  "frontendMaxReplicas": 2,
+  "adminwebMinReplicas": 0,
+  "adminwebMaxReplicas": 2,
   "logincommand": "az login --tenant <tenant> --use-device-code"
 }
 ```
@@ -65,3 +73,8 @@ Optional second argument is image tag:
 - Scripts use `az acr build`, so local Docker daemon is not required.
 - Each deploy script builds a temporary Dockerfile in each project folder and removes it afterward.
 - AdminWeb `ClientBaseUrl` is automatically set from frontend ingress FQDN when available.
+- `deploy_infra.sh` automatically configures Container Apps Environment telemetry to Application Insights.
+- Cost stabilization knobs are configurable per environment via `*.local.json`:
+  - Log retention (`logRetentionInDays`)
+  - Log daily cap (`logDailyQuotaGb`)
+  - Per-app min/max replicas

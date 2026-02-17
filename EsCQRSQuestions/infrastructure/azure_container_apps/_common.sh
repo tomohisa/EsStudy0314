@@ -33,6 +33,14 @@ load_config() {
   BACKEND_PATH_RAW="$(jq -r '.backendRelativePath' "$CONFIG_FILE")"
   FRONTEND_PATH_RAW="$(jq -r '.frontendRelativePath' "$CONFIG_FILE")"
   ADMINWEB_PATH_RAW="$(jq -r '.adminwebRelativePath' "$CONFIG_FILE")"
+  LOG_RETENTION_IN_DAYS="$(jq -r '.logRetentionInDays // 30' "$CONFIG_FILE")"
+  LOG_DAILY_QUOTA_GB="$(jq -r '.logDailyQuotaGb // "0.1"' "$CONFIG_FILE")"
+  BACKEND_MIN_REPLICAS="$(jq -r '.backendMinReplicas // 1' "$CONFIG_FILE")"
+  BACKEND_MAX_REPLICAS="$(jq -r '.backendMaxReplicas // 3' "$CONFIG_FILE")"
+  FRONTEND_MIN_REPLICAS="$(jq -r '.frontendMinReplicas // 0' "$CONFIG_FILE")"
+  FRONTEND_MAX_REPLICAS="$(jq -r '.frontendMaxReplicas // 2' "$CONFIG_FILE")"
+  ADMINWEB_MIN_REPLICAS="$(jq -r '.adminwebMinReplicas // 0' "$CONFIG_FILE")"
+  ADMINWEB_MAX_REPLICAS="$(jq -r '.adminwebMaxReplicas // 2' "$CONFIG_FILE")"
   LOGIN_COMMAND="$(jq -r '.logincommand // empty' "$CONFIG_FILE")"
 
   if [ "$RESOURCE_GROUP" = "null" ] || [ -z "$RESOURCE_GROUP" ]; then

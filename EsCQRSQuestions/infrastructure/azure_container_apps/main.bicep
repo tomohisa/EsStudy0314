@@ -1,8 +1,41 @@
 targetScope = 'resourceGroup'
 
+@description('Log Analytics retention days')
+@minValue(30)
+@maxValue(730)
+param logRetentionInDays int = 30
+
+@description('Log Analytics daily ingestion cap in GB (0 = unlimited)')
+param logDailyQuotaGb string = '0.1'
+
+@description('Backend min replicas')
+@minValue(0)
+param backendMinReplicas int = 1
+
+@description('Backend max replicas')
+@minValue(1)
+param backendMaxReplicas int = 3
+
+@description('Frontend min replicas')
+@minValue(0)
+param frontendMinReplicas int = 0
+
+@description('Frontend max replicas')
+@minValue(1)
+param frontendMaxReplicas int = 2
+
+@description('AdminWeb min replicas')
+@minValue(0)
+param adminwebMinReplicas int = 0
+
+@description('AdminWeb max replicas')
+@minValue(1)
+param adminwebMaxReplicas int = 2
+
 var suffix = substring(uniqueString(resourceGroup().id), 0, 6)
 var acrName = 'acr${uniqueString(resourceGroup().id, 'acr')}'
 var logAnalyticsName = 'law-${suffix}'
+var appInsightsName = 'ai-${suffix}'
 var containerEnvName = 'cae-${suffix}'
 var backendAppName = 'be-${suffix}'
 var frontendAppName = 'fe-${suffix}'
@@ -15,7 +48,26 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
     sku: {
       name: 'PerGB2018'
     }
-    retentionInDays: 30
+    retentionInDays: logRetentionInDays
+    workspaceCapping: {
+      dailyQuotaGb: json(logDailyQuotaGb)
+    }
+    features: {
+      enableLogAccessUsingOnlyResourcePermissions: true
+    }
+  }
+}
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: appInsightsName
+  location: resourceGroup().location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    IngestionMode: 'LogAnalytics'
+    WorkspaceResourceId: logAnalytics.id
+    publicNetworkAccessForIngestion: 'Enabled'
+    publicNetworkAccessForQuery: 'Enabled'
   }
 }
 
@@ -60,10 +112,18 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: containerEnv.id
     configuration: {
+      activeRevisionsMode: 'Single'
       ingress: {
         external: true
         targetPort: 8080
-        transport: 'auto'
+        transport: 'http'
+        allowInsecure: false
+        traffic: [
+          {
+            weight: 100
+            latestRevision: true
+          }
+        ]
       }
       registries: [
         {
@@ -93,12 +153,20 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'ASPNETCORE_URLS'
               value: 'http://+:8080'
             }
+            {
+              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+              value: appInsights.properties.ConnectionString
+            }
+            {
+              name: 'OTEL_SERVICE_NAME'
+              value: 'EsCQRSQuestions.ApiService'
+            }
           ]
         }
       ]
       scale: {
-        minReplicas: 1
-        maxReplicas: 3
+        minReplicas: backendMinReplicas
+        maxReplicas: backendMaxReplicas
       }
     }
   }
@@ -110,10 +178,18 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: containerEnv.id
     configuration: {
+      activeRevisionsMode: 'Single'
       ingress: {
         external: true
         targetPort: 8080
-        transport: 'auto'
+        transport: 'http'
+        allowInsecure: false
+        traffic: [
+          {
+            weight: 100
+            latestRevision: true
+          }
+        ]
       }
       registries: [
         {
@@ -151,12 +227,20 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'services__apiservice__https__0'
               value: 'http://${backendAppName}'
             }
+            {
+              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+              value: appInsights.properties.ConnectionString
+            }
+            {
+              name: 'OTEL_SERVICE_NAME'
+              value: 'EsCQRSQuestions.Web'
+            }
           ]
         }
       ]
       scale: {
-        minReplicas: 1
-        maxReplicas: 3
+        minReplicas: frontendMinReplicas
+        maxReplicas: frontendMaxReplicas
       }
     }
   }
@@ -171,10 +255,18 @@ resource adminwebApp 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: containerEnv.id
     configuration: {
+      activeRevisionsMode: 'Single'
       ingress: {
         external: true
         targetPort: 8080
-        transport: 'auto'
+        transport: 'http'
+        allowInsecure: false
+        traffic: [
+          {
+            weight: 100
+            latestRevision: true
+          }
+        ]
       }
       registries: [
         {
@@ -212,12 +304,20 @@ resource adminwebApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'services__apiservice__https__0'
               value: 'http://${backendAppName}'
             }
+            {
+              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+              value: appInsights.properties.ConnectionString
+            }
+            {
+              name: 'OTEL_SERVICE_NAME'
+              value: 'EsCQRSQuestions.AdminWeb'
+            }
           ]
         }
       ]
       scale: {
-        minReplicas: 1
-        maxReplicas: 3
+        minReplicas: adminwebMinReplicas
+        maxReplicas: adminwebMaxReplicas
       }
     }
   }
@@ -230,6 +330,8 @@ resource adminwebApp 'Microsoft.App/containerApps@2024-03-01' = {
 output acrName string = acr.name
 output acrLoginServer string = acr.properties.loginServer
 output managedEnvironmentName string = containerEnv.name
+output applicationInsightsName string = appInsights.name
+output applicationInsightsConnectionString string = appInsights.properties.ConnectionString
 output backendAppName string = backendApp.name
 output frontendAppName string = frontendApp.name
 output adminwebAppName string = adminwebApp.name
