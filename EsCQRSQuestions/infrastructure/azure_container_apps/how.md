@@ -89,6 +89,31 @@ Optional second argument is image tag:
 ./deploy_all.sh dnl 202602170001
 ```
 
+`deploy_all.sh` now includes an idempotent projection-consistency repair step:
+- Detects mismatch between `SekibanDcb.events` and derived projection states
+- Safely deactivates backend revision before deleting derived states
+- Reactivates backend and waits for rebuild
+
+Manual repair command:
+
+```bash
+./repair_projection_state.sh dnl
+```
+
+Force repair (even if no mismatch is detected):
+
+```bash
+./repair_projection_state.sh dnl --force
+```
+
+## 6. Full runtime reset (safe ordering)
+
+```bash
+./reset_runtime_state.sh dnl
+```
+
+This script now deactivates app revisions before deleting Cosmos/Storage runtime state to prevent stale in-memory projection snapshots from being written back during shutdown.
+
 ## Notes
 
 - Scripts use `az acr build`, so local Docker daemon is not required.

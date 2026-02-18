@@ -15,5 +15,8 @@ set_subscription_if_configured
 "${SCRIPT_DIR}/code_deploy_frontend.sh" "$ENVIRONMENT" "$TAG"
 "${SCRIPT_DIR}/code_deploy_adminweb.sh" "$ENVIRONMENT" "$TAG"
 
+echo "Running projection consistency repair (idempotent)..."
+"${SCRIPT_DIR}/repair_projection_state.sh" "$ENVIRONMENT"
+
 echo "All deployments completed for environment: ${ENVIRONMENT}"
 echo "Image tag: ${TAG}"
