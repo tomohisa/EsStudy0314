@@ -1,6 +1,5 @@
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
-using EsCQRSQuestions.Domain.Aggregates.Questions;
-using EsCQRSQuestions.Domain.DcbTags;
+using EsCQRSQuestions.Domain.Projections.Questions;
 using ResultBoxes;
 using Sekiban.Dcb.MultiProjections;
 using Sekiban.Dcb.Queries;
@@ -9,7 +8,7 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 
 [GenerateSerializer(GenerateFieldIds = GenerateFieldIds.PublicProperties)]
 public record GetQuestionsByGroupIdQuery(Guid QuestionGroupId) :
-    IMultiProjectionListQuery<GenericTagMultiProjector<QuestionProjector, QuestionTag>, GetQuestionsByGroupIdQuery,
+    IMultiProjectionListQuery<QuestionsMultiProjector, GetQuestionsByGroupIdQuery,
         GetQuestionsByGroupIdQuery.ResultRecord>,
     IWaitForSortableUniqueId
 {
@@ -18,13 +17,12 @@ public record GetQuestionsByGroupIdQuery(Guid QuestionGroupId) :
     public int? PageNumber { get; init; }
 
     public static ResultBox<IEnumerable<ResultRecord>> HandleFilter(
-        GenericTagMultiProjector<QuestionProjector, QuestionTag> projection,
+        QuestionsMultiProjector projection,
         GetQuestionsByGroupIdQuery query,
         IQueryContext context)
     {
-        return projection.GetCurrentTagStates().Values
-            .Where(m => m.Payload is Question q && q.QuestionGroupId == query.QuestionGroupId)
-            .Select(m => (Question)m.Payload)
+        return projection.Questions.Values
+            .Where(q => q.QuestionGroupId == query.QuestionGroupId)
             .Select(item => new ResultRecord(
                 item.QuestionId,
                 item.Text,

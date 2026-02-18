@@ -1,5 +1,5 @@
 using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
-using EsCQRSQuestions.Domain.DcbTags;
+using EsCQRSQuestions.Domain.Projections.Questions;
 using ResultBoxes;
 using Sekiban.Dcb.MultiProjections;
 using Sekiban.Dcb.Queries;
@@ -8,7 +8,7 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 
 [GenerateSerializer(GenerateFieldIds = GenerateFieldIds.PublicProperties)]
 public record GetQuestionGroupByGroupIdQuery(Guid QuestionGroupId) :
-    IMultiProjectionQuery<GenericTagMultiProjector<QuestionGroupProjector, QuestionGroupTag>,
+    IMultiProjectionQuery<QuestionsMultiProjector,
         GetQuestionGroupByGroupIdQuery,
         QuestionGroup>,
     IWaitForSortableUniqueId
@@ -16,17 +16,18 @@ public record GetQuestionGroupByGroupIdQuery(Guid QuestionGroupId) :
     public string? WaitForSortableUniqueId { get; init; }
 
     public static ResultBox<QuestionGroup> HandleQuery(
-        GenericTagMultiProjector<QuestionGroupProjector, QuestionGroupTag> projection,
+        QuestionsMultiProjector projection,
         GetQuestionGroupByGroupIdQuery query,
         IQueryContext context)
     {
-        var item = projection.GetCurrentTagStates().Values
-            .Where(m => m.Payload is QuestionGroup)
-            .Select(m => (QuestionGroup)m.Payload)
-            .FirstOrDefault(m => m.GroupId == query.QuestionGroupId);
+        var item = projection.QuestionGroups.Values.FirstOrDefault(m => m.GroupId == query.QuestionGroupId);
 
         return item is null
             ? ResultBox.FromException<QuestionGroup>(new InvalidOperationException("QuestionGroup not found"))
-            : ResultBox.FromValue(item);
+            : ResultBox.FromValue(new QuestionGroup(
+                item.GroupId,
+                item.Name,
+                item.UniqueCode ?? "",
+                item.Questions.ToList()));
     }
 }

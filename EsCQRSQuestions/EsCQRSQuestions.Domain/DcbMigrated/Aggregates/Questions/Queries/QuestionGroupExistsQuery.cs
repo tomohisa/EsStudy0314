@@ -1,6 +1,4 @@
-using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
-using EsCQRSQuestions.Domain.Aggregates.QuestionGroups;
-using EsCQRSQuestions.Domain.DcbTags;
+using EsCQRSQuestions.Domain.Projections.Questions;
 using ResultBoxes;
 using Sekiban.Dcb.MultiProjections;
 using Sekiban.Dcb.Queries;
@@ -9,17 +7,15 @@ namespace EsCQRSQuestions.Domain.Aggregates.Questions.Queries;
 
 [GenerateSerializer]
 public record QuestionGroupExistsQuery(string UniqueCode) :
-    IMultiProjectionQuery<GenericTagMultiProjector<QuestionGroupProjector, QuestionGroupTag>, QuestionGroupExistsQuery, bool>
+    IMultiProjectionQuery<QuestionsMultiProjector, QuestionGroupExistsQuery, bool>
 {
     public static ResultBox<bool> HandleQuery(
-        GenericTagMultiProjector<QuestionGroupProjector, QuestionGroupTag> projection,
+        QuestionsMultiProjector projection,
         QuestionGroupExistsQuery query,
         IQueryContext context)
     {
-        var exists = projection.GetCurrentTagStates().Values
-            .Where(m => m.Payload is QuestionGroup)
-            .Select(m => (QuestionGroup)m.Payload)
-            .Any(g => g.UniqueCode.Equals(query.UniqueCode, StringComparison.OrdinalIgnoreCase));
+        var exists = projection.QuestionGroups.Values
+            .Any(g => (g.UniqueCode ?? string.Empty).Equals(query.UniqueCode, StringComparison.OrdinalIgnoreCase));
 
         return ResultBox.FromValue(exists);
     }
