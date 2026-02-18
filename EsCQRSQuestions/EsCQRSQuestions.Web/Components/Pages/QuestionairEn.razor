@@ -515,17 +515,6 @@
     // Previous UniqueCode to track changes
     private string? previousUniqueCode;
     
-    // JS interop function
-    [JSInvokable]
-    public void SetClientId(string id)
-    {
-        if (string.IsNullOrWhiteSpace(clientId) && !string.IsNullOrWhiteSpace(id))
-        {
-            clientId = id;
-            StateHasChanged();
-        }
-    }
-
     protected override async Task OnInitializedAsync()
     {
         // Get or create client ID up-front to avoid race conditions in headless execution.

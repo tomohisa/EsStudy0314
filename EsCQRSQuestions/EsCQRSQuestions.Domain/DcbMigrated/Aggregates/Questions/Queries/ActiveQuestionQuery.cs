@@ -1,5 +1,6 @@
 using EsCQRSQuestions.Domain.Aggregates.Questions.Payloads;
 using EsCQRSQuestions.Domain.DcbTags;
+using EsCQRSQuestions.Domain.Projections.Questions;
 using ResultBoxes;
 using Sekiban.Dcb.MultiProjections;
 using Sekiban.Dcb.Queries;
@@ -50,4 +51,75 @@ public record ActiveQuestionQuery(Guid QuestionGroupId) :
         string? Comment,
         DateTime Timestamp,
         string ClientId);
+}
+
+[GenerateSerializer]
+public record ActiveQuestionByUniqueCodeQuery(string UniqueCode) :
+    IMultiProjectionQuery<QuestionsMultiProjector, ActiveQuestionByUniqueCodeQuery, ActiveQuestionQuery.ActiveQuestionRecord>
+{
+    public static ResultBox<ActiveQuestionQuery.ActiveQuestionRecord> HandleQuery(
+        QuestionsMultiProjector projection,
+        ActiveQuestionByUniqueCodeQuery query,
+        IQueryContext context)
+    {
+        if (string.IsNullOrWhiteSpace(query.UniqueCode))
+        {
+            return new ActiveQuestionQuery.ActiveQuestionRecord(
+                Guid.Empty,
+                string.Empty,
+                new List<QuestionOption>(),
+                new List<ActiveQuestionQuery.ResponseRecord>(),
+                Guid.Empty,
+                false);
+        }
+
+        var normalizedCode = query.UniqueCode.Trim();
+        var group = projection.QuestionGroups.Values
+            .FirstOrDefault(g => string.Equals(g.UniqueCode, normalizedCode, StringComparison.OrdinalIgnoreCase));
+
+        if (group is null)
+        {
+            return new ActiveQuestionQuery.ActiveQuestionRecord(
+                Guid.Empty,
+                string.Empty,
+                new List<QuestionOption>(),
+                new List<ActiveQuestionQuery.ResponseRecord>(),
+                Guid.Empty,
+                false);
+        }
+
+        var activeQuestion = group.Questions
+            .OrderBy(q => q.Order)
+            .Select(qr => projection.Questions.TryGetValue(qr.QuestionId, out var q) ? q : null)
+            .Where(q => q is not null)
+            .Select(q => q!)
+            .FirstOrDefault(q => q.IsDisplayed);
+
+        if (activeQuestion is null)
+        {
+            return new ActiveQuestionQuery.ActiveQuestionRecord(
+                Guid.Empty,
+                string.Empty,
+                new List<QuestionOption>(),
+                new List<ActiveQuestionQuery.ResponseRecord>(),
+                group.GroupId,
+                false);
+        }
+
+        return new ActiveQuestionQuery.ActiveQuestionRecord(
+            activeQuestion.QuestionId,
+            activeQuestion.Text,
+            activeQuestion.Options ?? new List<QuestionOption>(),
+            (activeQuestion.Responses ?? new List<QuestionResponse>())
+                .Select(r => new ActiveQuestionQuery.ResponseRecord(
+                    r.Id,
+                    r.ParticipantName,
+                    r.SelectedOptionId,
+                    r.Comment,
+                    r.Timestamp,
+                    r.ClientId))
+                .ToList(),
+            group.GroupId,
+            activeQuestion.AllowMultipleResponses);
+    }
 }
