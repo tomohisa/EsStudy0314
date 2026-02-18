@@ -26,7 +26,7 @@ public record QuestionsMultiProjector(
     }
 
     [GenerateSerializer]
-    public record QuestionGroupInfo(Guid GroupId, string Name, List<QuestionReference> Questions);
+    public record QuestionGroupInfo(Guid GroupId, string Name, List<QuestionReference> Questions, string UniqueCode = "");
 
     [GenerateSerializer]
     public record QuestionInfo(
@@ -59,7 +59,7 @@ public record QuestionsMultiProjector(
             {
                 QuestionGroups = payload.QuestionGroups.SetItem(
                     e.GroupId,
-                    new QuestionGroupInfo(e.GroupId, e.Name, new List<QuestionReference>()))
+                    new QuestionGroupInfo(e.GroupId, e.Name, new List<QuestionReference>(), e.UniqueCode))
             },
             QuestionGroupNameUpdated e => UpdateGroupNameAndRelatedQuestions(payload, GetGroupId(ev, tags), e.Name),
             QuestionGroupDeleted => payload with { QuestionGroups = payload.QuestionGroups.Remove(GetGroupId(ev, tags)) },

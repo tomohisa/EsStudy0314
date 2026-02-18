@@ -1,5 +1,4 @@
-using EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Payloads;
-using EsCQRSQuestions.Domain.DcbTags;
+using EsCQRSQuestions.Domain.Projections.Questions;
 using ResultBoxes;
 using Sekiban.Dcb.MultiProjections;
 using Sekiban.Dcb.Queries;
@@ -8,7 +7,7 @@ namespace EsCQRSQuestions.Domain.Aggregates.QuestionGroups.Queries;
 
 [GenerateSerializer(GenerateFieldIds = GenerateFieldIds.PublicProperties)]
 public record GetQuestionGroupsQuery :
-    IMultiProjectionListQuery<GenericTagMultiProjector<QuestionGroupProjector, QuestionGroupTag>, GetQuestionGroupsQuery,
+    IMultiProjectionListQuery<QuestionsMultiProjector, GetQuestionGroupsQuery,
         GetQuestionGroupsQuery.ResultRecord>,
     IWaitForSortableUniqueId
 {
@@ -18,17 +17,15 @@ public record GetQuestionGroupsQuery :
     public int? PageNumber { get; init; }
 
     public static ResultBox<IEnumerable<ResultRecord>> HandleFilter(
-        GenericTagMultiProjector<QuestionGroupProjector, QuestionGroupTag> projection,
+        QuestionsMultiProjector projection,
         GetQuestionGroupsQuery query,
         IQueryContext context)
     {
-        return projection.GetCurrentTagStates().Values
-            .Where(m => m.Payload is QuestionGroup)
-            .Select(m => (QuestionGroup)m.Payload)
+        return projection.QuestionGroups.Values
             .Select(item => new ResultRecord(
                 item.GroupId,
                 item.Name,
-                item.UniqueCode,
+                item.UniqueCode ?? "",
                 item.Questions.Select(q => new QuestionReferenceRecord(q.QuestionId, q.Order)).ToList()))
             .ToResultBox();
     }
