@@ -83,6 +83,7 @@ public static class EsCQRSQuestionsDomainDomainTypes
             types.QueryTypes.RegisterQuery<ActiveUsersQuery>();
             types.QueryTypes.RegisterQuery<QuestionDetailQuery>();
             types.QueryTypes.RegisterQuery<ActiveQuestionQuery>();
+            types.QueryTypes.RegisterQuery<ActiveQuestionByUniqueCodeQuery>();
             types.QueryTypes.RegisterQuery<QuestionGroupExistsQuery>();
             types.QueryTypes.RegisterListQuery<QuestionListQuery>();
             types.QueryTypes.RegisterListQuery<QuestionsQuery>();
