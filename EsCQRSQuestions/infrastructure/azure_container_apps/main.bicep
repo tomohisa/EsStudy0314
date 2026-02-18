@@ -32,6 +32,15 @@ param adminwebMinReplicas int = 0
 @minValue(1)
 param adminwebMaxReplicas int = 2
 
+@description('Backend container image')
+param backendImage string = 'mcr.microsoft.com/dotnet/samples:aspnetapp'
+
+@description('Frontend container image')
+param frontendImage string = 'mcr.microsoft.com/dotnet/samples:aspnetapp'
+
+@description('AdminWeb container image')
+param adminwebImage string = 'mcr.microsoft.com/dotnet/samples:aspnetapp'
+
 @description('Enable Easy Auth (Microsoft Entra ID) for AdminWeb')
 param enableAdminEasyAuth bool = false
 
@@ -312,7 +321,7 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'apiservice'
-          image: 'mcr.microsoft.com/dotnet/samples:aspnetapp'
+          image: backendImage
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -422,7 +431,7 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'webfrontend'
-          image: 'mcr.microsoft.com/dotnet/samples:aspnetapp'
+          image: frontendImage
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -509,7 +518,7 @@ resource adminwebApp 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'adminweb'
-          image: 'mcr.microsoft.com/dotnet/samples:aspnetapp'
+          image: adminwebImage
           resources: {
             cpu: json('0.5')
             memory: '1Gi'

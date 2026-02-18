@@ -11,6 +11,39 @@ set_subscription_if_configured
 DEPLOYMENT_NAME="aca-infra-${ENVIRONMENT}"
 TMP_FILE="${OUTPUTS_FILE}.tmp"
 
+resolve_app_name_by_prefix() {
+  local prefix="$1"
+  az containerapp list \
+    --resource-group "$RESOURCE_GROUP" \
+    --query "[?starts_with(name, '${prefix}')].name | [0]" \
+    -o tsv 2>/dev/null || true
+}
+
+resolve_existing_image_or_default() {
+  local app_prefix="$1"
+  local default_image="$2"
+  local app_name
+  local image
+
+  app_name="$(resolve_app_name_by_prefix "$app_prefix")"
+  if [ -z "$app_name" ] || [ "$app_name" = "null" ]; then
+    echo "$default_image"
+    return
+  fi
+
+  image="$(az containerapp show \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$app_name" \
+    --query "properties.template.containers[0].image" \
+    -o tsv 2>/dev/null || true)"
+
+  if [ -z "$image" ] || [ "$image" = "null" ]; then
+    echo "$default_image"
+  else
+    echo "$image"
+  fi
+}
+
 enforce_admin_easyauth_user_lock() {
   if [ "${ADMIN_EASYAUTH_ENABLED}" != "true" ] || [ -z "${ADMIN_EASYAUTH_CLIENT_ID}" ]; then
     return
@@ -64,6 +97,9 @@ az_retry deployment group create \
     frontendMaxReplicas="$FRONTEND_MAX_REPLICAS" \
     adminwebMinReplicas="$ADMINWEB_MIN_REPLICAS" \
     adminwebMaxReplicas="$ADMINWEB_MAX_REPLICAS" \
+    backendImage="$(resolve_existing_image_or_default "be-" "mcr.microsoft.com/dotnet/samples:aspnetapp")" \
+    frontendImage="$(resolve_existing_image_or_default "fe-" "mcr.microsoft.com/dotnet/samples:aspnetapp")" \
+    adminwebImage="$(resolve_existing_image_or_default "ad-" "mcr.microsoft.com/dotnet/samples:aspnetapp")" \
     enableAdminEasyAuth="$ADMIN_EASYAUTH_ENABLED" \
     adminEasyAuthTenantId="$ADMIN_EASYAUTH_TENANT_ID" \
     adminEasyAuthClientId="$ADMIN_EASYAUTH_CLIENT_ID" \

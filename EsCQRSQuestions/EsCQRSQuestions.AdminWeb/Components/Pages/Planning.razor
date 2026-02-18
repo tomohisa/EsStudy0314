@@ -20,6 +20,7 @@
 @inject IHttpMessageHandlerFactory HttpMessageHandlerFactory
 @inject NavigationManager NavigationManager
 @inject QuestionHubService HubService
+@inject ILogger<Planning> Logger
 
 <PageTitle>Question Management</PageTitle>
 
@@ -118,6 +119,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        string? signalrInitializationError = null;
         try
         {
             
@@ -127,11 +129,6 @@ else
             HubService.QuestionGroupChanged += OnQuestionGroupChanged;
             HubService.ResponseAdded += OnResponseAdded;
             
-            
-            // Initialize the hub connection
-            await HubService.InitializeAsync();
-            
-            await HubService.JoinAdminGroup();
             
             // Load initial data
             await RefreshActiveUsers();
@@ -156,6 +153,24 @@ else
             // Log to browser console and show alert
             await LogErrorToBrowserAsync("OnInitializedAsync", ex);
             await ShowUserErrorAsync($"ページの初期化中にエラーが発生しました: {ex.Message}");
+            return;
+        }
+
+        try
+        {
+            // Initialize realtime updates without blocking base page load.
+            await HubService.InitializeAsync();
+            await HubService.JoinAdminGroup();
+        }
+        catch (Exception ex)
+        {
+            signalrInitializationError = ex.Message;
+            await LogErrorToBrowserAsync("OnInitializedAsync SignalR", ex);
+        }
+
+        if (!string.IsNullOrWhiteSpace(signalrInitializationError))
+        {
+            await ShowUserErrorAsync($"リアルタイム接続に失敗しました: {signalrInitializationError}");
         }
     }
 
@@ -212,8 +227,9 @@ else
             activeUsers = await ActiveUsersApi.GetActiveUsersAsync(activeUsersId);
             await InvokeAsync(() => StateHasChanged());
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Failed to refresh active users.");
         }
     }
     
@@ -232,8 +248,9 @@ else
                 questionsInGroup = fetchedQuestionsInGroup.ToList();
                 await InvokeAsync(() => StateHasChanged());
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Logger.LogWarning(ex, "Failed to refresh questions in group {GroupId}.", selectedGroupId);
                 questionsInGroup = new List<QuestionsQuery.QuestionDetailRecord>();
             }
         }
@@ -253,8 +270,9 @@ else
                 await InvokeAsync(() => StateHasChanged());
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Failed to refresh selected question.");
         }
     }
 
@@ -262,11 +280,31 @@ else
     {
         try
         {
-            groups = await QuestionGroupApi.GetGroupsAsync(waitForSortableUniqueId: sortableUniqueId);
+            var fetchedGroups = await QuestionGroupApi.GetGroupsAsync(waitForSortableUniqueId: sortableUniqueId);
+
+            // waitForSortableUniqueId is delta-oriented; an empty response means "no changes".
+            if (!string.IsNullOrWhiteSpace(sortableUniqueId) &&
+                fetchedGroups.Count == 0 &&
+                groups is not null)
+            {
+                Logger.LogInformation(
+                    "Question groups unchanged. Keeping current list. WaitForSortableUniqueId={SortableUniqueId}, ExistingCount={Count}",
+                    sortableUniqueId,
+                    groups.Count);
+                return;
+            }
+
+            groups = fetchedGroups;
+            Logger.LogInformation("Question groups refreshed. Count={Count}, WaitForSortableUniqueId={SortableUniqueId}",
+                groups?.Count ?? 0,
+                sortableUniqueId);
             await InvokeAsync(() => StateHasChanged());
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "Failed to refresh question groups. WaitForSortableUniqueId={SortableUniqueId}", sortableUniqueId);
+            groups = new List<GetQuestionGroupsQuery.ResultRecord>();
+            await InvokeAsync(() => StateHasChanged());
         }
     }
 
@@ -670,21 +708,19 @@ else
     {
         try
         {
-            CommandResponseSimple response;
-            
             if (isEditGroupMode && editGroupId.HasValue)
             {
-                response = await QuestionGroupApi.UpdateGroupAsync(editGroupId.Value, groupModel.Name);
+                await QuestionGroupApi.UpdateGroupAsync(editGroupId.Value, groupModel.Name);
             }
             else
             {
-                response = await QuestionGroupApi.CreateGroupAsync(groupModel.Name);
+                await QuestionGroupApi.CreateGroupAsync(groupModel.Name);
             }
 
             await CloseGroupModal();
 
-            // SortableUniqueIdを使ってグループデータをリフレッシュ
-            await RefreshGroupsWithSortableUniqueId(response.LastSortableUniqueId ?? "");
+            // Always fetch full list to avoid replacing current groups with empty delta responses.
+            await RefreshGroupsWithSortableUniqueId();
         }
         catch (Exception ex)
         {
@@ -699,7 +735,7 @@ else
         {
             try
             {
-                var response = await QuestionGroupApi.DeleteGroupAsync(groupId);
+                await QuestionGroupApi.DeleteGroupAsync(groupId);
 
                 // 削除したグループが選択中のグループだった場合、選択を解除
                 if (selectedGroupId == groupId)
@@ -709,8 +745,8 @@ else
                     StateHasChanged(); // 即座にUI更新
                 }
 
-                // SortableUniqueIdを使ってグループデータをリフレッシュ
-                await RefreshGroupsWithSortableUniqueId(response.LastSortableUniqueId ?? "");
+                // Always fetch full list to avoid replacing current groups with empty delta responses.
+                await RefreshGroupsWithSortableUniqueId();
                 
                 // 強制的にUIを更新
                 await InvokeAsync(StateHasChanged);
