@@ -482,43 +482,9 @@ apiRoute.MapGet("/questions/active/{uniqueCode}", async (
         [FromServices] ISekibanExecutor executor,
         string uniqueCode) =>
     {
-        // UniqueCodeが指定されていない場合は空の結果を返す
-        if (string.IsNullOrWhiteSpace(uniqueCode))
-            return new ActiveQuestionQuery.ActiveQuestionRecord(
-                Guid.Empty,
-                string.Empty,
-                new List<QuestionOption>(),
-                new List<ActiveQuestionQuery.ResponseRecord>(),
-                Guid.Empty);
-
-        // QuestionGroupServiceをその場で生成
-        var groupService = new QuestionGroupService(executor);
-
-        // UniqueCodeからグループIDを取得
-        var groupId = await groupService.GetGroupIdByUniqueCodeAsync(uniqueCode);
-        if (groupId is null)
-            return new ActiveQuestionQuery.ActiveQuestionRecord(
-                Guid.Empty,
-                string.Empty,
-                new List<QuestionOption>(),
-                new List<ActiveQuestionQuery.ResponseRecord>(),
-                Guid.Empty);
-
-        // アクティブな質問を取得
-        var activeQuestion = await executor.QueryAsync(new ActiveQuestionQuery(groupId.Value)).UnwrapBox();
-
-        // UniqueCodeが指定され、かつグループIDが見つかった場合のみフィルタリング
-        if (!string.IsNullOrWhiteSpace(uniqueCode) && groupId.HasValue && activeQuestion.QuestionId != Guid.Empty)
-            // 質問が指定されたグループに属していない場合は空の結果を返す
-            if (activeQuestion.QuestionGroupId != groupId.Value)
-                return new ActiveQuestionQuery.ActiveQuestionRecord(
-                    Guid.Empty,
-                    string.Empty,
-                    new List<QuestionOption>(),
-                    new List<ActiveQuestionQuery.ResponseRecord>(),
-                    Guid.Empty);
-
-        return activeQuestion;
+        // 投影間の不整合を避けるため、QuestionsMultiProjector だけで
+        // uniqueCode -> group -> active question を解決する。
+        return await executor.QueryAsync(new ActiveQuestionByUniqueCodeQuery(uniqueCode)).UnwrapBox();
     })
     .WithName("GetActiveQuestion");
 

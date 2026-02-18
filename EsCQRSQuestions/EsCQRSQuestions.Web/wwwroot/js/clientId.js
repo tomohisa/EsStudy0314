@@ -18,8 +18,6 @@ window.getOrCreateClientId = function() {
         console.log('Using existing client ID: ' + clientId);
     }
     
-    // BlazorコンポーネントにクライアントIDを設定
-    DotNet.invokeMethodAsync('EsCQRSQuestions.Web', 'SetClientId', clientId);
     return clientId;
 };
 

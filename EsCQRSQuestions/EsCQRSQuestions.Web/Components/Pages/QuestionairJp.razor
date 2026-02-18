@@ -515,17 +515,6 @@
     // 前回のUniqueCodeを保存する変数
     private string? previousUniqueCode;
     
-    // JSインタロップ用の関数
-    [JSInvokable]
-    public void SetClientId(string id)
-    {
-        if (string.IsNullOrWhiteSpace(clientId) && !string.IsNullOrWhiteSpace(id))
-        {
-            clientId = id;
-            StateHasChanged();
-        }
-    }
-
     protected override async Task OnInitializedAsync()
     {
         // クライアントIDを先に確定し、Headless時の競合を避ける
