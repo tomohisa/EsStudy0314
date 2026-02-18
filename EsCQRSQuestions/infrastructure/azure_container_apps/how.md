@@ -29,9 +29,30 @@ Required keys:
   "frontendMaxReplicas": 2,
   "adminwebMinReplicas": 0,
   "adminwebMaxReplicas": 2,
+  "adminEasyAuth": {
+    "enabled": false,
+    "tenantId": "",
+    "clientId": "",
+    "clientSecret": "",
+    "appDisplayName": "EsCQRSQuestions-AdminWeb-your-rg-name",
+    "allowedUserObjectId": ""
+  },
   "logincommand": "az login --tenant <tenant> --use-device-code"
 }
 ```
+
+### AdminWeb Easy Auth (Entra ID)
+
+If you want to lock AdminWeb to Entra ID login and a specific user:
+
+```bash
+./configure_admin_easyauth.sh dnl
+./deploy_infra.sh dnl
+```
+
+- `configure_admin_easyauth.sh` creates/updates app registration, callback URI, and local config.
+- `deploy_infra.sh` applies Easy Auth declaratively via Bicep (`authConfigs`) and enforces `appRoleAssignmentRequired=true`.
+- `allowedUserObjectId` (or signed-in user fallback) is assigned so only that user can access AdminWeb.
 
 ## 2. Create resource group
 

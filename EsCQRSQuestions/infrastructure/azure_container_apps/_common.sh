@@ -65,6 +65,11 @@ load_config() {
   ADMINWEB_MIN_REPLICAS="$(jq -r '.adminwebMinReplicas // 0' "$CONFIG_FILE")"
   ADMINWEB_MAX_REPLICAS="$(jq -r '.adminwebMaxReplicas // 2' "$CONFIG_FILE")"
   LOGIN_COMMAND="$(jq -r '.logincommand // empty' "$CONFIG_FILE")"
+  ADMIN_EASYAUTH_ENABLED="$(jq -r '.adminEasyAuth.enabled // false' "$CONFIG_FILE")"
+  ADMIN_EASYAUTH_TENANT_ID="$(jq -r '.adminEasyAuth.tenantId // empty' "$CONFIG_FILE")"
+  ADMIN_EASYAUTH_CLIENT_ID="$(jq -r '.adminEasyAuth.clientId // empty' "$CONFIG_FILE")"
+  ADMIN_EASYAUTH_CLIENT_SECRET="$(jq -r '.adminEasyAuth.clientSecret // empty' "$CONFIG_FILE")"
+  ADMIN_EASYAUTH_ALLOWED_USER_OBJECT_ID="$(jq -r '.adminEasyAuth.allowedUserObjectId // empty' "$CONFIG_FILE")"
 
   if [ "$RESOURCE_GROUP" = "null" ] || [ -z "$RESOURCE_GROUP" ]; then
     echo "Error: resourceGroupName is missing in $CONFIG_FILE" >&2
