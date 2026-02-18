@@ -25,6 +25,50 @@ echo "  resourceGroup: $RESOURCE_GROUP"
 echo "  cosmosAccount: $COSMOS_ACCOUNT_NAME"
 echo "  storageAccount: $STORAGE_ACCOUNT_NAME"
 
+deactivate_latest_revision_if_any() {
+  local app_name="$1"
+  if [ -z "$app_name" ] || [ "$app_name" = "null" ]; then
+    return 0
+  fi
+
+  local latest_revision
+  latest_revision="$(az_retry containerapp show \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$app_name" \
+    --query properties.latestRevisionName \
+    -o tsv 2>/dev/null | tr -d '\r' || true)"
+
+  if [ -n "$latest_revision" ] && [ "$latest_revision" != "null" ]; then
+    echo "Deactivating latest revision for ${app_name}: ${latest_revision}"
+    az_retry containerapp revision deactivate \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$app_name" \
+      --revision "$latest_revision" >/dev/null || true
+  fi
+}
+
+activate_latest_revision_if_any() {
+  local app_name="$1"
+  if [ -z "$app_name" ] || [ "$app_name" = "null" ]; then
+    return 0
+  fi
+
+  local latest_revision
+  latest_revision="$(az_retry containerapp show \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$app_name" \
+    --query properties.latestRevisionName \
+    -o tsv 2>/dev/null | tr -d '\r' || true)"
+
+  if [ -n "$latest_revision" ] && [ "$latest_revision" != "null" ]; then
+    echo "Activating latest revision for ${app_name}: ${latest_revision}"
+    az_retry containerapp revision activate \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$app_name" \
+      --revision "$latest_revision" >/dev/null || true
+  fi
+}
+
 delete_cosmos_db_if_exists() {
   local db_name="$1"
   if az_retry cosmosdb sql database show \
@@ -44,6 +88,13 @@ delete_cosmos_db_if_exists() {
 }
 
 # Remove old/new Sekiban runtime stores and Orleans state store.
+# Stop apps first to avoid stale in-memory projection state being persisted during shutdown.
+echo "Deactivating latest revisions before deleting state..."
+deactivate_latest_revision_if_any "$BACKEND_APP_NAME"
+deactivate_latest_revision_if_any "$FRONTEND_APP_NAME"
+deactivate_latest_revision_if_any "$ADMINWEB_APP_NAME"
+sleep 5
+
 delete_cosmos_db_if_exists "SekibanDcb"
 delete_cosmos_db_if_exists "SekibanDb"
 delete_cosmos_db_if_exists "Orleans"
@@ -80,9 +131,10 @@ done < <(az_retry storage table list \
 echo "Re-applying infrastructure (recreate Orleans DB/containers, app settings)..."
 "${SCRIPT_DIR}/deploy_infra.sh" "$ENVIRONMENT"
 
-echo "Restarting container apps..."
+echo "Re-activating and restarting container apps..."
 for app in "$BACKEND_APP_NAME" "$FRONTEND_APP_NAME" "$ADMINWEB_APP_NAME"; do
   if [ -n "$app" ] && [ "$app" != "null" ]; then
+    activate_latest_revision_if_any "$app"
     echo "  restart: $app"
     az_retry containerapp revision restart \
       --resource-group "$RESOURCE_GROUP" \
