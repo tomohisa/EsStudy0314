@@ -51,6 +51,12 @@ else
   fi
 fi
 
+# Easy Auth uses response_type=code+id_token. Ensure ID token issuance is enabled
+# on the Entra app registration to avoid callback auth failures.
+az ad app update --id "$CLIENT_ID" \
+  --enable-id-token-issuance true \
+  --enable-access-token-issuance true >/dev/null
+
 if [ -z "$CLIENT_SECRET" ]; then
   CLIENT_SECRET="$(az ad app credential reset --id "$CLIENT_ID" --append --display-name "aca-admin-easyauth" --years 2 --query password -o tsv)"
 fi

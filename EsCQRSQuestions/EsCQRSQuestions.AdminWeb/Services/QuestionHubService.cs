@@ -14,6 +14,7 @@ namespace EsCQRSQuestions.AdminWeb.Services
         private readonly ILogger<QuestionHubService> _logger;
         private readonly string _hubUrl;
         private HubConnection? _hubConnection;
+        private volatile bool _isDisposingConnection;
         
         // Events that components can subscribe to
         public event Func<Task>? ActiveUsersChanged;
@@ -33,9 +34,31 @@ namespace EsCQRSQuestions.AdminWeb.Services
 
         public async Task InitializeAsync()
         {
-            if (_hubConnection != null)
+            if (_hubConnection is not null)
             {
-                return;
+                try
+                {
+                    if (_hubConnection.State == HubConnectionState.Connected ||
+                        _hubConnection.State == HubConnectionState.Connecting ||
+                        _hubConnection.State == HubConnectionState.Reconnecting)
+                    {
+                        return;
+                    }
+
+                    await _hubConnection.StartAsync();
+                    _logger.LogInformation("SignalR connection re-established successfully. State: {State}", _hubConnection.State);
+                    return;
+                }
+                catch (ObjectDisposedException)
+                {
+                    _logger.LogWarning("Existing SignalR connection was disposed. Recreating.");
+                    _hubConnection = null;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to restart existing SignalR connection. Recreating.");
+                    _hubConnection = null;
+                }
             }
             
             _hubConnection = new HubConnectionBuilder()
@@ -77,6 +100,7 @@ namespace EsCQRSQuestions.AdminWeb.Services
             {
                 _logger.LogError($"Error starting SignalR connection: {ex.Message}");
                 _logger.LogError(ex.StackTrace);
+                throw;
             }
         }
 
@@ -86,17 +110,21 @@ namespace EsCQRSQuestions.AdminWeb.Services
         {
             try
             {
-                if (IsConnected)
+                if (!IsConnected)
                 {
-                    _logger.LogInformation("Joining admin group...");
-                    await _hubConnection!.InvokeAsync("JoinAdminGroup");
-                    _logger.LogInformation("Successfully joined admin group");
+                    _logger.LogInformation("SignalR is not connected. Initializing before joining admin group.");
+                    await InitializeAsync();
                 }
-                else
+
+                if (!IsConnected)
                 {
-                    _logger.LogWarning("Cannot join admin group - SignalR connection not established");
+                    _logger.LogWarning("Cannot join admin group - SignalR connection not established after initialization");
                     throw new InvalidOperationException("SignalR connection not established");
                 }
+
+                _logger.LogInformation("Joining admin group...");
+                await _hubConnection!.InvokeAsync("JoinAdminGroup");
+                _logger.LogInformation("Successfully joined admin group");
             }
             catch (Exception ex)
             {
@@ -207,6 +235,12 @@ namespace EsCQRSQuestions.AdminWeb.Services
 
             _hubConnection.Closed += async (error) =>
             {
+                if (_isDisposingConnection)
+                {
+                    _logger.LogInformation("SignalR connection closed during dispose; skipping reconnect.");
+                    return;
+                }
+
                 _logger.LogError($"SignalR connection closed: {error?.Message}");
                 _logger.LogError($"Connection state: {_hubConnection?.State}");
                 
@@ -245,6 +279,13 @@ namespace EsCQRSQuestions.AdminWeb.Services
                     }
                     catch (Exception ex)
                     {
+                        if (ex is ObjectDisposedException)
+                        {
+                            _logger.LogInformation("SignalR connection is disposed; stopping reconnect attempts.");
+                            _hubConnection = null;
+                            break;
+                        }
+
                         _logger.LogError($"Error during reconnection attempt {i+1}: {ex.Message}");
                         if (i == 4)
                         {
@@ -371,9 +412,19 @@ namespace EsCQRSQuestions.AdminWeb.Services
 
         public async ValueTask DisposeAsync()
         {
-            if (_hubConnection != null)
+            if (_hubConnection is not null)
             {
-                await _hubConnection.DisposeAsync();
+                _isDisposingConnection = true;
+                var connection = _hubConnection;
+                _hubConnection = null;
+                try
+                {
+                    await connection.DisposeAsync();
+                }
+                finally
+                {
+                    _isDisposingConnection = false;
+                }
             }
         }
     }
