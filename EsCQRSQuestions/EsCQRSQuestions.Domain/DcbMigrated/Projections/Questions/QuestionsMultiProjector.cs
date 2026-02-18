@@ -73,6 +73,7 @@ public record QuestionsMultiProjector(
             QuestionDisplayStarted => UpdateQuestionDisplayStatus(payload, GetQuestionId(ev, tags), true),
             QuestionDisplayStopped => UpdateQuestionDisplayStatus(payload, GetQuestionId(ev, tags), false),
             ResponseAdded e => AddResponseToQuestion(payload, GetQuestionId(ev, tags), e),
+            ResponseCommentUpdated e => UpdateResponseComment(payload, GetQuestionId(ev, tags), e),
             _ => payload
         };
 
@@ -187,6 +188,26 @@ public record QuestionsMultiProjector(
             e.ClientId));
 
         var updatedQuestions = payload.Questions.SetItem(questionId, question with { Responses = responses });
+        return payload with { Questions = updatedQuestions };
+    }
+
+    private static QuestionsMultiProjector UpdateResponseComment(
+        QuestionsMultiProjector payload,
+        Guid questionId,
+        ResponseCommentUpdated e)
+    {
+        if (!payload.Questions.TryGetValue(questionId, out var question))
+        {
+            return payload;
+        }
+
+        var updatedResponses = question.Responses
+            .Select(r => r.Id == e.ResponseId || r.ClientId == e.ClientId
+                ? r with { Comment = e.Comment, Timestamp = e.Timestamp }
+                : r)
+            .ToList();
+
+        var updatedQuestions = payload.Questions.SetItem(questionId, question with { Responses = updatedResponses });
         return payload with { Questions = updatedQuestions };
     }
 
