@@ -64,13 +64,13 @@ public record ActiveQuestionByUniqueCodeQuery(string UniqueCode) :
     {
         if (string.IsNullOrWhiteSpace(query.UniqueCode))
         {
-            return new ActiveQuestionQuery.ActiveQuestionRecord(
+            return ResultBox.FromValue(new ActiveQuestionQuery.ActiveQuestionRecord(
                 Guid.Empty,
                 string.Empty,
                 new List<QuestionOption>(),
                 new List<ActiveQuestionQuery.ResponseRecord>(),
                 Guid.Empty,
-                false);
+                false));
         }
 
         var normalizedCode = query.UniqueCode.Trim();
@@ -79,15 +79,17 @@ public record ActiveQuestionByUniqueCodeQuery(string UniqueCode) :
 
         if (group is null)
         {
-            return new ActiveQuestionQuery.ActiveQuestionRecord(
+            return ResultBox.FromValue(new ActiveQuestionQuery.ActiveQuestionRecord(
                 Guid.Empty,
                 string.Empty,
                 new List<QuestionOption>(),
                 new List<ActiveQuestionQuery.ResponseRecord>(),
                 Guid.Empty,
-                false);
+                false));
         }
 
+        // 履歴データでは group.Questions が欠落している可能性があるため、
+        // まず参照リスト経由で探し、見つからない場合は QuestionGroupId でフォールバックする。
         var activeQuestion = group.Questions
             .OrderBy(q => q.Order)
             .Select(qr => projection.Questions.TryGetValue(qr.QuestionId, out var q) ? q : null)
@@ -97,16 +99,25 @@ public record ActiveQuestionByUniqueCodeQuery(string UniqueCode) :
 
         if (activeQuestion is null)
         {
-            return new ActiveQuestionQuery.ActiveQuestionRecord(
+            activeQuestion = projection.Questions.Values
+                .Where(q => q.QuestionGroupId == group.GroupId && q.IsDisplayed)
+                .OrderBy(q => q.Order)
+                .ThenBy(q => q.QuestionId)
+                .FirstOrDefault();
+        }
+
+        if (activeQuestion is null)
+        {
+            return ResultBox.FromValue(new ActiveQuestionQuery.ActiveQuestionRecord(
                 Guid.Empty,
                 string.Empty,
                 new List<QuestionOption>(),
                 new List<ActiveQuestionQuery.ResponseRecord>(),
                 group.GroupId,
-                false);
+                false));
         }
 
-        return new ActiveQuestionQuery.ActiveQuestionRecord(
+        return ResultBox.FromValue(new ActiveQuestionQuery.ActiveQuestionRecord(
             activeQuestion.QuestionId,
             activeQuestion.Text,
             activeQuestion.Options ?? new List<QuestionOption>(),
@@ -120,6 +131,6 @@ public record ActiveQuestionByUniqueCodeQuery(string UniqueCode) :
                     r.ClientId))
                 .ToList(),
             group.GroupId,
-            activeQuestion.AllowMultipleResponses);
+            activeQuestion.AllowMultipleResponses));
     }
 }
