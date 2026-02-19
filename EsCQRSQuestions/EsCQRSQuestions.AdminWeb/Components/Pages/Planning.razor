@@ -295,6 +295,7 @@ else
             }
 
             groups = fetchedGroups;
+            EnsureValidSelectedGroup();
             Logger.LogInformation("Question groups refreshed. Count={Count}, WaitForSortableUniqueId={SortableUniqueId}",
                 groups?.Count ?? 0,
                 sortableUniqueId);
@@ -760,10 +761,18 @@ else
 
     private async Task SelectGroup(Guid groupId)
     {
-        selectedGroupId = groupId;
-        selectedQuestion = null;
-        await RefreshQuestionsInGroupWithSortableUniqueId();
-        StateHasChanged();
+        try
+        {
+            selectedGroupId = groupId;
+            selectedQuestion = null;
+            await RefreshQuestionsInGroupWithSortableUniqueId();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await LogErrorToBrowserAsync("SelectGroup", ex);
+            await ShowUserErrorAsync($"グループ選択中にエラーが発生しました: {ex.Message}");
+        }
     }
 
     private string GetOptionText(List<QuestionOption> options, string optionId)
@@ -809,6 +818,23 @@ else
     private async Task HandleChangeQuestionOrder((Guid QuestionId, int NewOrder) args)
     {
         await ChangeQuestionOrder(args.QuestionId, args.NewOrder);
+    }
+
+    private void EnsureValidSelectedGroup()
+    {
+        if (groups is null || groups.Count == 0)
+        {
+            selectedGroupId = null;
+            selectedQuestion = null;
+            questionsInGroup = null;
+            return;
+        }
+
+        if (!selectedGroupId.HasValue || groups.All(g => g.Id != selectedGroupId.Value))
+        {
+            selectedGroupId = groups.First().Id;
+            selectedQuestion = null;
+        }
     }
 
     private async Task ChangeQuestionOrder(Guid questionId, int newOrder)

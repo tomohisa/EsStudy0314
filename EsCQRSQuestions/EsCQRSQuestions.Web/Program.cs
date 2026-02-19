@@ -1,5 +1,6 @@
 using EsCQRSQuestions.Web;
 using EsCQRSQuestions.Web.Components;
+using Microsoft.AspNetCore.Http.Connections;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,7 +9,11 @@ builder.AddServiceDefaults();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents(options =>
+    {
+        options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(5);
+        options.MaxBufferedUnacknowledgedRenderBatches = 20;
+    });
 
 builder.Services.AddOutputCache();
 

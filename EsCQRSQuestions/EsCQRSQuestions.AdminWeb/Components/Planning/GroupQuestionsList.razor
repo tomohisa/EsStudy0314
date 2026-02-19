@@ -84,7 +84,7 @@ else
                             </div>
                         </td>
                         <td>@question.Text</td>
-                        <td>@question.Options.Count options</td>
+                        <td>@(question.Options?.Count ?? 0) options</td>
                         <td>
                             @if (question.IsDisplayed)
                             {

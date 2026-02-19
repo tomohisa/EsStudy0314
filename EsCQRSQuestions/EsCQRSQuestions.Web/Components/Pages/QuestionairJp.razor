@@ -546,44 +546,8 @@
 
         hubConnection.Closed += async (error) =>
         {
-            
-            // Implement exponential backoff for reconnection attempts
-            for (var i = 0; i < 5; i++)
-            {
-                try
-                {
-                    var retryDelay = Math.Min(1000 * Math.Pow(2, i), 30000); // exponential backoff capped at 30s
-                    await Task.Delay((int)retryDelay);
-                    
-                    await hubConnection.StartAsync();
-                    
-                    // Set participant name again after reconnection
-                    if (!string.IsNullOrEmpty(participantName))
-                    {
-                        await hubConnection.InvokeAsync("SetParticipantName", participantName);
-                    }
-                    
-                    // Join as survey participant with unique code if available
-                    if (!string.IsNullOrEmpty(UniqueCode))
-                    {
-                        await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
-                    }
-                    
-                    // Refresh active question
-                    await RefreshActiveQuestion();
-                    await InvokeAsync(StateHasChanged);
-                    
-                    break; // Exit the retry loop if successful
-                }
-                catch (Exception)
-                {
-                    if (i == 4) // Last attempt
-                    {
-                        errorMessage = "接続が切断されました。再接続するにはページを更新してください。";
-                        await InvokeAsync(StateHasChanged);
-                    }
-                }
-            }
+            errorMessage = "接続が切断されました。再接続を試みています...";
+            await InvokeAsync(StateHasChanged);
         };
         
         // Improved connection state logging
@@ -594,11 +558,19 @@
             return Task.CompletedTask;
         };
 
-        hubConnection.Reconnected += (connectionId) =>
+        hubConnection.Reconnected += async (connectionId) =>
         {
-            errorMessage = "";
-            InvokeAsync(StateHasChanged);
-            return Task.CompletedTask;
+            try
+            {
+                await RejoinSurveyGroupAndRefreshAsync();
+                errorMessage = "";
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"再接続後の状態同期に失敗しました: {ex.Message}";
+            }
+
+            await InvokeAsync(StateHasChanged);
         };
 
         // Handle events
@@ -670,11 +642,7 @@
             await connectionTask;
             
             
-            // Join as survey participant with unique code if available
-            if (!string.IsNullOrEmpty(UniqueCode))
-            {
-                await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
-            }
+            await RejoinSurveyGroupAndRefreshAsync();
         }
         catch (Exception ex)
         {
@@ -698,10 +666,9 @@
             previousUniqueCode = UniqueCode;
             
             // すでに接続済みの場合は再接続せずにSignalRグループに参加
-            if (hubConnection.State == HubConnectionState.Connected)
+            if (hubConnection is not null && hubConnection.State == HubConnectionState.Connected)
             {
-                await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
-                await RefreshActiveQuestion();
+                await RejoinSurveyGroupAndRefreshAsync();
             }
         }
         
@@ -731,10 +698,30 @@
 
         await JsRuntime.InvokeVoidAsync("setStoredParticipantName", participantName);
 
-        if (!string.IsNullOrEmpty(participantName) && hubConnection.State == HubConnectionState.Connected)
+        if (!string.IsNullOrEmpty(participantName) && hubConnection is not null && hubConnection.State == HubConnectionState.Connected)
         {
             await hubConnection.InvokeAsync("SetParticipantName", participantName);
         }
+    }
+
+    private async Task RejoinSurveyGroupAndRefreshAsync()
+    {
+        if (hubConnection is null || hubConnection.State != HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(participantName))
+        {
+            await hubConnection.InvokeAsync("SetParticipantName", participantName);
+        }
+
+        if (!string.IsNullOrEmpty(UniqueCode))
+        {
+            await hubConnection.InvokeAsync("JoinAsSurveyParticipant", UniqueCode);
+        }
+
+        await RefreshActiveQuestion();
     }
 
     private void StartParticipantNameEdit()
