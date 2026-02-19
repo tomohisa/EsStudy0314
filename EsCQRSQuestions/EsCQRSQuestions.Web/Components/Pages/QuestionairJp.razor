@@ -1,6 +1,5 @@
 @page "/jp/questionair"
 @page "/jp/questionair/{UniqueCode}"
-@attribute [StreamRendering(true)]
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
 @using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.Extensions.Logging
@@ -392,8 +391,6 @@
                                 <div class="comment-composer">
                                     <input type="text" class="form-control comment-input" id="comment"
                                            @bind="comment" @bind:event="oninput" @onkeydown="HandleCommentKeyDown"
-                                           @oncompositionstart="OnCommentCompositionStart"
-                                           @oncompositionend="OnCommentCompositionEnd"
                                            placeholder="質問に関するコメントを入力" />
                                     <button class="btn btn-outline-primary comment-submit-btn"
                                             @onclick="SubmitCommentOnly"
@@ -502,7 +499,6 @@
     private bool hasSubmitted = false;
     private bool isSubmittingOption = false;
     private bool isSubmittingComment = false;
-    private bool isCommentComposing = false;
     private string inputUniqueCode = "";
     private bool isValidating = false;
     
@@ -511,6 +507,7 @@
     private CancellationTokenSource? autoRefreshCts;
     private Task? autoRefreshTask;
     private bool isAutoRefreshing;
+    private readonly SemaphoreSlim refreshLock = new(1, 1);
 
     // 前回のUniqueCodeを保存する変数
     private string? previousUniqueCode;
@@ -746,6 +743,7 @@
 
     private async Task RefreshActiveQuestion()
     {
+        await refreshLock.WaitAsync();
         try
         {
             
@@ -797,6 +795,10 @@
             {
                 errorMessage = "入力されたアンケートコードは存在しません。正しいコードを入力してください。";
             }
+        }
+        finally
+        {
+            refreshLock.Release();
         }
     }
 
@@ -1034,7 +1036,7 @@
     private async Task HandleCommentKeyDown(KeyboardEventArgs e)
     {
         // 日本語IME変換中(確定前)はEnterを送信扱いにしない
-        if (isCommentComposing || e.IsComposing)
+        if (e.IsComposing)
         {
             return;
         }
@@ -1043,16 +1045,6 @@
         {
             await SubmitCommentOnly();
         }
-    }
-
-    private void OnCommentCompositionStart()
-    {
-        isCommentComposing = true;
-    }
-
-    private void OnCommentCompositionEnd()
-    {
-        isCommentComposing = false;
     }
 
     private void StartAutoRefresh()
@@ -1112,5 +1104,7 @@
         {
             await hubConnection.DisposeAsync();
         }
+
+        refreshLock.Dispose();
     }
 }

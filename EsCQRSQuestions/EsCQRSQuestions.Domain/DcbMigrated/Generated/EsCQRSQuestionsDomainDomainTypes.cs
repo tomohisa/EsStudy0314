@@ -52,11 +52,13 @@ public static class EsCQRSQuestionsDomainDomainTypes
             types.EventTypes.RegisterEventType<WeatherForecastDeleted>();
 
             types.TagProjectorTypes.RegisterProjector<QuestionProjector>();
+            types.TagProjectorTypes.RegisterProjector<QuestionParticipantResponseProjector>();
             types.TagProjectorTypes.RegisterProjector<QuestionGroupProjector>();
             types.TagProjectorTypes.RegisterProjector<ActiveUsersProjector>();
             types.TagProjectorTypes.RegisterProjector<WeatherForecastProjector>();
 
             types.TagStatePayloadTypes.RegisterPayloadType<Question>();
+            types.TagStatePayloadTypes.RegisterPayloadType<QuestionParticipantResponse>();
             types.TagStatePayloadTypes.RegisterPayloadType<DeletedQuestion>();
             types.TagStatePayloadTypes.RegisterPayloadType<QuestionGroup>();
             types.TagStatePayloadTypes.RegisterPayloadType<DeletedQuestionGroup>();
@@ -65,12 +67,15 @@ public static class EsCQRSQuestionsDomainDomainTypes
             types.TagStatePayloadTypes.RegisterPayloadType<DeletedWeatherForecast>();
 
             types.TagTypes.RegisterTagGroupType<QuestionTag>();
+            types.TagTypes.RegisterTagGroupType<QuestionParticipantResponseTag>();
             types.TagTypes.RegisterTagGroupType<QuestionGroupTag>();
             types.TagTypes.RegisterTagGroupType<ActiveUsersTag>();
             types.TagTypes.RegisterTagGroupType<WeatherForecastTag>();
 
             types.MultiProjectorTypes.RegisterProjectorWithCustomSerialization<
                 GenericTagMultiProjector<QuestionProjector, QuestionTag>>();
+            types.MultiProjectorTypes.RegisterProjectorWithCustomSerialization<
+                GenericTagMultiProjector<QuestionParticipantResponseProjector, QuestionParticipantResponseTag>>();
             types.MultiProjectorTypes.RegisterProjectorWithCustomSerialization<
                 GenericTagMultiProjector<QuestionGroupProjector, QuestionGroupTag>>();
             types.MultiProjectorTypes.RegisterProjectorWithCustomSerialization<
