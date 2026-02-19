@@ -16,6 +16,12 @@ param backendMinReplicas int = 1
 @minValue(1)
 param backendMaxReplicas int = 3
 
+@description('Backend memory size (e.g. 1Gi, 2Gi, 4Gi)')
+param backendMemory string = '1Gi'
+
+@description('Backend CPU cores (must match ACA consumption memory combinations)')
+param backendCpu string = '0.5'
+
 @description('Frontend min replicas')
 @minValue(0)
 param frontendMinReplicas int = 0
@@ -23,6 +29,12 @@ param frontendMinReplicas int = 0
 @description('Frontend max replicas')
 @minValue(1)
 param frontendMaxReplicas int = 2
+
+@description('Frontend memory size (e.g. 1Gi, 2Gi, 4Gi)')
+param frontendMemory string = '1Gi'
+
+@description('Frontend CPU cores (must match ACA consumption memory combinations)')
+param frontendCpu string = '0.5'
 
 @description('AdminWeb min replicas')
 @minValue(0)
@@ -323,8 +335,8 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'apiservice'
           image: backendImage
           resources: {
-            cpu: json('0.5')
-            memory: '1Gi'
+            cpu: json(backendCpu)
+            memory: backendMemory
           }
           env: [
             {
@@ -406,6 +418,9 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
         targetPort: 8080
         transport: 'http'
         allowInsecure: false
+        stickySessions: {
+          affinity: 'sticky'
+        }
         traffic: [
           {
             weight: 100
@@ -433,8 +448,8 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'webfrontend'
           image: frontendImage
           resources: {
-            cpu: json('0.5')
-            memory: '1Gi'
+            cpu: json(frontendCpu)
+            memory: frontendMemory
           }
           env: [
             {
@@ -483,6 +498,9 @@ resource adminwebApp 'Microsoft.App/containerApps@2024-03-01' = {
         targetPort: 8080
         transport: 'http'
         allowInsecure: false
+        stickySessions: {
+          affinity: 'sticky'
+        }
         traffic: [
           {
             weight: 100

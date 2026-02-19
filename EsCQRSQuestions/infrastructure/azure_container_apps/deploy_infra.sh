@@ -93,8 +93,12 @@ az_retry deployment group create \
     logDailyQuotaGb="$LOG_DAILY_QUOTA_GB" \
     backendMinReplicas="$BACKEND_MIN_REPLICAS" \
     backendMaxReplicas="$BACKEND_MAX_REPLICAS" \
+    backendMemory="$BACKEND_MEMORY" \
+    backendCpu="$BACKEND_CPU" \
     frontendMinReplicas="$FRONTEND_MIN_REPLICAS" \
     frontendMaxReplicas="$FRONTEND_MAX_REPLICAS" \
+    frontendMemory="$FRONTEND_MEMORY" \
+    frontendCpu="$FRONTEND_CPU" \
     adminwebMinReplicas="$ADMINWEB_MIN_REPLICAS" \
     adminwebMaxReplicas="$ADMINWEB_MAX_REPLICAS" \
     backendImage="$(resolve_existing_image_or_default "be-" "mcr.microsoft.com/dotnet/samples:aspnetapp")" \
