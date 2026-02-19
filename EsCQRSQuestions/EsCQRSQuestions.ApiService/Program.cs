@@ -383,6 +383,30 @@ static async Task<T> RetryTransientAsync<T>(Func<Task<T>> action, int maxAttempt
     }
 }
 
+static async Task<string?> TryResolveUniqueCodeByQuestionIdAsync(ISekibanExecutor executor, Guid questionId)
+{
+    var questionResult = await executor.QueryAsync(new QuestionDetailQuery(questionId));
+    if (!questionResult.IsSuccess)
+    {
+        return null;
+    }
+
+    var question = questionResult.GetValue();
+    if (question.QuestionGroupId == Guid.Empty)
+    {
+        return null;
+    }
+
+    var groupsResult = await executor.QueryAsync(new GetQuestionGroupsQuery());
+    if (!groupsResult.IsSuccess)
+    {
+        return null;
+    }
+
+    var group = groupsResult.GetValue().Items.FirstOrDefault(g => g.Id == question.QuestionGroupId);
+    return group?.UniqueCode;
+}
+
 // Configure the HTTP request pipeline.
 app.UseExceptionHandler();
 
@@ -548,10 +572,11 @@ apiRoute
         async (
             [FromBody] AddResponseCommand command,
             [FromServices] ISekibanExecutor executor,
-            [FromServices] IHubNotificationService notificationService) =>
+            [FromServices] IHubNotificationService notificationService,
+            [FromServices] ILogger<Program> logger) =>
         {
             var commandResult = await executor.ExecuteAsync(command);
-            var response = commandResult.UnwrapBox();
+            commandResult.UnwrapBox();
             var notificationPayload = new
             {
                 AggregateId = command.QuestionId,
@@ -563,16 +588,23 @@ apiRoute
                 command.ClientId
             };
 
-            await executor.QueryAsync(new QuestionDetailQuery(command.QuestionId))
-                .Remap(response => response.QuestionGroupId)
-                .Conveyor(groupId => executor.QueryAsync(new GetQuestionGroupByGroupIdQuery(groupId)))
-                .Remap(group => group.UniqueCode)
-                .Do(async uniqueCode =>
+            try
+            {
+                var uniqueCode = await TryResolveUniqueCodeByQuestionIdAsync(executor, command.QuestionId);
+                var notifyTasks = new List<Task> { notificationService.NotifyAdminsAsync("ResponseAdded", notificationPayload) };
+
+                if (!string.IsNullOrWhiteSpace(uniqueCode))
                 {
-                    await Task.WhenAll(
-                        notificationService.NotifyUniqueCodeGroupAsync(uniqueCode, "ResponseAdded", notificationPayload),
-                        notificationService.NotifyAdminsAsync("ResponseAdded", notificationPayload));
-                }).UnwrapBox();
+                    notifyTasks.Add(notificationService.NotifyUniqueCodeGroupAsync(uniqueCode, "ResponseAdded", notificationPayload));
+                }
+
+                await Task.WhenAll(notifyTasks);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "ResponseAdded notification failed. QuestionId: {QuestionId}", command.QuestionId);
+            }
+
             return commandResult.ToSimpleCommandResponse().UnwrapBox();
         })
     .WithName("AddResponse");
@@ -583,10 +615,11 @@ apiRoute
         async (
             [FromBody] UpdateResponseCommentCommand command,
             [FromServices] ISekibanExecutor executor,
-            [FromServices] IHubNotificationService notificationService) =>
+            [FromServices] IHubNotificationService notificationService,
+            [FromServices] ILogger<Program> logger) =>
         {
             var commandResult = await executor.ExecuteAsync(command);
-            var response = commandResult.UnwrapBox();
+            commandResult.UnwrapBox();
             var notificationPayload = new
             {
                 AggregateId = command.QuestionId,
@@ -595,16 +628,25 @@ apiRoute
                 Timestamp = (commandResult.GetValue().Events.FirstOrDefault()?.Payload as ResponseCommentUpdated)?.Timestamp
             };
 
-            await executor.QueryAsync(new QuestionDetailQuery(command.QuestionId))
-                .Remap(result => result.QuestionGroupId)
-                .Conveyor(groupId => executor.QueryAsync(new GetQuestionGroupByGroupIdQuery(groupId)))
-                .Remap(group => group.UniqueCode)
-                .Do(async uniqueCode =>
+            try
+            {
+                var uniqueCode = await TryResolveUniqueCodeByQuestionIdAsync(executor, command.QuestionId);
+                var notifyTasks = new List<Task>
                 {
-                    await Task.WhenAll(
-                        notificationService.NotifyUniqueCodeGroupAsync(uniqueCode, "ResponseCommentUpdated", notificationPayload),
-                        notificationService.NotifyAdminsAsync("ResponseCommentUpdated", notificationPayload));
-                }).UnwrapBox();
+                    notificationService.NotifyAdminsAsync("ResponseCommentUpdated", notificationPayload)
+                };
+
+                if (!string.IsNullOrWhiteSpace(uniqueCode))
+                {
+                    notifyTasks.Add(notificationService.NotifyUniqueCodeGroupAsync(uniqueCode, "ResponseCommentUpdated", notificationPayload));
+                }
+
+                await Task.WhenAll(notifyTasks);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "ResponseCommentUpdated notification failed. QuestionId: {QuestionId}", command.QuestionId);
+            }
 
             return commandResult.ToSimpleCommandResponse().UnwrapBox();
         })
