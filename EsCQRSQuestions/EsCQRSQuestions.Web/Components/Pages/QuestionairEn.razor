@@ -1,6 +1,5 @@
 @page "/questionair"
 @page "/questionair/{UniqueCode}"
-@attribute [StreamRendering(true)]
 @using EsCQRSQuestions.Domain.Aggregates.Questions.Queries
 @using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.Extensions.Logging
@@ -392,8 +391,6 @@
                                 <div class="comment-composer">
                                     <input type="text" class="form-control comment-input" id="comment"
                                            @bind="comment" @bind:event="oninput" @onkeydown="HandleCommentKeyDown"
-                                           @oncompositionstart="OnCommentCompositionStart"
-                                           @oncompositionend="OnCommentCompositionEnd"
                                            placeholder="Write a comment about this question" />
                                     <button class="btn btn-outline-primary comment-submit-btn"
                                             @onclick="SubmitCommentOnly"
@@ -502,7 +499,6 @@
     private bool hasSubmitted = false;
     private bool isSubmittingOption = false;
     private bool isSubmittingComment = false;
-    private bool isCommentComposing = false;
     private string inputUniqueCode = "";
     private bool isValidating = false;
     
@@ -511,6 +507,7 @@
     private CancellationTokenSource? autoRefreshCts;
     private Task? autoRefreshTask;
     private bool isAutoRefreshing;
+    private readonly SemaphoreSlim refreshLock = new(1, 1);
 
     // Previous UniqueCode to track changes
     private string? previousUniqueCode;
@@ -746,6 +743,7 @@
 
     private async Task RefreshActiveQuestion()
     {
+        await refreshLock.WaitAsync();
         try
         {
             
@@ -797,6 +795,10 @@
             {
                 errorMessage = "The survey code entered does not exist. Please check the code and try again.";
             }
+        }
+        finally
+        {
+            refreshLock.Release();
         }
     }
 
@@ -1037,7 +1039,7 @@
     private async Task HandleCommentKeyDown(KeyboardEventArgs e)
     {
         // Prevent accidental submit while IME composition is active (e.g. Japanese conversion).
-        if (isCommentComposing || e.IsComposing)
+        if (e.IsComposing)
         {
             return;
         }
@@ -1046,16 +1048,6 @@
         {
             await SubmitCommentOnly();
         }
-    }
-
-    private void OnCommentCompositionStart()
-    {
-        isCommentComposing = true;
-    }
-
-    private void OnCommentCompositionEnd()
-    {
-        isCommentComposing = false;
     }
 
     private void StartAutoRefresh()
@@ -1115,5 +1107,7 @@
         {
             await hubConnection.DisposeAsync();
         }
+
+        refreshLock.Dispose();
     }
 }

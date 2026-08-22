@@ -18,6 +18,11 @@ public record AddResponseCommand(
 {
     public static async Task<ResultBox<EventOrNone>> HandleAsync(AddResponseCommand command, ICommandContext context)
     {
+        if (string.IsNullOrWhiteSpace(command.ClientId))
+        {
+            return ResultBox.FromException<EventOrNone>(new ArgumentException("Client ID cannot be empty"));
+        }
+
         var tag = new QuestionTag(command.QuestionId);
         var stateResult = await context.GetStateAsync<QuestionProjector>(tag);
         if (!stateResult.IsSuccess || stateResult.GetValue().Payload is not Question question)
@@ -40,15 +45,24 @@ public record AddResponseCommand(
             return ResultBox.FromException<EventOrNone>(new ArgumentException($"Option with ID '{command.SelectedOptionId}' does not exist"));
         }
 
-        if (!question.AllowMultipleResponses && question.Responses.Any(r => r.ClientId == command.ClientId))
+        var participantResponseTag = QuestionParticipantResponseTag.Create(command.QuestionId, command.ClientId);
+        if (!question.AllowMultipleResponses)
         {
-            return ResultBox.FromException<EventOrNone>(new InvalidOperationException("Multiple responses are not allowed for this question"));
+            var participantResponseStateResult =
+                await context.GetStateAsync<QuestionParticipantResponseProjector>(participantResponseTag);
+            if (participantResponseStateResult.IsSuccess &&
+                participantResponseStateResult.GetValue().Payload is QuestionParticipantResponse)
+            {
+                return ResultBox.FromException<EventOrNone>(
+                    new InvalidOperationException("Multiple responses are not allowed for this question"));
+            }
         }
 
         return EventOrNone.EventWithTags(
             new ResponseAdded(Guid.NewGuid(), command.ParticipantName, command.SelectedOptionId, command.Comment,
                 DateTime.UtcNow, command.ClientId),
             tag,
-            new QuestionGroupTag(question.QuestionGroupId));
+            new QuestionGroupTag(question.QuestionGroupId),
+            participantResponseTag);
     }
 }

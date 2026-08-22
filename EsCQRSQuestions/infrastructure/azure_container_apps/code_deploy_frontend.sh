@@ -18,7 +18,11 @@ build_and_push_image "$FRONTEND_PATH" "$IMAGE_NAME" "$TAG"
 wait_for_containerapp_ready "$BACKEND_APP_NAME"
 BACKEND_FQDN="$(get_containerapp_fqdn "$BACKEND_APP_NAME")"
 if [ -n "$BACKEND_FQDN" ]; then
-  API_BASE_URL="https://${BACKEND_FQDN}"
+  if [[ "$BACKEND_FQDN" == *".internal."* ]]; then
+    API_BASE_URL="http://${BACKEND_FQDN}"
+  else
+    API_BASE_URL="https://${BACKEND_FQDN}"
+  fi
 else
   API_BASE_URL="http://${BACKEND_APP_NAME}"
 fi

@@ -34,8 +34,16 @@ public record UpdateResponseCommentCommand(
             return ResultBox.FromException<EventOrNone>(new ArgumentException("Client ID cannot be empty"));
         }
 
-        var targetResponse = question.Responses.LastOrDefault(r => r.ClientId == command.ClientId);
-        if (targetResponse is null)
+        var participantResponseTag = QuestionParticipantResponseTag.Create(command.QuestionId, command.ClientId);
+        var participantResponseStateResult =
+            await context.GetStateAsync<QuestionParticipantResponseProjector>(participantResponseTag);
+        var targetResponseId = participantResponseStateResult.IsSuccess &&
+                               participantResponseStateResult.GetValue().Payload is QuestionParticipantResponse state
+            ? state.LastResponseId
+            : question.Responses
+                .LastOrDefault(r => r.ClientId == command.ClientId)
+                ?.Id;
+        if (targetResponseId is null || targetResponseId == Guid.Empty)
         {
             return ResultBox.FromException<EventOrNone>(
                 new InvalidOperationException("Cannot update comment because no response exists for this participant"));
@@ -43,11 +51,12 @@ public record UpdateResponseCommentCommand(
 
         return EventOrNone.EventWithTags(
             new ResponseCommentUpdated(
-                targetResponse.Id,
+                targetResponseId.Value,
                 command.ClientId,
                 command.Comment,
                 DateTime.UtcNow),
             tag,
-            new QuestionGroupTag(question.QuestionGroupId));
+            new QuestionGroupTag(question.QuestionGroupId),
+            participantResponseTag);
     }
 }
